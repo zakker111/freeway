@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenRouter Chat</title>
+    <style>
+      :root {
+        --bg: #0b0d12;
+        --panel: #12161f;
+        --panel-2: #171c27;
+        --line: #242b3a;
+        --text: #e8ecf4;
+        --muted: #8b95a9;
+        --accent: #6c8cff;
+        --good: #3fbf7f;
+        --warn: #e0a63a;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 55%);
+        color: var(--text);
+        font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      header {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px; border-bottom: 1px solid var(--line);
+        background: rgba(18, 22, 31, 0.75); backdrop-filter: blur(8px);
+      }
+      .brand { font-weight: 650; letter-spacing: 0.2px; }
+      .brand span { color: var(--accent); }
+      .spacer { flex: 1; }
+      button {
+        font: inherit; color: var(--text); background: var(--panel-2);
+        border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px;
+        cursor: pointer; transition: border-color .15s, background .15s, opacity .15s;
+      }
+      button:hover:not(:disabled) { border-color: #3a465e; background: #1d2432; }
+      button:disabled { opacity: .5; cursor: default; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #0a0f1e; font-weight: 650; }
+      button.primary:hover:not(:disabled) { background: #7d9aff; }
+      button.ghost { background: transparent; }
+      .pill {
+        font-size: 12.5px; color: var(--muted); border: 1px solid var(--line);
+        background: var(--panel); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+      }
+      .pill b { color: var(--text); font-weight: 600; }
+      .model-btn { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+
+      main { flex: 1; overflow-y: auto; padding: 22px 18px 8px; }
+      .wrap { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+      .empty { color: var(--muted); text-align: center; margin: 12vh auto 0; max-width: 420px; }
+      .empty h1 { font-size: 22px; color: var(--text); margin: 0 0 8px; }
+
+      .msg { display: flex; flex-direction: column; gap: 6px; }
+      .msg.user { align-items: flex-end; }
+      .bubble {
+        max-width: 88%; padding: 11px 14px; border-radius: 14px;
+        border: 1px solid var(--line); background: var(--panel); white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .msg.user .bubble { background: #1b2540; border-color: #2b3a63; }
+      .msg.error .bubble { border-color: #4a2226; background: #211316; color: #ffb3b3; }
+      .meta-line { font-size: 11.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+      .meta-line .tag { color: var(--accent); }
+      .meta-line .warning { color: var(--warn); }
+      pre {
+        background: #0a0d14; border: 1px solid var(--line); border-radius: 10px;
+        padding: 10px 12px; overflow-x: auto; margin: 8px 0 2px; font-size: 13px;
+      }
+      code { font-family: "Cascadia Code", ui-monospace, Consolas, monospace; font-size: 13px; }
+      .copy { align-self: flex-start; font-size: 11.5px; padding: 3px 8px; opacity: .65; }
+      .copy:hover { opacity: 1; }
+
+      footer { border-top: 1px solid var(--line); background: rgba(18, 22, 31, 0.8); padding: 12px 18px 16px; }
+      .composer { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      textarea {
+        flex: 1; resize: none; min-height: 46px; max-height: 220px;
+        background: var(--panel); color: var(--text); border: 1px solid var(--line);
+        border-radius: 12px; padding: 12px 14px; font: inherit; outline: none;
+      }
+      textarea:focus { border-color: #3a4f86; }
+      .hint { max-width: 820px; margin: 8px auto 0; font-size: 11.5px; color: var(--muted); display: flex; gap: 12px; }
+      .status { color: var(--muted); font-size: 12.5px; }
+
+      .overlay {
+        position: fixed; inset: 0; background: rgba(5, 7, 11, 0.72);
+        display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20;
+      }
+      .overlay.hidden { display: none; }
+      .modal {
+        width: 100%; max-width: 680px; max-height: 82vh; display: flex; flex-direction: column;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+        box-shadow: 0 30px 80px rgba(0,0,0,.55); overflow: hidden;
+      }
+      .modal header { border-bottom: 1px solid var(--line); background: transparent; }
+      .modal .body { padding: 16px; overflow-y: auto; }
+      .modal .foot { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+      .field label { font-size: 12.5px; color: var(--muted); }
+      input[type="text"], input[type="password"], input[type="search"], select {
+        background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+        border-radius: 10px; padding: 9px 11px; font: inherit; outline: none; width: 100%;
+      }
+      input:focus, select:focus { border-color: #3a4f86; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .row > * { flex: 0 0 auto; }
+      .row input[type="search"] { flex: 1 1 220px; }
+      label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+      .model-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+      .model-row {
+        display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+        border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--panel-2);
+      }
+      .model-row:hover { border-color: #3a465e; }
+      .model-row.selected { border-color: var(--accent); background: #18203a; }
+      .model-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .model-row .num { font-size: 12px; color: var(--muted); white-space: nowrap; }
+      .badge { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+      .badge.free { color: var(--good); border-color: #1e4433; background: #0f1f18; }
+      .error-text { color: #ffb3b3; font-size: 13px; }
+      .fine { color: var(--muted); font-size: 12px; }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">Open<span>Router</span> Chat</div>
+      <button id="modelBtn" class="model-btn" title="Choose a model">Loading models…</button>
+      <div class="spacer"></div>
+      <div class="pill" id="quota">quota…</div>
+      <button id="quitBtn" class="ghost" title="Stop the app">Quit</button>
+    </header>
+
+    <main>
+      <div class="wrap" id="thread">
+        <div class="empty" id="empty">
+          <h1>Free models, with a spare tire</h1>
+          <p>Ask anything. If a free model is rate-limited, the app moves to the next free model automatically and tells you which one answered.</p>
+          <p class="fine">Your API key stays in the local server process — this page never sees it.</p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="Message… (Enter to send, Shift+Enter for a new line)"></textarea>
+        <button id="sendBtn" class="primary">Send</button>
+        <button id="stopBtn" class="ghost" disabled>Stop</button>
+      </div>
+      <div class="hint">
+        <span class="status" id="status"></span>
+      </div>
+    </footer>
+
+    <div class="overlay hidden" id="keyOverlay">
+      <div class="modal">
+        <header><strong>Connect OpenRouter</strong></header>
+        <div class="body">
+          <p class="fine">Create a key at
+            <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer">openrouter.ai/settings/keys</a>
+            and set a credit limit on it. The key is stored in your user config folder and never sent to this page again.</p>
+          <div class="field">
+            <label for="keyInput">API key</label>
+            <input id="keyInput" type="password" spellcheck="false" placeholder="sk-or-v1-…" />
+          </div>
+          <div class="error-text" id="keyError"></div>
+        </div>
+        <div class="foot">
+          <button id="keySave" class="primary">Save and start</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="picker">
+      <div class="modal">
+        <header>
+          <strong>Choose a model</strong>
+          <div class="spacer"></div>
+          <span class="fine" id="pickerCount"></span>
+        </header>
+        <div class="body">
+          <div class="row">
+            <input id="search" type="search" placeholder="Search models…" />
+            <label class="check"><input type="checkbox" id="fFree" checked /> Free only</label>
+            <label class="check"><input type="checkbox" id="fTools" /> Tools</label>
+            <label class="check"><input type="checkbox" id="fVision" /> Vision</label>
+            <select id="fContext">
+              <option value="0">Any context</option>
+              <option value="32000">32K+</option>
+              <option value="128000">128K+</option>
+              <option value="200000">200K+</option>
+            </select>
+          </div>
+          <div class="model-list" id="modelList"></div>
+        </div>
+        <div class="foot">
+          <button id="pickerClose" class="ghost">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const APP_TOKEN = "__APP_TOKEN__";
+      const $ = (id) => document.getElementById(id);
+
+      const state = {
+        models: [],
+        model: null,
+        messages: [],
+        streaming: false,
+        controller: null,
+        quota: null,
+      };
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: {
+            "content-type": "application/json",
+            "x-app-token": APP_TOKEN,
+            ...(options.headers || {}),
+          },
+        });
+        const text = await response.text();
+        let body = {};
+        try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
+        if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+        return body;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function renderMarkdown(text) {
+        const parts = String(text).split(/```/);
+        return parts
+          .map((part, index) => {
+            if (index % 2 === 1) {
+              const code = part.replace(/^[a-zA-Z0-9_-]*\n/, "");
+              return `<pre><code>${escapeHtml(code)}</code></pre>`;
+            }
+            const html = escapeHtml(part)
+              .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+              .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+            return html.replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br />");
+          })
+          .join("");
+      }
+
+      function scrollDown() {
+        const main = document.querySelector("main");
+        main.scrollTop = main.scrollHeight;
+      }
+
+      function setStatus(text) {
+        $("status").textContent = text || "";
+      }
+
+      function addMessage(role, text) {
+        $("empty")?.remove();
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${role}`;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        if (role === "user") bubble.textContent = text;
+        else bubble.innerHTML = renderMarkdown(text);
+        wrap.appendChild(bubble);
+        $("thread").appendChild(wrap);
+        scrollDown();
+        return { wrap, bubble };
+      }
+
+      function addMeta(text, warning = false) {
+        const wrap = document.createElement("div");
+        wrap.className = "meta-line";
+        wrap.innerHTML = `<span class="${warning ? "warning" : "tag"}">${escapeHtml(text)}</span>`;
+        return wrap;
+      }
+
+      function shortModel(id) {
+        return String(id || "").replace(":free", " · free");
+      }
+
+      async function refreshQuota() {
+        try {
+          const info = await api("/api/key");
+          if (!info.ok) {
+            $("quota").innerHTML = `<b>key</b> unchecked`;
+            return;
+          }
+          const free = info.freeDaily;
+          if (free && typeof free.remaining === "number") {
+            $("quota").innerHTML = `<b>${free.remaining}</b>/${free.limit} free left today`;
+          } else {
+            $("quota").innerHTML = `credits <b>${Number(info.limitRemaining ?? 0).toFixed(2)}</b>`;
+          }
+        } catch {
+          $("quota").innerHTML = `quota unavailable`;
+        }
+      }
+
+      async function loadModels() {
+        const data = await api("/api/models");
+        state.models = data.models;
+        if (!state.model) {
+          const saved = localStorage.getItem("openrouter.model");
+          const free = state.models.filter((m) => m.free);
+          state.model = free.find((m) => m.id === saved)?.id || free[0]?.id || state.models[0]?.id || null;
+        }
+        updateModelButton();
+        return state.models;
+      }
+
+      function updateModelButton() {
+        $("modelBtn").textContent = state.model ? shortModel(state.model) : "Choose model";
+      }
+
+      function filteredModels() {
+        const q = $("search").value.trim().toLowerCase();
+        const freeOnly = $("fFree").checked;
+        const tools = $("fTools").checked;
+        const vision = $("fVision").checked;
+        const minContext = Number($("fContext").value) || 0;
+        return state.models
+          .filter((m) => (freeOnly ? m.free : true))
+          .filter((m) => (tools ? m.tools : true))
+          .filter((m) => (vision ? m.vision : true))
+          .filter((m) => m.context >= minContext)
+          .filter((m) => !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
+      }
+
+      function renderPicker() {
+        const list = filteredModels();
+        $("pickerCount").textContent = `${list.length} models`;
+        const container = $("modelList");
+        container.textContent = "";
+        for (const model of list.slice(0, 250)) {
+          const row = document.createElement("div");
+          row.className = `model-row${model.id === state.model ? " selected" : ""}`;
+          const price = model.free ? "free" : `$${model.inPrice}/M in · $${model.outPrice}/M out`;
+          row.innerHTML = `
+            <span class="name">${escapeHtml(model.name)}<br /><span class="fine">${escapeHtml(model.id)}</span></span>
+            <span class="num">${Math.round(model.context / 1000)}K ctx</span>
+            <span class="num">${price}</span>
+            ${model.tools ? '<span class="badge">tools</span>' : ""}
+            ${model.vision ? '<span class="badge">vision</span>' : ""}
+            ${model.free ? '<span class="badge free">free</span>' : ""}
+          `;
+          row.addEventListener("click", async () => {
+            state.model = model.id;
+            localStorage.setItem("openrouter.model", model.id);
+            updateModelButton();
+            $("picker").classList.add("hidden");
+            try { await api("/api/config", { method: "POST", body: JSON.stringify({ model: model.id }) }); } catch {}
+          });
+          container.appendChild(row);
+        }
+        if (list.length === 0) {
+          container.innerHTML = '<p class="fine">No models match those filters.</p>';
+        }
+      }
+
+      async function send() {
+        const input = $("input");
+        const text = input.value.trim();
+        if (!text || state.streaming) return;
+
+        input.value = "";
+        input.style.height = "auto";
+        state.messages.push({ role: "user", content: text });
+        addMessage("user", text);
+
+        const { wrap, bubble } = addMessage("assistant", "");
+        const meta = addMeta("connecting…");
+        wrap.insertBefore(meta, bubble);
+        bubble.innerHTML = '<span class="fine">…</span>';
+
+        state.streaming = true;
+        state.controller = new AbortController();
+        $("sendBtn").disabled = true;
+        $("stopBtn").disabled = false;
+        setStatus("starting…");
+
+        let buffer = "";
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-app-token": APP_TOKEN },
+            body: JSON.stringify({ messages: state.messages.slice(-30), model: state.model }),
+            signal: state.controller.signal,
+          });
+
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || `HTTP ${response.status}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let text = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let boundary = buffer.indexOf("\n\n");
+            while (boundary >= 0) {
+              const block = buffer.slice(0, boundary);
+              buffer = buffer.slice(boundary + 2);
+              for (const line of block.split("\n")) {
+                if (!line.startsWith("data:")) continue;
+                const payload = line.slice(5).trim();
+                if (!payload) continue;
+                let event;
+                try { event = JSON.parse(payload); } catch { continue; }
+
+                if (event.type === "meta") {
+                  setStatus(`trying ${event.chain.length} model${event.chain.length === 1 ? "" : "s"}…`);
+                } else if (event.type === "retry") {
+                  meta.innerHTML = `<span class="warning">switching model (${escapeHtml(event.reason)})…</span>`;
+                  setStatus("switching model…");
+                } else if (event.type === "model") {
+                  meta.innerHTML = `<span class="tag">answered by ${escapeHtml(event.model)}</span>`;
+                } else if (event.type === "delta") {
+                  text += event.text;
+                  bubble.innerHTML = renderMarkdown(text);
+                  scrollDown();
+                } else if (event.type === "done") {
+                  const usage = event.usage || {};
+                  const bits = [];
+                  if (event.model) bits.push(`answered by ${event.model}`);
+                  if (usage.prompt_tokens) bits.push(`${usage.prompt_tokens} in`);
+                  if (usage.completion_tokens) bits.push(`${usage.completion_tokens} out`);
+                  if (typeof usage.cost === "number") bits.push(`$${usage.cost.toFixed(6)}`);
+                  if (event.stopped) bits.push("stopped");
+                  meta.innerHTML = `<span class="tag">${escapeHtml(bits.join(" · "))}</span>`;
+                  if (text.trim()) {
+                    state.messages.push({ role: "assistant", content: text });
+                    const copy = document.createElement("button");
+                    copy.className = "copy ghost";
+                    copy.textContent = "Copy";
+                    copy.addEventListener("click", async () => {
+                      await navigator.clipboard.writeText(text);
+                      copy.textContent = "Copied";
+                      setTimeout(() => (copy.textContent = "Copy"), 1200);
+                    });
+                    wrap.appendChild(copy);
+                  }
+                  setStatus("");
+                } else if (event.type === "error") {
+                  wrap.classList.add("error");
+                  bubble.textContent = event.message;
+                  meta.innerHTML = `<span class="warning">${escapeHtml(event.reason)}</span>`;
+                  setStatus("");
+                }
+              }
+              boundary = buffer.indexOf("\n\n");
+            }
+          }
+          if (!text.trim() && !wrap.classList.contains("error")) {
+            wrap.classList.add("error");
+            bubble.textContent = "No answer was returned. Try another model, or send again.";
+          }
+        } catch (error) {
+          if (error.name === "AbortError") {
+            meta.innerHTML = '<span class="warning">stopped</span>';
+          } else {
+            wrap.classList.add("error");
+            bubble.textContent = error.message;
+            meta.innerHTML = '<span class="warning">request failed</span>';
+          }
+        } finally {
+          state.streaming = false;
+          state.controller = null;
+          $("sendBtn").disabled = false;
+          $("stopBtn").disabled = true;
+          refreshQuota();
+        }
+      }
+
+      function stop() {
+        state.controller?.abort();
+      }
+
+      async function saveKey() {
+        const value = $("keyInput").value.trim();
+        $("keyError").textContent = "";
+        try {
+          await api("/api/config", { method: "POST", body: JSON.stringify({ apiKey: value }) });
+          $("keyOverlay").classList.add("hidden");
+          await start();
+        } catch (error) {
+          $("keyError").textContent = error.message;
+        }
+      }
+
+      async function start() {
+        await loadModels().catch((error) => setStatus(`models unavailable: ${error.message}`));
+        refreshQuota();
+      }
+
+      async function boot() {
+        const config = await api("/api/config").catch(() => ({ hasKey: false }));
+        if (!config.hasKey) {
+          $("keyOverlay").classList.remove("hidden");
+          $("keyInput").focus();
+          return;
+        }
+        await start();
+      }
+
+      $("sendBtn").addEventListener("click", send);
+      $("stopBtn").addEventListener("click", stop);
+      $("keySave").addEventListener("click", saveKey);
+      $("keyInput").addEventListener("keydown", (event) => { if (event.key === "Enter") saveKey(); });
+      $("modelBtn").addEventListener("click", () => {
+        $("picker").classList.remove("hidden");
+        renderPicker();
+        $("search").focus();
+      });
+      $("pickerClose").addEventListener("click", () => $("picker").classList.add("hidden"));
+      for (const id of ["search", "fFree", "fTools", "fVision", "fContext"]) {
+        $(id).addEventListener("input", renderPicker);
+        $(id).addEventListener("change", renderPicker);
+      }
+      $("quitBtn").addEventListener("click", async () => {
+        if (!confirm("Stop the app? The browser tab will stop working until you start it again.")) return;
+        await api("/api/quit", { method: "POST" }).catch(() => {});
+        document.body.innerHTML = '<div style="margin:auto;padding:40px;text-align:center;color:#8b95a9">App stopped. You can close this tab.</div>';
+      });
+
+      const input = $("input");
+      input.addEventListener("input", () => {
+        input.style.height = "auto";
+        input.style.height = `${Math.min(input.scrollHeight, 220)}px`;
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          send();
+        }
+      });
+
+      boot();
+    </script>
+  </body>
+</html>
