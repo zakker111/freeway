@@ -1,0 +1,15 @@
+{
+  "name": "openrouter-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local chat app for OpenRouter free models with automatic fallback between them.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "start": "node app.mjs",
+    "test": "node --test lib/models.test.mjs",
+    "simulate": "node test/simulate.mjs"
+  }
+}
