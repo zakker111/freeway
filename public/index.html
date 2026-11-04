@@ -2,177 +2,886 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenRouter Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>Freeway</title>
     <style>
+      /* -------------------------------------------------------------- tokens
+         One dark palette in black, grey and soft white: a near-black page,
+         grey secondary surfaces and borders, soft-white text (never pure
+         white on pure black, to stay easy on the eyes). Primary actions are
+         light fills with dark text. Warn and danger states are grey fills
+         with bright text plus their labels, so meaning never depends on
+         hue. Every colour below is a token so the whole theme can be
+         retuned in one place. */
       :root {
-        --bg: #0b0d12;
-        --panel: #12161f;
-        --panel-2: #171c27;
-        --line: #242b3a;
-        --text: #e8ecf4;
-        --muted: #8b95a9;
-        --accent: #6c8cff;
-        --good: #3fbf7f;
-        --warn: #e0a63a;
+        color-scheme: dark;
+        --bg: #0f0f0f;
+        --bg-wash: #161616;
+        --surface: #171717;
+        --surface-2: #1d1d1d;
+        --surface-3: #262626;
+        --line: #2c2c2c;
+        --line-2: #3f3f3f;
+        --text: #e8e8e8;
+        --muted: #b3b3b3;
+        --dim: #8f8f8f;
+        --accent: #f0f0f0;
+        --accent-strong: #ffffff;
+        --accent-soft: #242424;
+        --accent-line: #454545;
+        --warn: #d8d8d8;
+        --warn-soft: #222222;
+        --warn-line: #4a4a4a;
+        --danger: #f0f0f0;
+        --danger-soft: #2a2a2a;
+        --danger-line: #5a5a5a;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .55);
+        --shadow-lg: 0 24px 70px rgba(0, 0, 0, .65);
+        --radius: 12px;
+        --mono: "Cascadia Code", ui-monospace, Consolas, monospace;
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; }
       body {
         margin: 0;
-        background: radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 55%);
+        background:
+          radial-gradient(900px 420px at 50% -12%, var(--bg-wash) 0%, rgba(0, 0, 0, 0) 70%),
+          var(--bg);
         color: var(--text);
-        font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+        font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: clamp(14.5px, 0.2vw + 13.8px, 16.5px);
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
       }
-      header {
-        display: flex; align-items: center; gap: 12px;
-        padding: 12px 18px; border-bottom: 1px solid var(--line);
-        background: rgba(18, 22, 31, 0.75); backdrop-filter: blur(8px);
-      }
-      .brand { font-weight: 650; letter-spacing: 0.2px; }
-      .brand span { color: var(--accent); }
-      .spacer { flex: 1; }
+      ::selection { background: var(--accent-soft); color: var(--accent-strong); }
+      /* Thin, quiet scrollbars so long transcripts do not grow a second column. */
+      * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+      *::-webkit-scrollbar { width: 10px; height: 10px; }
+      *::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+      *::-webkit-scrollbar-thumb:hover { background: var(--dim); background-clip: content-box; }
+
+      /* ---------------------------------------------------------- buttons */
       button {
-        font: inherit; color: var(--text); background: var(--panel-2);
-        border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px;
-        cursor: pointer; transition: border-color .15s, background .15s, opacity .15s;
+        font: inherit;
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 7px 12px;
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+        transition: border-color .15s, background .15s, color .15s, box-shadow .15s, opacity .15s;
       }
-      button:hover:not(:disabled) { border-color: #3a465e; background: #1d2432; }
-      button:disabled { opacity: .5; cursor: default; }
-      button.primary { background: var(--accent); border-color: var(--accent); color: #0a0f1e; font-weight: 650; }
-      button.primary:hover:not(:disabled) { background: #7d9aff; }
-      button.ghost { background: transparent; }
+      button:hover:not(:disabled) { border-color: var(--line-2); background: var(--surface-2); }
+      button:active:not(:disabled) { transform: translateY(.5px); }
+      button:disabled { opacity: .45; cursor: default; box-shadow: none; }
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+        outline: 2px solid var(--accent); outline-offset: 2px;
+      }
+      button.primary {
+        background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .30);
+      }
+      button.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+      button.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); }
+      button.ghost:hover:not(:disabled) { background: var(--surface-3); border-color: var(--line); color: var(--text); }
+      .mini {
+        padding: 3px 9px; font-size: 11.5px; border-radius: 8px;
+        color: var(--muted); background: transparent; box-shadow: none;
+      }
+      .mini:hover:not(:disabled) { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+
+      /* ------------------------------------------------------------ shell */
+      header.bar {
+        flex: 0 0 auto; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+        padding: 10px clamp(12px, 3vw, 22px);
+        border-bottom: 1px solid var(--line);
+        background: rgba(20, 20, 20, .86);
+        backdrop-filter: saturate(140%) blur(8px);
+        position: relative; z-index: 6;
+      }
+      .brand {
+        font-weight: 650; letter-spacing: .2px; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      .brand::before {
+        content: ""; width: 9px; height: 9px; border-radius: 3px;
+        background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .brand span { color: var(--muted); font-weight: 550; }
+      .ver {
+        font-size: 11px; color: var(--muted); border: 1px solid var(--line);
+        border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+        background: var(--surface-2); font-family: var(--mono);
+      }
+      .spacer { flex: 1 1 auto; }
+      .limits { margin: 0 0 12px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .capLine { margin: -2px 0 8px 10px; font-size: 11px; }
+      .chip {
+        max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 13px; color: var(--text); background: var(--surface);
+        border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px;
+      }
+      .chip:hover:not(:disabled) { border-color: var(--accent-line); background: var(--accent-soft); }
+      .chip::after { content: "⌄"; color: var(--dim); margin-left: 7px; }
+      select.prov {
+        font: inherit; font-size: 12.5px; color: var(--text); background: var(--surface);
+        border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px;
+        max-width: 190px; cursor: pointer;
+      }
+      select.prov:hover { border-color: var(--line-2); }
+      .pill.tier { color: var(--accent-strong); background: var(--accent-soft); border-color: var(--accent-line); }
       .pill {
-        font-size: 12.5px; color: var(--muted); border: 1px solid var(--line);
-        background: var(--panel); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+        font-size: 12px; color: var(--muted); background: var(--surface-2);
+        border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; white-space: nowrap;
       }
-      .pill b { color: var(--text); font-weight: 600; }
-      .model-btn { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+      .pill b { color: var(--text); font-weight: 650; }
+      .pill.warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-soft); }
 
-      main { flex: 1; overflow-y: auto; padding: 22px 18px 8px; }
-      .wrap { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-      .empty { color: var(--muted); text-align: center; margin: 12vh auto 0; max-width: 420px; }
-      .empty h1 { font-size: 22px; color: var(--text); margin: 0 0 8px; }
+      main {
+        flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+        padding: clamp(16px, 2.6vw, 30px) clamp(12px, 3vw, 22px) 10px;
+        scrollbar-gutter: stable;
+      }
+      .wrap {
+        max-width: 860px; width: 100%; margin: 0 auto;
+        display: flex; flex-direction: column; gap: clamp(16px, 2.2vw, 26px);
+      }
 
-      .msg { display: flex; flex-direction: column; gap: 6px; }
-      .msg.user { align-items: flex-end; }
+      /* ------------------------------------------------------------ empty */
+      .empty { color: var(--muted); text-align: center; margin: clamp(18px, 6vh, 66px) auto 0; max-width: 54ch; padding: 0 8px; }
+      .empty h1 {
+        font-size: clamp(21px, 2.4vw, 27px); color: var(--text); margin: 0 0 10px;
+        font-weight: 650; letter-spacing: -.2px;
+      }
+      .empty p { margin: 0 0 10px; }
+      .empty .fine { font-size: 12.5px; color: var(--dim); }
+      .empty .ascii {
+        margin: 18px auto 16px; padding: 12px 14px; width: fit-content; max-width: 100%;
+        overflow-x: auto; white-space: pre; text-align: left;
+        font-family: var(--mono); font-size: clamp(10px, 1.05vw, 11.5px); line-height: 1.5;
+        color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+      }
+      /* Quick starts: one tap puts a usable prompt in the box. */
+      .suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 4px; }
+      .suggest button {
+        font-size: 12.5px; color: var(--accent-strong); background: var(--accent-soft);
+        border: 1px solid var(--accent-line); border-radius: 999px; padding: 6px 13px; box-shadow: none;
+      }
+      .suggest button:hover:not(:disabled) { background: #333333; border-color: #555555; }
+
+      /* --------------------------------------------------------- messages */
+      .msg { display: flex; flex-direction: column; gap: 6px; animation: rise .18s ease-out; }
+      @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      /* Your own lines sit in the same left column as the answer, so a short
+         "hi" and the reply read as one transcript instead of two sides. */
+      .msg.user { align-items: flex-start; }
+
       .bubble {
-        max-width: 88%; padding: 11px 14px; border-radius: 14px;
-        border: 1px solid var(--line); background: var(--panel); white-space: pre-wrap;
-        overflow-wrap: anywhere;
+        max-width: min(92%, 70ch); padding: 12px 16px; border-radius: 14px;
+        border: 1px solid var(--line); background: var(--surface);
+        overflow-wrap: anywhere; line-height: 1.7; box-shadow: var(--shadow-sm);
       }
-      .msg.user .bubble { background: #1b2540; border-color: #2b3a63; }
-      .msg.error .bubble { border-color: #4a2226; background: #211316; color: #ffb3b3; }
-      .meta-line { font-size: 11.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-      .meta-line .tag { color: var(--accent); }
+      .msg.user .bubble {
+        background: var(--accent-soft); color: var(--text); border-color: var(--accent-line);
+        border-bottom-left-radius: 6px; white-space: pre-wrap; box-shadow: none;
+      }
+      /* Long answers get the reading treatment: a touch larger, airier leading,
+         and room between paragraphs so the eye can find the next line. */
+      .msg.assistant .bubble {
+        white-space: normal; background: var(--surface);
+        font-size: clamp(1rem, 1.05vw + 0.2rem, 1.125rem);
+        line-height: 1.76;
+      }
+      .msg.assistant .bubble.streaming { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(0, 0, 0, .08); }
+      .msg.error .bubble { border-color: var(--danger-line); background: var(--danger-soft); color: var(--text); }
+      .msg.user.queued .bubble {
+        background: var(--surface-2); color: var(--muted); border-color: var(--line-2);
+        border-style: dashed; opacity: .95;
+      }
+      .msg.user.queued .bubble code { background: var(--surface-3); border-color: var(--line); color: var(--text); }
+      .msg.queued .meta-line { align-items: center; gap: 6px; }
+
+      .meta-line {
+        font-size: 11.5px; color: var(--dim);
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      }
+      .meta-line .tag { color: var(--muted); }
       .meta-line .warning { color: var(--warn); }
-      pre {
-        background: #0a0d14; border: 1px solid var(--line); border-radius: 10px;
-        padding: 10px 12px; overflow-x: auto; margin: 8px 0 2px; font-size: 13px;
-      }
-      code { font-family: "Cascadia Code", ui-monospace, Consolas, monospace; font-size: 13px; }
-      .copy { align-self: flex-start; font-size: 11.5px; padding: 3px 8px; opacity: .65; }
-      .copy:hover { opacity: 1; }
 
-      footer { border-top: 1px solid var(--line); background: rgba(18, 22, 31, 0.8); padding: 12px 18px 16px; }
-      .composer { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      .tool-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      .tool-chip {
+        font-size: 11.5px; color: var(--muted);
+        border: 1px solid var(--line); border-radius: 999px;
+        padding: 3px 9px; background: var(--surface);
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .tool-chip b { color: var(--text); font-weight: 600; }
+      .tool-chip.failed { border-style: dashed; color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
+
+      .actions { display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+      .msg:hover .actions, .msg:focus-within .actions { opacity: 1; }
+      .actions button {
+        font-size: 11.5px; padding: 3px 9px; border-radius: 8px;
+        background: transparent; color: var(--dim); border-color: transparent; box-shadow: none;
+      }
+      .actions button:hover:not(:disabled) { color: var(--accent-strong); background: var(--accent-soft); border-color: var(--accent-line); }
+
+      /* ----------------------------------------------------------- code */
+      .code { margin: 10px 0 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+      .code-bar {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 5px 10px; border-bottom: 1px solid var(--line);
+        font-size: 11px; color: var(--dim); background: var(--surface-3);
+        font-family: var(--mono);
+      }
+      .code pre { margin: 0; padding: 12px 13px; overflow-x: auto; line-height: 1.55; }
+      code { font-family: var(--mono); font-size: 13px; }
+      .bubble p code, .bubble li code { background: var(--surface-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+
+      .bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 14px 0 6px; line-height: 1.3; color: var(--text); }
+      .bubble h1 { font-size: 1.25em; }
+      .bubble h2 { font-size: 1.15em; }
+      .bubble h3, .bubble h4 { font-size: 1.05em; }
+      .bubble p { margin: 0 0 12px; }
+      .bubble p:last-child { margin-bottom: 0; }
+      .bubble ul, .bubble ol { margin: 4px 0 9px; padding-left: 22px; }
+      .bubble li { margin: 5px 0; }
+      .bubble blockquote { margin: 8px 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--accent-line); color: var(--muted); }
+      .bubble hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+      .bubble a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--accent-line); }
+      .bubble a:hover { text-decoration-color: var(--accent); }
+      .bubble strong { color: var(--text); }
+      .msg.user .bubble strong { color: var(--text); }
+      .msg.user .bubble code { background: #333333; border-color: var(--accent-line); color: var(--text); }
+
+      .dots { display: inline-flex; gap: 5px; padding: 3px 0; }
+      .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; }
+      .dots i:nth-child(2) { animation-delay: .16s; }
+      .dots i:nth-child(3) { animation-delay: .32s; }
+      @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+
+      /* -------------------------------------------------------- composer */
+      footer {
+        flex: 0 0 auto; border-top: 1px solid var(--line);
+        background: rgba(20, 20, 20, .9); backdrop-filter: blur(8px);
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, .05);
+        padding: 12px clamp(12px, 3vw, 22px) calc(14px + env(safe-area-inset-bottom));
+        position: relative; z-index: 5;
+      }
+      .composer { max-width: 860px; width: 100%; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
       textarea {
-        flex: 1; resize: none; min-height: 46px; max-height: 220px;
-        background: var(--panel); color: var(--text); border: 1px solid var(--line);
-        border-radius: 12px; padding: 12px 14px; font: inherit; outline: none;
+        flex: 1; resize: none; min-height: 50px; max-height: 40vh; max-height: 40dvh;
+        background: var(--surface); color: var(--text); border: 1px solid var(--line);
+        border-radius: 14px; padding: 13px 15px; font: inherit; font-size: 16px;
+        line-height: 1.5; outline: none; box-shadow: var(--shadow-sm);
+        transition: border-color .15s, box-shadow .15s;
       }
-      textarea:focus { border-color: #3a4f86; }
-      .hint { max-width: 820px; margin: 8px auto 0; font-size: 11.5px; color: var(--muted); display: flex; gap: 12px; }
-      .status { color: var(--muted); font-size: 12.5px; }
+      textarea::placeholder { color: var(--dim); }
+      textarea:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
+      .hint {
+        max-width: 860px; margin: 8px auto 0; display: flex; justify-content: space-between;
+        gap: 12px; font-size: 11.5px; color: var(--dim);
+      }
+      .status { min-height: 1em; }
+      .status:not(:empty) { color: var(--muted); }
 
+      .queue-bar {
+        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
+        font-size: 12px; color: var(--muted); animation: rise .15s ease-out;
+      }
+      .queue-bar[hidden] { display: none; }
+      .queue-bar .count { flex: 1; min-width: 0; }
+      .queue-bar button { padding: 3px 9px; font-size: 11.5px; }
+
+      .image-bar {
+        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
+        font-size: 12px; color: var(--muted);
+      }
+      .image-bar[hidden] { display: none; }
+      .image-thumb {
+        width: 56px; height: 56px; object-fit: cover; border-radius: 10px;
+        border: 1px solid var(--line); background: var(--surface-2); flex: 0 0 auto;
+      }
+      .image-bar .fine { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .msg-image {
+        display: block; max-width: min(100%, 420px); max-height: 280px;
+        border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2);
+        margin-bottom: 6px;
+      }
+
+      .recover-bar {
+        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
+        font-size: 12px; color: var(--warn); background: var(--warn-soft);
+        border: 1px solid var(--warn-line); border-radius: 10px; padding: 6px 10px;
+        animation: rise .15s ease-out;
+      }
+      .recover-bar[hidden] { display: none; }
+      .recover-bar .count { flex: 1; min-width: 0; }
+      .recover-bar button { padding: 3px 9px; font-size: 11.5px; }
+
+      /* ------------------------------------------------------------- rail */
+      .rail {
+        flex: 0 0 330px; width: 330px; height: 100vh; height: 100dvh;
+        display: flex; flex-direction: column;
+        background: var(--surface); border-left: 1px solid var(--line); overflow: hidden;
+        box-shadow: -10px 0 30px rgba(0, 0, 0, .06);
+      }
+      .rail.hidden { display: none; }
+      .rail-head {
+        display: flex; align-items: center; gap: 2px; padding: 7px 6px;
+        border-bottom: 1px solid var(--line); background: var(--surface-2); flex-wrap: nowrap;
+      }
+      .rail-tab {
+        flex: 0 1 auto; min-width: 0; padding: 6px 5px; font-size: 11.5px;
+        background: transparent; border: 1px solid transparent; color: var(--muted);
+        border-radius: 8px; box-shadow: none; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .rail-tab:hover:not(.active) { color: var(--text); background: var(--surface-3); }
+      .rail-tab.active { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); font-weight: 600; }
+      #railClose { flex: 0 0 auto; margin-left: auto; }
+      .rail-body {
+        flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+        padding: 12px; overflow-y: auto;
+      }
+      .rail-body.hidden { display: none; }
+      .rail-row { display: flex; align-items: center; gap: 6px; }
+      .rail-row .path {
+        flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted);
+        font-family: var(--mono);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .fs-list { display: flex; flex-direction: column; gap: 2px; }
+      .fs-row {
+        display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+        padding: 6px 9px; border: 1px solid transparent; border-radius: 8px;
+        background: transparent; box-shadow: none; font-size: 12.5px; color: var(--text);
+      }
+      .fs-row:hover { background: var(--surface-3); border-color: var(--line); }
+      a.fs-row { text-decoration: none; }
+      .pv-frame {
+        flex: 1; min-height: 200px; width: 100%; border: 1px solid var(--line);
+        border-radius: 10px; background: #fff;
+      }
+      .cmd-log {
+        margin: 6px 0 0; padding: 9px 11px; max-height: 200px; overflow: auto;
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 11.5px; line-height: 1.45; color: var(--muted);
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .fs-row .kind { width: 14px; color: var(--dim); font-size: 11px; }
+      .fs-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fs-row .size { font-size: 10.5px; color: var(--dim); }
+      .fs-editor { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+      .fs-editor.hidden { display: none; }
+      .fs-editor textarea {
+        flex: 1; min-height: 190px; font-family: var(--mono);
+        font-size: 12px; line-height: 1.5; resize: vertical;
+      }
+      .rail .field { margin: 0; }
+      .rail .field input { font-size: 13px; }
+
+      .confirm-card {
+        margin-top: 8px; border: 1px solid var(--warn-line); border-radius: 12px;
+        background: var(--warn-soft); padding: 11px 13px; display: flex; flex-direction: column; gap: 8px;
+        max-width: min(92%, 70ch); font-size: 12.5px;
+      }
+      .confirm-card .confirm-title { color: var(--warn); font-weight: 650; }
+      .confirm-card .confirm-detail {
+        margin: 0; max-height: 160px; overflow: auto; white-space: pre-wrap;
+        font-family: var(--mono);
+        font-size: 11.5px; color: var(--text);
+      }
+      .confirm-card .confirm-detail.diff { max-height: 320px; white-space: pre; }
+      .confirm-card.ok { border-color: var(--accent-line); background: var(--accent-soft); }
+      .confirm-card.ok .confirm-title { color: var(--accent-strong); }
+      .confirm-card.no { border-color: var(--line-2); background: var(--surface-2); opacity: .9; }
+      .confirm-card.no .confirm-title { color: var(--muted); }
+
+      /* --------------------------------------------------------- sidebar */
+      .app-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+      .sidebar {
+        flex: 0 0 268px; width: 268px; height: 100vh; height: 100dvh;
+        display: flex; flex-direction: column; gap: 10px;
+        padding: 12px; background: var(--surface-3); border-right: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .side-head { display: flex; gap: 8px; align-items: center; }
+      .side-head input { flex: 1; min-width: 0; }
+      .side-head .mini { padding: 6px 11px; font-size: 15px; line-height: 1; }
+      .thread-list {
+        flex: 1; min-height: 0; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 3px;
+        margin: 0 -4px; padding: 2px 4px;
+      }
+      .thread-item { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px; }
+      .thread-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--line); }
+      .thread-item.active {
+        background: var(--surface); border-color: var(--line);
+        box-shadow: var(--shadow-sm), inset 3px 0 0 var(--accent);
+      }
+      .thread-item .open {
+        flex: 1; min-width: 0; text-align: left; background: transparent;
+        border: 0; padding: 8px 10px; border-radius: 9px; box-shadow: none;
+      }
+      .thread-item .open:hover { background: transparent; border-color: transparent; }
+      .thread-item .ttl { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-item .sub { display: block; font-size: 11px; color: var(--dim); }
+      .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; }
+      .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
+      .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
+      #sideBtn { display: inline-flex; }
+      .sidebar.collapsed { display: none; }
+      .side-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 14; }
+      .side-backdrop:not(.hidden) { display: block; }
+
+      /* ---------------------------------------------------------- modals */
       .overlay {
-        position: fixed; inset: 0; background: rgba(5, 7, 11, 0.72);
+        position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
+        backdrop-filter: blur(2px);
         display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 20;
       }
       .overlay.hidden { display: none; }
+      .model-row { cursor: pointer; }
+      .model-row.active { outline: 1px solid var(--line-2, #333); outline-offset: -1px; }
+      .model-row .star {
+        margin-left: 8px; background: transparent; border: 0; color: var(--muted);
+        cursor: pointer; font-size: 14px; line-height: 1; padding: 2px;
+      }
+      .model-row .star:hover { color: var(--text); }
+      .group-label {
+        margin: 10px 2px 3px; font-size: 10.5px; letter-spacing: .07em;
+        text-transform: uppercase; color: var(--dim);
+      }
+      .palette-modal { max-width: 540px; }
+      .palette-list { margin-top: 10px; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+      .palette-item {
+        display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
+        padding: 8px 10px; border-radius: 9px; border: 1px solid transparent;
+        background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+      }
+      .palette-item.active, .palette-item:hover { background: var(--surface-2, #1b1b1b); border-color: var(--line-2, #333); }
+      .palette-item .keys { color: var(--dim); font-size: 11.5px; font-family: var(--mono); white-space: nowrap; }
       .modal {
-        width: 100%; max-width: 680px; max-height: 82vh; display: flex; flex-direction: column;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
-        box-shadow: 0 30px 80px rgba(0,0,0,.55); overflow: hidden;
+        width: 100%; max-width: 700px; max-height: 84vh; max-height: 84dvh;
+        display: flex; flex-direction: column;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+        box-shadow: var(--shadow-lg); overflow: hidden;
+        animation: pop .16s ease-out;
       }
-      .modal header { border-bottom: 1px solid var(--line); background: transparent; }
-      .modal .body { padding: 16px; overflow-y: auto; }
-      .modal .foot { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
-      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-      .field label { font-size: 12.5px; color: var(--muted); }
-      input[type="text"], input[type="password"], input[type="search"], select {
-        background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
-        border-radius: 10px; padding: 9px 11px; font: inherit; outline: none; width: 100%;
+      @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.99); } to { opacity: 1; transform: none; } }
+      .modal header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 15px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2);
       }
-      input:focus, select:focus { border-color: #3a4f86; }
+      .modal header strong { font-weight: 650; color: var(--text); }
+      .modal .body { padding: 18px; overflow-y: auto; }
+      .modal .foot {
+        padding: 13px 18px; border-top: 1px solid var(--line);
+        display: flex; gap: 10px; justify-content: flex-end; background: var(--surface-2);
+      }
+      .modal .foot.split { justify-content: space-between; align-items: center; }
+
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+      .field label { font-size: 12.5px; color: var(--muted); font-weight: 550; }
+      .field .help { font-size: 11.5px; color: var(--dim); }
+      input[type="text"], input[type="password"], input[type="search"], input[type="number"], select, textarea.prompt {
+        background: var(--surface); border: 1px solid var(--line); color: var(--text);
+        border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 14px; outline: none; width: 100%;
+        box-shadow: var(--shadow-sm);
+      }
+      input:focus, select:focus, textarea.prompt:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
       .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
       .row > * { flex: 0 0 auto; }
-      .row input[type="search"] { flex: 1 1 220px; }
-      label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+      .row input[type="search"] { flex: 1 1 200px; }
+      label.check { display: inline-flex; gap: 7px; align-items: center; font-size: 13px; color: var(--muted); cursor: pointer; }
+      label.check input { accent-color: var(--accent); }
+
       .model-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
       .model-row {
-        display: flex; align-items: center; gap: 10px; padding: 9px 11px;
-        border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--panel-2);
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+        border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: var(--surface);
+        text-align: left; width: 100%; box-shadow: var(--shadow-sm);
       }
-      .model-row:hover { border-color: #3a465e; }
-      .model-row.selected { border-color: var(--accent); background: #18203a; }
+      .model-row:hover { border-color: var(--accent-line); background: var(--surface-2); }
+      .model-row.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px rgba(0, 0, 0, .12); }
       .model-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .model-row .num { font-size: 12px; color: var(--muted); white-space: nowrap; }
-      .badge { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-      .badge.free { color: var(--good); border-color: #1e4433; background: #0f1f18; }
-      .error-text { color: #ffb3b3; font-size: 13px; }
-      .fine { color: var(--muted); font-size: 12px; }
-      a { color: var(--accent); }
+      .model-row .sub { display: block; font-size: 11.5px; color: var(--dim); font-weight: 400; }
+      .badge {
+        font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+        border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; background: var(--surface-2);
+      }
+      .badge.free { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+
+      .fine { color: var(--dim); font-size: 12px; }
+      .error-text { color: var(--danger); font-size: 13px; min-height: 1em; }
+      .steps { margin: 0 0 14px; padding-left: 18px; color: var(--muted); font-size: 13px; }
+      .steps li { margin: 4px 0; }
+      a { color: var(--accent-strong); }
+
+      /* --------------------------------------------------------- breakpoints */
+      @media (max-width: 1100px) {
+        .rail {
+          position: fixed; inset: 0 0 0 auto; z-index: 16; width: min(350px, 90vw);
+          box-shadow: var(--shadow-lg);
+        }
+      }
+
+      .jump {
+        position: fixed; right: clamp(14px, 3vw, 26px); bottom: 132px;
+        width: 38px; height: 38px; border-radius: 50%; padding: 0;
+        background: var(--accent); color: #111; border: 0;
+        font-size: 16px; display: grid; place-items: center;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .32); z-index: 8;
+      }
+      .jump:hover:not(:disabled) { background: var(--accent-strong); border-color: transparent; }
+      .jump.hidden { display: none; }
+
+      /* ------------------------------------------------------ fallback log */
+      .fallback-log {
+        max-width: min(92%, 70ch); margin-top: 2px;
+        border: 1px solid var(--line); border-radius: 10px;
+        background: var(--surface-2); padding: 7px 11px;
+        font-family: var(--mono);
+        font-size: 11.5px; color: var(--muted);
+      }
+      .fallback-log summary { cursor: pointer; color: var(--dim); }
+      .fallback-log summary:hover { color: var(--accent-strong); }
+      .fallback-log ul { margin: 6px 0 0; padding-left: 16px; }
+      .fallback-log li { margin: 2px 0; overflow-wrap: anywhere; }
+      .budget { color: var(--dim); font-size: 11.5px; white-space: nowrap; }
+      .budget.warn { color: var(--warn); font-weight: 600; }
+
+      @media (max-width: 900px) {
+        .sidebar {
+          position: fixed; inset: 0 auto 0 0; z-index: 15; width: 284px; max-width: 86vw;
+          transform: translateX(-102%); transition: transform .18s ease-out;
+          box-shadow: var(--shadow-lg);
+        }
+        .sidebar.open { transform: none; }
+        #sideBtn { display: inline-flex; }
+      }
+
+      @media (max-width: 640px) {
+        header.bar { padding: 9px 12px; gap: 7px; }
+        .brand { font-size: 14px; }
+        .chip { max-width: 132px; font-size: 12px; padding: 4px 10px; }
+        .pill { font-size: 11px; padding: 4px 8px; }
+        header.bar button { padding: 7px 9px; min-height: 36px; font-size: 12.5px; }
+        .bubble { max-width: 95%; }
+        .hint { display: none; }
+        .modal { max-height: 92dvh; border-radius: 14px; }
+        .model-row { flex-wrap: wrap; row-gap: 2px; }
+        .model-row .name { flex: 1 1 100%; }
+        code, pre code { font-size: 12.5px; }
+        .jump { bottom: 116px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+      }
     </style>
   </head>
   <body>
-    <header>
-      <div class="brand">Open<span>Router</span> Chat</div>
-      <button id="modelBtn" class="model-btn" title="Choose a model">Loading models…</button>
+    <aside class="sidebar" id="sidebar" aria-label="Saved chats">
+      <div class="side-head">
+        <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
+        <button id="sideNew" class="mini" type="button" title="New chat">+</button>
+        <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
+      </div>
+      <div class="thread-list" id="threadList"></div>
+      <div class="side-foot"><span class="fine" id="threadCount"></span></div>
+    </aside>
+    <div class="side-backdrop hidden" id="sideBackdrop"></div>
+
+    <div class="app-col">
+    <header class="bar">
+      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰</button>
+      <div class="brand">Free<span>way</span></div>
+      <span class="ver" id="version" title="Running version (also at /api/config)">v…</span>
+      <select id="provider" class="prov" title="Provider" aria-label="Provider"></select>
+      <button id="modelBtn" class="chip" title="Choose a model (Ctrl+M)">Loading…</button>
+      <span class="pill tier" id="policy" title="How free is decided here">…</span>
       <div class="spacer"></div>
-      <div class="pill" id="quota">quota…</div>
+      <button id="quota" class="pill" title="API key and quota">quota…</button>
+      <button id="newChatBtn" class="ghost" title="New chat (Ctrl+Shift+N)">New</button>
+      <button id="settingsBtn" class="ghost" title="Settings">⚙</button>
+      <button id="railBtn" class="ghost" title="Files and secrets">▤</button>
       <button id="quitBtn" class="ghost" title="Stop the app">Quit</button>
     </header>
 
-    <main>
+    <main id="scroll">
       <div class="wrap" id="thread">
         <div class="empty" id="empty">
-          <h1>Free models, with a spare tire</h1>
-          <p>Ask anything. If a free model is rate-limited, the app moves to the next free model automatically and tells you which one answered.</p>
-          <p class="fine">Your API key stays in the local server process — this page never sees it.</p>
+          <h1>Free models. Real tools.</h1>
+          <p>Ask anything. If a free model is busy, the app moves to the next free one and tells you which one answered.</p>
+          <pre class="ascii">      you
+       |  message
+       v
++---------+   +-----------+   +-----------+
+| browser |--&gt;| app :3002 |--&gt;| OpenRouter|
+|         |&lt;--|  your key |&lt;--| free models|
++---------+   +-----------+   +-----------+</pre>
+          <div class="suggest" id="suggest">
+            <button type="button" data-fill="Explain this error and how to fix it:\n">Explain an error</button>
+            <button type="button" data-fill="Summarise this in five short bullets:\n">Summarise something</button>
+            <button type="button" data-fill="Review this code for bugs and say what you would change:\n">Review code</button>
+            <button type="button" data-fill="Write a clear commit message for this change:\n">Commit message</button>
+          </div>
+          <p class="fine">The model can read the clock, do exact arithmetic and fetch public web pages. Your key never leaves this computer.</p>
         </div>
       </div>
     </main>
 
+    <button id="jumpBtn" class="jump hidden" title="Jump to latest">↓</button>
+
     <footer>
+      <div class="recover-bar" id="recoverBar" hidden>
+        <span class="count" id="recoverInfo"></span>
+        <button id="recoverKeep" class="mini" type="button" title="Add the recovered text to this chat">Keep</button>
+        <button id="recoverDrop" class="mini" type="button" title="Throw the partial answer away">Discard</button>
+      </div>
+      <div class="queue-bar" id="queueBar" hidden>
+        <span class="count" id="queueInfo"></span>
+        <button id="queueFlush" class="mini" type="button" title="Send the queued messages now">Send now</button>
+        <button id="queueDrop" class="mini" type="button" title="Discard queued messages">Clear</button>
+      </div>
+      <div class="image-bar" id="imageBar" hidden>
+        <img class="image-thumb" id="imageThumb" alt="Attached image preview" />
+        <span class="fine" id="imageName"></span>
+        <button class="mini" id="imageRemove" type="button" title="Remove the attached image">Remove</button>
+      </div>
       <div class="composer">
-        <textarea id="input" rows="1" placeholder="Message… (Enter to send, Shift+Enter for a new line)"></textarea>
+        <textarea id="input" rows="1" placeholder="Message…"></textarea>
+        <label class="mini attach" title="Attach a PNG, JPEG or WebP image">🖼<input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+        <label class="mini attach" title="Attach a text file">📎<input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden></label>
+        <button id="memoryBtn" class="mini" type="button" title="Edit the note sent with this chat">memory</button>
         <button id="sendBtn" class="primary">Send</button>
         <button id="stopBtn" class="ghost" disabled>Stop</button>
       </div>
       <div class="hint">
-        <span class="status" id="status"></span>
+        <span id="status" class="status"></span>
+        <span id="budget" class="budget"></span>
+        <span>Enter to send · Shift+Enter newline · Ctrl+K commands · Ctrl+M models · Alt+N new chat</span>
       </div>
     </footer>
+    </div>
+
+    <aside class="rail hidden" id="rail" aria-label="Files and secrets">
+      <div class="rail-head">
+        <button class="rail-tab active" type="button" data-rail="files">Files</button>
+        <button class="rail-tab" type="button" data-rail="secrets">Secrets</button>
+        <button class="rail-tab" type="button" data-rail="github">GitHub</button>
+        <button class="rail-tab" type="button" data-rail="preview">Preview</button>
+        <button class="rail-tab" type="button" data-rail="status">Health</button>
+        <button class="mini" id="railClose" type="button" title="Hide this panel">✕</button>
+      </div>
+
+      <div class="rail-body" id="railFiles">
+        <div class="rail-row">
+          <button class="mini" id="fsUp" type="button" title="Folder above">↑</button>
+          <button class="mini" id="fsRefresh" type="button" title="Reload">⟳</button>
+          <button class="mini" id="fsSample" type="button" title="Create a sample page">Sample</button>
+          <span class="path" id="fsPath">/</span>
+        </div>
+        <div class="fs-list" id="fsList"></div>
+        <p class="fine" id="fsHint">Set a workspace folder in Settings to browse files here.</p>
+        <div class="fs-editor hidden" id="fsEditor">
+          <div class="rail-row">
+            <span class="path" id="fsFileName"></span>
+            <button class="mini" id="fsSave" type="button">Save</button>
+            <button class="mini" id="fsPreview" type="button">Preview</button>
+            <button class="mini" id="fsClose" type="button">Close</button>
+          </div>
+          <textarea id="fsContent" spellcheck="false" placeholder="File contents"></textarea>
+        </div>
+      </div>
+
+      <div class="rail-body hidden" id="railSecrets">
+        <div class="field">
+          <input id="secName" type="text" placeholder="NAME" autocomplete="off" spellcheck="false" />
+          <input id="secValue" type="password" placeholder="value" autocomplete="off" />
+        </div>
+        <div class="rail-row">
+          <button class="mini" id="secAdd" type="button">Add secret</button>
+          <span class="fine" id="secStatus"></span>
+        </div>
+        <div class="fs-list" id="secList"></div>
+        <p class="fine">Values stay on this computer. The page only ever sees the last four characters.</p>
+      </div>
+
+      <div class="rail-body hidden" id="railGithub">
+        <p class="fine" id="ghStatus">Add a GITHUB_TOKEN secret to browse GitHub from here.</p>
+        <div class="fs-list" id="ghRepos"></div>
+        <div id="ghRepoBox" hidden>
+          <div class="rail-row">
+            <span class="path" id="ghRepoTitle"></span>
+          </div>
+          <div class="rail-row">
+            <button class="mini" type="button" data-gh-view="issues">Issues</button>
+            <button class="mini" type="button" data-gh-view="pulls">PRs</button>
+            <button class="mini" type="button" data-gh-view="commits">Commits</button>
+          </div>
+          <div class="fs-list" id="ghItems"></div>
+        </div>
+        <p class="fine">Read-only. The model can open an issue, but only after you approve it.</p>
+      </div>
+
+      <div class="rail-body hidden" id="railStatus">
+        <div class="rail-row">
+          <button class="mini" id="stRefresh" type="button" title="Reload">⟳</button>
+          <span class="path" id="stSummary">this session</span>
+        </div>
+        <div class="rail-row"><span class="path">Provider health</span></div>
+        <div class="fs-list" id="stHealth"></div>
+        <div class="rail-row"><span class="path">Free plans</span></div>
+        <div class="fs-list" id="stPlans"></div>
+        <div class="rail-row"><span class="path">Recent attempts</span></div>
+        <div class="fs-list" id="stCooling"></div>
+        <div class="fs-list" id="stRecent"></div>
+        <p class="fine">Provider readiness and per-model attempts from this run. Nothing is written to disk.</p>
+      </div>
+
+      <div class="rail-body hidden" id="railPreview">
+        <div class="field">
+          <input id="pvUrl" type="text" placeholder="http://localhost:5173"
+                 autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="rail-row">
+          <button class="mini" id="pvLoad" type="button">Load</button>
+          <button class="mini" id="pvReload" type="button" title="Reload the frame">Reload</button>
+          <button class="mini" id="pvOpen" type="button" title="Open in a new tab">Open ↗</button>
+        </div>
+        <iframe id="pvFrame" class="pv-frame" title="Preview" referrerpolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+        <p class="fine" id="pvNote">Paste the address of a local dev server. It is saved with this chat.</p>
+      </div>
+    </aside>
+
+    <div class="overlay hidden" id="paletteOverlay">
+      <div class="modal palette-modal">
+        <header><strong>Commands</strong><span class="fine">Ctrl+K · Esc closes</span></header>
+        <div class="body">
+          <input id="paletteInput" placeholder="Type a command…" autocomplete="off" spellcheck="false" aria-label="Command" />
+          <div id="paletteList" class="palette-list" role="listbox" aria-label="Commands"></div>
+        </div>
+      </div>
+    </div>
 
     <div class="overlay hidden" id="keyOverlay">
       <div class="modal">
-        <header><strong>Connect OpenRouter</strong></header>
+        <header><strong id="keyTitle">Connect OpenRouter</strong></header>
         <div class="body">
-          <p class="fine">Create a key at
-            <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer">openrouter.ai/settings/keys</a>
-            and set a credit limit on it. The key is stored in your user config folder and never sent to this page again.</p>
+          <ol class="steps" id="keySteps"></ol>
+          <p class="fine">What this plan allows</p>
+          <ul class="limits" id="keyLimits"></ul>
           <div class="field">
             <label for="keyInput">API key</label>
-            <input id="keyInput" type="password" spellcheck="false" placeholder="sk-or-v1-…" />
+            <input id="keyInput" type="password" spellcheck="false" autocomplete="off" placeholder="sk-or-v1-…" />
+            <span class="help" id="keyHelp">Free models need no credits, but a negative balance blocks even them.</span>
+          </div>
+          <div class="field" id="keyAccountField" hidden>
+            <label for="keyAccount">Account ID</label>
+            <input id="keyAccount" type="text" spellcheck="false" autocomplete="off" placeholder="32-character Account ID" />
+            <span class="help" id="keyAccountHelp"></span>
           </div>
           <div class="error-text" id="keyError"></div>
         </div>
         <div class="foot">
+          <button id="keyTry" class="ghost" hidden>Try it now — no key</button>
+          <button id="keyCancel" class="ghost">Cancel</button>
           <button id="keySave" class="primary">Save and start</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="settingsOverlay">
+      <div class="modal">
+        <header><strong>Settings</strong></header>
+        <div class="body">
+          <div class="field">
+            <label for="sPrompt">System prompt</label>
+            <textarea id="sPrompt" class="prompt" rows="3" placeholder="Optional. Sets the model's behaviour for every message."></textarea>
+          </div>
+          <div class="field">
+            <label for="sTemp">Temperature</label>
+            <input id="sTemp" type="number" min="0" max="2" step="0.1" placeholder="default" />
+            <span class="help">0 is focused, 2 is wild. Leave empty to use the model default.</span>
+          </div>
+          <div class="field">
+            <label for="sMax">Max output tokens</label>
+            <input id="sMax" type="number" min="256" max="4000" step="64" />
+            <span class="help">Between 256 and 4000. Lower is faster and cheaper.</span>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
+            <span class="help">Clock, exact calculator and public web fetch. Only sent to models that support tool calling.</span>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
+            <span class="help">A collapsed “What happened” line under answers that retried another model.</span>
+          </div>
+          <div class="field">
+            <label for="sCap">Free requests per chat</label>
+            <input id="sCap" type="number" min="0" max="1000" step="1" />
+            <span class="help">Soft cap for one conversation: the footer counts requests and warns near the limit. 0 turns it off.</span>
+          </div>
+          <div class="field">
+            <label for="sWorkspace">Workspace folder</label>
+            <input id="sWorkspace" type="text" placeholder="C:\Users\you\projects" spellcheck="false" />
+            <span class="help">The only folder the Files panel and the model's read_file / write_file tools may touch. Leave it blank to turn both off.</span>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="sCommands" /> Allow the model to run commands</label>
+            <span class="help">Off by default. Every command still stops at an Allow / Deny card showing the exact arguments.</span>
+          </div>
+          <div class="field">
+            <label for="sAllowlist">Programs it may run</label>
+            <input id="sAllowlist" type="text" placeholder="node, npm, git" spellcheck="false" autocomplete="off" />
+            <span class="help">Names only, separated by commas. No paths. A name not listed here is refused before anything starts.</span>
+          </div>
+          <div class="field">
+            <label>Saved chats</label>
+            <div class="row">
+              <button id="exportBtn" type="button">Export all chats</button>
+              <button id="importBtn" type="button">Import…</button>
+              <button id="exportMdBtn" type="button" title="Download this conversation as Markdown">Export this chat (.md)</button>
+              <button id="promptsBtn" type="button" title="Saved prompts">Prompts…</button>
+              <label class="check"><input type="checkbox" id="importReplace" /> Replace existing</label>
+            </div>
+            <span class="help">One JSON file with every chat and your settings. Import merges unless you tick replace.</span>
+            <input id="importFile" type="file" accept="application/json,.json" hidden />
+          </div>
+          <div class="error-text" id="settingsError"></div>
+        </div>
+        <div class="foot">
+          <button id="settingsCancel" class="ghost">Cancel</button>
+          <button id="settingsSave" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="promptOverlay">
+      <div class="modal">
+        <header><strong>Prompt library</strong></header>
+        <div class="body">
+          <p class="help">Saved in this browser. Click one to put it in the message box.</p>
+          <div id="promptList" class="model-list"></div>
+          <div class="error-text" id="promptError"></div>
+        </div>
+        <div class="foot split">
+          <button id="promptSave" class="primary" type="button">Save current draft</button>
+          <button id="promptClose" class="ghost" type="button">Close</button>
         </div>
       </div>
     </div>
@@ -180,14 +889,13 @@
     <div class="overlay hidden" id="picker">
       <div class="modal">
         <header>
-          <strong>Choose a model</strong>
+          <strong>Free models</strong>
           <div class="spacer"></div>
           <span class="fine" id="pickerCount"></span>
         </header>
         <div class="body">
           <div class="row">
             <input id="search" type="search" placeholder="Search models…" />
-            <label class="check"><input type="checkbox" id="fFree" checked /> Free only</label>
             <label class="check"><input type="checkbox" id="fTools" /> Tools</label>
             <label class="check"><input type="checkbox" id="fVision" /> Vision</label>
             <select id="fContext">
@@ -199,7 +907,8 @@
           </div>
           <div class="model-list" id="modelList"></div>
         </div>
-        <div class="foot">
+        <div class="foot split">
+          <span class="fine">Free models only — paid models are never sent.</span>
           <button id="pickerClose" class="ghost">Close</button>
         </div>
       </div>
@@ -208,6 +917,8 @@
     <script>
       const APP_TOKEN = "__APP_TOKEN__";
       const $ = (id) => document.getElementById(id);
+      const THREAD_KEY = "openrouter.thread.v1";
+      const ACTIVE_KEY = "openrouter.activeThread.v1";
 
       const state = {
         models: [],
@@ -215,24 +926,592 @@
         messages: [],
         streaming: false,
         controller: null,
-        quota: null,
+        queue: [],
+        paused: false,
+        qid: 0,
+        requests: 0,
+        threadId: null,
+        // Set only after an explicit rename, so the first message stops choosing
+        // the title once the owner has named the chat.
+        customTitle: "",
+        rev: 0,
+        draft: null,
+        threads: [],
+        // Ids the server matched on message text for the current search. Titles
+        // are filtered instantly in the browser; this fills in content matches.
+        threadHits: null,
+        saveTimer: null,
+        pendingSave: null,
+        attachment: null,
+        settings: {
+          systemPrompt: "",
+          temperature: null,
+          maxTokens: 1200,
+          tools: true,
+          allowCommands: false,
+          commandAllowlist: "",
+        },
+        rail: false,
+        workspace: "",
+        fsPath: "",
+        fsFile: null,
+        ghRepo: "",
+        ghView: "issues",
+        preview: "",
+        localPreview: false,
+        pvLoaded: false,
+        pvTimer: null,
       };
 
-      async function api(path, options = {}) {
-        const response = await fetch(path, {
-          ...options,
-          headers: {
-            "content-type": "application/json",
-            "x-app-token": APP_TOKEN,
-            ...(options.headers || {}),
-          },
-        });
-        const text = await response.text();
-        let body = {};
-        try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
-        if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-        return body;
+      /* ------------------------------------------------------------ storage */
+
+      function persist() {
+        try {
+          const keep = state.messages.slice(-40).map((m) => ({
+            role: m.role,
+            content: m.content,
+            model: m.model ?? null,
+            tools: m.tools ?? null,
+            usage: m.usage ?? null,
+            ...(Array.isArray(m.images) && m.images.length ? { images: m.images } : {}),
+          }));
+          localStorage.setItem(
+            THREAD_KEY,
+            JSON.stringify({
+              messages: keep,
+              model: state.model,
+              threadId: state.threadId,
+              requests: state.requests,
+            }),
+          );
+          if (state.threadId) localStorage.setItem(ACTIVE_KEY, state.threadId);
+          else localStorage.removeItem(ACTIVE_KEY);
+        } catch {
+          /* storage full or blocked; the chat still works */
+        }
+        scheduleSave();
       }
+
+      function restore() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(THREAD_KEY) || "{}");
+          if (Array.isArray(saved.messages)) {
+            state.messages = saved.messages
+              .filter(
+                (m) =>
+                  (m.role === "user" || m.role === "assistant") &&
+                  typeof m.content === "string" &&
+                  m.content.length > 0,
+              )
+              .slice(-40)
+              .map((m) => ({
+                role: m.role,
+                content: m.content,
+                model: typeof m.model === "string" ? m.model : null,
+                usage:
+                  m.usage && typeof m.usage === "object"
+                    ? {
+                        prompt_tokens: Number(m.usage.prompt_tokens) || 0,
+                        completion_tokens: Number(m.usage.completion_tokens) || 0,
+                      }
+                    : null,
+                tools: Array.isArray(m.tools)
+                  ? m.tools
+                      .filter((tool) => tool && typeof tool.name === "string")
+                      .map((tool) => ({
+                        name: tool.name,
+                        preview: typeof tool.preview === "string" ? tool.preview : "",
+                        ok: tool.ok !== false,
+                      }))
+                  : null,
+                ...(m.role === "user" && Array.isArray(m.images) && typeof m.images[0] === "string"
+                  ? { images: m.images.slice(0, 1) }
+                  : {}),
+              }));
+          }
+          if (typeof saved.model === "string") state.model = saved.model;
+          state.requests = Number(saved.requests) || 0;
+        } catch {
+          state.messages = [];
+        }
+      }
+
+      /* ------------------------------------------------------------ chats */
+
+      function newId() {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+        return `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+      }
+
+      function derivedTitle(messages) {
+        const first = messages.find((m) => m.role === "user" && String(m.content || "").trim());
+        if (!first) return "New chat";
+        const text = String(first.content).replace(/\s+/g, " ").trim();
+        return text.length > 80 ? `${text.slice(0, 79)}…` : text;
+      }
+
+      // A renamed chat keeps its name: a saved title that no longer matches the
+      // first message is treated as deliberate and reopened as customTitle.
+      function threadTitle() {
+        return state.customTitle || derivedTitle(state.messages);
+      }
+
+      function ensureThread() {
+        if (!state.threadId) state.threadId = newId();
+        return state.threadId;
+      }
+
+      function upsertSummary(thread) {
+        if (!thread) return;
+        const summary = {
+          id: thread.id,
+          title: thread.title,
+          createdAt: thread.createdAt,
+          updatedAt: thread.updatedAt,
+          messageCount: Array.isArray(thread.messages) ? thread.messages.length : thread.messageCount || 0,
+        };
+        state.threads = [summary, ...state.threads.filter((t) => t.id !== summary.id)].sort((a, b) =>
+          String(b.updatedAt).localeCompare(String(a.updatedAt)),
+        );
+        renderThreadList();
+      }
+
+      // Saves are debounced and carry a snapshot, so switching chats mid-flight
+      // still writes the right messages under the right id.
+      function scheduleSave() {
+        if (!state.threadId || state.messages.length === 0) return;
+        state.pendingSave = {
+          id: state.threadId,
+          title: threadTitle(),
+          requests: state.requests,
+          messages: state.messages.slice(-40),
+        };
+        clearTimeout(state.saveTimer);
+        state.saveTimer = setTimeout(() => void flushSave(), 500);
+      }
+
+      async function flushSave() {
+        clearTimeout(state.saveTimer);
+        state.saveTimer = null;
+        const job = state.pendingSave;
+        state.pendingSave = null;
+        if (!job) return;
+        try {
+          const result = await api(`/api/threads/${encodeURIComponent(job.id)}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              title: job.title,
+              messages: job.messages,
+              preview: state.preview,
+              ifRev: state.rev,
+            }),
+          });
+          state.rev = Number(result.thread.rev) || 0;
+          upsertSummary(result.thread);
+        } catch (error) {
+          if (error.status === 409) {
+            await resolveStale(job, error.body?.thread);
+            return;
+          }
+          /* the local mirror still has it; the next change retries */
+        }
+      }
+
+      // Two tabs or two browsers editing one chat: the server refuses a write
+      // that started from an older copy, so ask which version should win instead
+      // of quietly dropping the other one.
+      async function resolveStale(job, theirs) {
+        const takeMine = confirm(
+          "This chat changed in another tab or browser.\n\n" +
+            `OK: keep this tab (${job.messages.length} messages) and overwrite the other version.\n` +
+            "Cancel: load the newer version and drop the changes in this tab.",
+        );
+        if (!takeMine) {
+          if (theirs) {
+            state.messages = Array.isArray(theirs.messages) ? theirs.messages : [];
+            state.rev = Number(theirs.rev) || 0;
+            state.draft = theirs.draft ?? null;
+            renderThread();
+            renderDraft();
+            upsertSummary(theirs);
+            setStatus("loaded the newer version of this chat");
+          }
+          return;
+        }
+        try {
+          const forced = await api(`/api/threads/${encodeURIComponent(job.id)}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              title: job.title,
+              messages: job.messages,
+              preview: state.preview,
+            }),
+          });
+          state.rev = Number(forced.thread.rev) || 0;
+          upsertSummary(forced.thread);
+          setStatus("this tab was kept");
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function loadThreads() {
+        const data = await api("/api/threads");
+        state.threads = data.threads || [];
+        renderThreadList();
+      }
+
+      function when(iso) {
+        const time = Date.parse(iso);
+        if (!Number.isFinite(time)) return "";
+        const diff = Math.max(0, Date.now() - time);
+        if (diff < 60000) return "just now";
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+        return new Date(time).toLocaleDateString();
+      }
+
+      // Pins are a browser preference rather than chat content, so they live in
+      // localStorage and survive a reload without rewriting the saved chat.
+      const PINNED_KEY = "openrouter.pinned";
+      function readPins() {
+        try {
+          const value = JSON.parse(localStorage.getItem(PINNED_KEY) || "[]");
+          return new Set(Array.isArray(value) ? value.filter((id) => typeof id === "string") : []);
+        } catch {
+          return new Set();
+        }
+      }
+      function togglePin(id) {
+        if (!id) return;
+        const pins = readPins();
+        if (pins.has(id)) pins.delete(id);
+        else pins.add(id);
+        localStorage.setItem(PINNED_KEY, JSON.stringify([...pins]));
+        renderThreadList();
+      }
+
+      const PROJECTS_KEY = "orc.projects.v1";
+      const NOTES_KEY = "orc.memory-notes.v1";
+      function readOrgMap(key) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || "{}");
+          return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+        } catch {
+          return {};
+        }
+      }
+      function projectOf(id) {
+        return String(readOrgMap(PROJECTS_KEY)[id] || "").slice(0, 40);
+      }
+      function assignProject(id) {
+        const answer = prompt("Project name (blank = Ungrouped)", projectOf(id));
+        if (answer === null) return;
+        const name = answer.replace(/\s+/g, " ").trim().slice(0, 40);
+        const map = readOrgMap(PROJECTS_KEY);
+        if (name) map[id] = name;
+        else delete map[id];
+        localStorage.setItem(PROJECTS_KEY, JSON.stringify(map));
+        renderThreadList();
+        setStatus(name ? `moved to ${name}` : "moved to Ungrouped");
+      }
+      function memoryNoteFor(id) {
+        return String(readOrgMap(NOTES_KEY)[id] || "").slice(0, 4000);
+      }
+      function withMemoryNote(messages) {
+        const note = memoryNoteFor(state.threadId).trim();
+        return note
+          ? [{ role: "system", content: `User memory note for this chat (keep following it):\n${note}` }, ...messages]
+          : messages;
+      }
+      $("memoryBtn").addEventListener("click", () => {
+        if (!state.threadId) return setStatus("open a chat first");
+        const answer = prompt(
+          "Memory note sent with every message in this chat (blank removes it):",
+          memoryNoteFor(state.threadId),
+        );
+        if (answer === null) return;
+        const note = answer.trim().slice(0, 4000);
+        const map = readOrgMap(NOTES_KEY);
+        if (note) map[state.threadId] = note;
+        else delete map[state.threadId];
+        localStorage.setItem(NOTES_KEY, JSON.stringify(map));
+        setStatus(note ? "memory note saved" : "memory note removed");
+      });
+
+      function renderThreadList() {
+        const list = $("threadList");
+        const query = $("threadSearch").value.trim().toLowerCase();
+        const pins = readPins();
+        const hits = query ? state.threadHits : null;
+        // Pinned chats first, then most recently touched. A search matches the
+        // title immediately and message text as soon as the server answers.
+        const threads = state.threads
+          .filter(
+            (t) =>
+              !query ||
+              t.title.toLowerCase().includes(query) ||
+              (hits ? hits.has(t.id) : false),
+          )
+          .slice()
+          .sort(
+            (a, b) =>
+              (projectOf(a.id) || "\uffff").localeCompare(projectOf(b.id) || "\uffff") ||
+              Number(pins.has(b.id)) - Number(pins.has(a.id)) ||
+              Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+          );
+        list.textContent = "";
+        $("threadCount").textContent = state.threads.length
+          ? `${state.threads.length} saved chat${state.threads.length === 1 ? "" : "s"}`
+          : "";
+
+        if (threads.length === 0) {
+          const note = document.createElement("p");
+          note.className = "fine";
+          note.style.padding = "8px";
+          note.textContent = query ? "No chats match that search." : "Saved chats appear here.";
+          list.appendChild(note);
+          return;
+        }
+
+        let activeProject;
+        for (const thread of threads) {
+          const project = projectOf(thread.id);
+          if (project !== activeProject) {
+            activeProject = project;
+            const heading = document.createElement("div");
+            heading.className = "thread-group";
+            heading.textContent = project || "Ungrouped";
+            heading.style.cssText =
+              "padding:10px 8px 3px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);";
+            list.appendChild(heading);
+          }
+          const row = document.createElement("div");
+          row.className = `thread-item${thread.id === state.threadId ? " active" : ""}`;
+
+          const open = document.createElement("button");
+          open.type = "button";
+          open.className = "open";
+          open.innerHTML =
+            `<span class="ttl">${pins.has(thread.id) ? "📌 " : ""}${escapeHtml(thread.title)}</span>` +
+            `<span class="sub">${escapeHtml(when(thread.updatedAt))} · ${thread.messageCount} msg</span>`;
+          open.addEventListener("click", () => {
+            openThread(thread.id).catch((error) => setStatus(error.message));
+          });
+
+          const del = document.createElement("button");
+          del.type = "button";
+          del.className = "mini del";
+          del.title = "Delete this chat";
+          del.setAttribute("aria-label", `Delete ${thread.title}`);
+          del.textContent = "✕";
+          del.addEventListener("click", (event) => {
+            event.stopPropagation();
+            void deleteThread(thread.id);
+          });
+
+          const pin = document.createElement("button");
+          pin.type = "button";
+          pin.className = "mini";
+          pin.title = pins.has(thread.id) ? "Unpin this chat" : "Pin this chat";
+          pin.setAttribute("aria-label", pin.title);
+          pin.textContent = pins.has(thread.id) ? "📌" : "☆";
+          pin.addEventListener("click", (event) => {
+            event.stopPropagation();
+            togglePin(thread.id);
+          });
+
+          const move = document.createElement("button");
+          move.type = "button";
+          move.className = "mini";
+          move.title = `Project: ${project || "Ungrouped"}`;
+          move.setAttribute("aria-label", move.title);
+          move.textContent = "▦";
+          move.addEventListener("click", (event) => {
+            event.stopPropagation();
+            assignProject(thread.id);
+          });
+          row.append(open, move, pin, del);
+          list.appendChild(row);
+        }
+      }
+
+      async function openThread(id, silent = false) {
+        if (state.streaming) state.controller?.abort();
+        if (!silent) await flushSave();
+        const result = await api(`/api/threads/${encodeURIComponent(id)}`);
+        clearQueue();
+        state.threadId = result.thread.id;
+        state.messages = result.thread.messages;
+        state.requests = Number(result.thread.requests) || 0;
+        state.rev = Number(result.thread.rev) || 0;
+        state.customTitle =
+          result.thread.title && result.thread.title !== derivedTitle(state.messages) ? result.thread.title : "";
+        state.draft = result.thread.draft ?? null;
+        state.preview = result.thread.preview || "";
+        $("pvUrl").value = state.preview;
+        if (!$("railPreview").classList.contains("hidden")) openPreview();
+        updateBudget();
+        try {
+          localStorage.setItem(ACTIVE_KEY, state.threadId);
+          localStorage.setItem(
+            THREAD_KEY,
+            JSON.stringify({ messages: state.messages.slice(-40), model: state.model, threadId: state.threadId }),
+          );
+        } catch {
+          /* private mode */
+        }
+        renderThread();
+        renderDraft();
+        renderThreadList();
+        closeSidebar(true);
+        $("input").focus();
+      }
+
+      async function deleteThread(id) {
+        if (!confirm("Delete this chat? This cannot be undone.")) return;
+        try {
+          await api(`/api/threads/${encodeURIComponent(id)}`, { method: "DELETE" });
+        } catch (error) {
+          setStatus(error.message);
+          return;
+        }
+        state.threads = state.threads.filter((t) => t.id !== id);
+        if (state.threadId === id) {
+          state.threadId = null;
+          state.messages = [];
+          state.customTitle = "";
+          state.rev = 0;
+          state.draft = null;
+          $("recoverBar").hidden = true;
+          clearQueue();
+          renderThread();
+          // Otherwise the browser mirror would restore the deleted chat on reload.
+          persist();
+        }
+        renderThreadList();
+        setStatus("chat deleted");
+      }
+
+      // Both are palette actions, so a chat can be tidied without leaving the
+      // keyboard or hunting for the tiny buttons in the list.
+      async function renameCurrentThread() {
+        if (!state.threadId) return setStatus("open a chat first");
+        const answer = prompt("Rename this chat", state.customTitle || threadTitle());
+        if (answer === null) return;
+        const title = answer.replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!title) return setStatus("a chat needs a title");
+        state.customTitle = title;
+        if (state.messages.length) {
+          renderThreadList();
+          scheduleSave();
+          await flushSave();
+        }
+        setStatus("chat renamed to \"" + title + "\"");
+      }
+
+      function deleteCurrentThread() {
+        if (!state.threadId) return setStatus("open a chat first");
+        return deleteThread(state.threadId);
+      }
+
+      // The chats panel is a docked column on wide windows and a drawer on
+      // narrow ones. It remembers which, so "see my chats" survives a reload.
+      const SIDEBAR_KEY = "openrouter.sidebar";
+      const isNarrow = () => window.matchMedia("(max-width: 900px)").matches;
+
+      function applySidebarPreference() {
+        const stored = localStorage.getItem(SIDEBAR_KEY);
+        if (isNarrow()) {
+          const open = stored === "open";
+          $("sidebar").classList.toggle("open", open);
+          $("sideBackdrop").classList.toggle("hidden", !open);
+          return;
+        }
+        // Docked by default: the list is there without a click.
+        $("sidebar").classList.toggle("collapsed", stored === "closed");
+        $("sideBackdrop").classList.add("hidden");
+      }
+
+      function openSidebar() {
+        if (isNarrow()) {
+          $("sidebar").classList.add("open");
+          $("sideBackdrop").classList.remove("hidden");
+        } else {
+          $("sidebar").classList.remove("collapsed");
+        }
+        localStorage.setItem(SIDEBAR_KEY, "open");
+      }
+
+      // drawerOnly: called after opening or starting a chat, where the drawer
+      // should get out of the way but a docked panel must stay put.
+      function closeSidebar(drawerOnly = false) {
+        if (isNarrow()) {
+          $("sidebar").classList.remove("open");
+          $("sideBackdrop").classList.add("hidden");
+        } else {
+          if (!drawerOnly) $("sidebar").classList.add("collapsed");
+          else return;
+        }
+        if (!drawerOnly) localStorage.setItem(SIDEBAR_KEY, "closed");
+      }
+
+      function toggleSidebar() {
+        const hiddenNow = isNarrow()
+          ? !$("sidebar").classList.contains("open")
+          : $("sidebar").classList.contains("collapsed");
+        if (hiddenNow) openSidebar();
+        else closeSidebar();
+      }
+
+      async function exportChats() {
+        try {
+          const data = await api("/api/export");
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `freeway-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setStatus(`exported ${data.threads.length} chats`);
+        } catch (error) {
+          $("settingsError").textContent = error.message;
+        }
+      }
+
+      async function importChats(file) {
+        const text = await file.text();
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          $("settingsError").textContent = "That file is not valid JSON.";
+          return;
+        }
+        const replace = $("importReplace").checked;
+        if (replace && !confirm("Replace every saved chat with the contents of this file?")) return;
+        try {
+          const result = await api("/api/import", {
+            method: "POST",
+            body: JSON.stringify({ ...payload, mode: replace ? "replace" : "merge" }),
+          });
+          await loadThreads();
+          const config = await api("/api/config").catch(() => null);
+          if (config?.settings) state.settings = config.settings;
+          updateBudget();
+          renderThread();
+          $("settingsError").textContent = "";
+          setStatus(`imported ${result.imported} chats (${result.total} saved)`);
+        } catch (error) {
+          $("settingsError").textContent = error.message;
+        }
+      }
+
+      /* ------------------------------------------------------------- html */
 
       function escapeHtml(value) {
         return String(value)
@@ -242,164 +1521,1512 @@
           .replaceAll('"', "&quot;");
       }
 
-      function renderMarkdown(text) {
-        const parts = String(text).split(/```/);
+      function inline(text) {
+        const parts = text.split("`");
         return parts
           .map((part, index) => {
-            if (index % 2 === 1) {
-              const code = part.replace(/^[a-zA-Z0-9_-]*\n/, "");
-              return `<pre><code>${escapeHtml(code)}</code></pre>`;
-            }
-            const html = escapeHtml(part)
-              .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-              .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-            return html.replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br />");
+            if (index % 2 === 1) return `<code>${part}</code>`;
+            return part
+              .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+              .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>")
+              .replace(
+                /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+                '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>',
+              );
           })
           .join("");
       }
 
-      function scrollDown() {
-        const main = document.querySelector("main");
-        main.scrollTop = main.scrollHeight;
+      function codeBlock(lang, code) {
+        const shown = escapeHtml(code);
+        const payload = encodeURIComponent(code);
+        return (
+          '<div class="code"><div class="code-bar">' +
+          `<span>${escapeHtml(lang || "text")}</span>` +
+          `<button class="mini" data-copy="${payload}">Copy</button>` +
+          `</div><pre><code>${shown}</code></pre></div>`
+        );
+      }
+
+      // A small, safe markdown renderer: everything is escaped before any tags
+      // are added, so model output can never inject markup.
+      function renderMarkdown(source) {
+        const lines = String(source ?? "").split("\n");
+        const out = [];
+        let paragraph = [];
+        let list = null;
+        let listType = "ul";
+        let index = 0;
+
+        const flushParagraph = () => {
+          if (paragraph.length) {
+            out.push(`<p>${paragraph.map(inline).join("<br />")}</p>`);
+            paragraph = [];
+          }
+        };
+        const flushList = () => {
+          if (list) {
+            out.push(`<${listType}>${list.map((item) => `<li>${inline(item)}</li>`).join("")}</${listType}>`);
+            list = null;
+          }
+        };
+
+        while (index < lines.length) {
+          const raw = lines[index];
+
+          if (/^```/.test(raw.trim())) {
+            flushParagraph();
+            flushList();
+            const lang = raw.trim().slice(3).trim();
+            const code = [];
+            index += 1;
+            while (index < lines.length && !/^```/.test(lines[index].trim())) {
+              code.push(lines[index]);
+              index += 1;
+            }
+            index += 1;
+            out.push(codeBlock(lang, code.join("\n")));
+            continue;
+          }
+
+          const heading = /^(#{1,6})\s+(.*)$/.exec(raw);
+          if (heading) {
+            flushParagraph();
+            flushList();
+            const level = Math.min(heading[1].length, 4);
+            out.push(`<h${level}>${inline(escapeHtml(heading[2]))}</h${level}>`);
+            index += 1;
+            continue;
+          }
+
+          if (/^(-{3,}|\*{3,}|_{3,})$/.test(raw.trim())) {
+            flushParagraph();
+            flushList();
+            out.push("<hr />");
+            index += 1;
+            continue;
+          }
+
+          if (/^>\s?/.test(raw)) {
+            flushParagraph();
+            flushList();
+            const quote = [];
+            while (index < lines.length && /^>\s?/.test(lines[index])) {
+              quote.push(escapeHtml(lines[index].replace(/^>\s?/, "")));
+              index += 1;
+            }
+            out.push(`<blockquote>${quote.map(inline).join("<br />")}</blockquote>`);
+            continue;
+          }
+
+          const unordered = /^\s*[-*+]\s+(.*)$/.exec(raw);
+          const ordered = /^\s*\d+\.\s+(.*)$/.exec(raw);
+          if (unordered || ordered) {
+            flushParagraph();
+            const type = unordered ? "ul" : "ol";
+            if (list && listType !== type) flushList();
+            list = list || [];
+            listType = type;
+            list.push(escapeHtml((unordered || ordered)[1]));
+            index += 1;
+            continue;
+          }
+
+          if (!raw.trim()) {
+            flushParagraph();
+            flushList();
+            index += 1;
+            continue;
+          }
+
+          paragraph.push(escapeHtml(raw));
+          index += 1;
+        }
+
+        flushParagraph();
+        flushList();
+        return out.join("");
+      }
+
+      /* --------------------------------------------------------- rendering */
+
+      function nearBottom() {
+        const main = $("scroll");
+        return main.scrollHeight - main.scrollTop - main.clientHeight < 120;
+      }
+
+      function scrollDown(force = false) {
+        const main = $("scroll");
+        if (force || nearBottom()) main.scrollTop = main.scrollHeight;
+      }
+
+      function updateJump() {
+        const away = !nearBottom() && state.messages.length > 0;
+        $("jumpBtn").classList.toggle("hidden", !away);
       }
 
       function setStatus(text) {
         $("status").textContent = text || "";
       }
 
-      function addMessage(role, text) {
-        $("empty")?.remove();
-        const wrap = document.createElement("div");
-        wrap.className = `msg ${role}`;
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-        if (role === "user") bubble.textContent = text;
-        else bubble.innerHTML = renderMarkdown(text);
-        wrap.appendChild(bubble);
-        $("thread").appendChild(wrap);
-        scrollDown();
-        return { wrap, bubble };
-      }
-
-      function addMeta(text, warning = false) {
-        const wrap = document.createElement("div");
-        wrap.className = "meta-line";
-        wrap.innerHTML = `<span class="${warning ? "warning" : "tag"}">${escapeHtml(text)}</span>`;
-        return wrap;
+      // What this chat has used so far: free requests (or messages) and the
+      // tokens the providers reported. Both are visible before the next send,
+      // so the free allowance is never a surprise.
+      function updateBudget() {
+        const cap = Number(state.settings.requestCap) || 0;
+        const el = $("budget");
+        const messages = state.messages.filter((m) => m.role === "user").length;
+        const tokens = state.messages.reduce((sum, m) => {
+          const usage = m.usage || {};
+          return sum + (Number(usage.prompt_tokens) || 0) + (Number(usage.completion_tokens) || 0);
+        }, 0);
+        const bits = [];
+        if (cap) {
+          bits.push(
+            state.requests >= cap
+              ? `${state.requests} of ${cap} free requests — cap reached`
+              : `${state.requests} of ${cap} free requests`,
+          );
+        } else {
+          bits.push(`${messages} message${messages === 1 ? "" : "s"}`);
+        }
+        if (tokens > 0) bits.push(`${tokens.toLocaleString()} tokens`);
+        el.textContent = bits.join(" · ");
+        el.className = `budget${cap && state.requests / cap >= 0.8 ? " warn" : ""}`;
       }
 
       function shortModel(id) {
-        return String(id || "").replace(":free", " · free");
+        return String(id || "").replace(":free", "");
+      }
+
+      function addAction(node, kind, label) {
+        const button = document.createElement("button");
+        button.dataset.act = kind;
+        button.textContent = label;
+        return button;
+      }
+
+      // The async clipboard API needs a secure context and can be blocked by
+      // policy, so fall back to the old selection trick before giving up.
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          /* fall through */
+        }
+        try {
+          const area = document.createElement("textarea");
+          area.value = text;
+          area.setAttribute("readonly", "");
+          area.style.position = "fixed";
+          area.style.top = "-1000px";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.select();
+          const ok = document.execCommand("copy");
+          area.remove();
+          return ok;
+        } catch {
+          return false;
+        }
+      }
+
+      function flash(button, text, restore) {
+        button.textContent = text;
+        setTimeout(() => {
+          button.textContent = restore;
+        }, 1200);
+      }
+
+      function renderToolRow(tools) {
+        const row = document.createElement("div");
+        row.className = "tool-row";
+        for (const tool of tools) {
+          const chip = document.createElement("span");
+          chip.className = `tool-chip${tool.ok === false ? " failed" : ""}`;
+          chip.title = tool.preview || "";
+          chip.innerHTML = `⚙ <b>${escapeHtml(tool.name)}</b> → ${escapeHtml(shorten(tool.preview || "", 60))}`;
+          row.appendChild(chip);
+        }
+        return row;
+      }
+
+      function shorten(text, limit) {
+        const flat = String(text).replace(/\s+/g, " ").trim();
+        return flat.length > limit ? `${flat.slice(0, limit - 1)}…` : flat;
+      }
+
+      function appendLog(node, lines) {
+        if (state.settings.showLog === false) return;
+        if (!Array.isArray(lines) || lines.length === 0) return;
+        if (node.querySelector(".fallback-log")) return;
+
+        const box = document.createElement("details");
+        box.className = "fallback-log";
+        const summary = document.createElement("summary");
+        summary.textContent = "What happened";
+        const list = document.createElement("ul");
+        for (const line of lines) {
+          const item = document.createElement("li");
+          item.textContent = line;
+          list.appendChild(item);
+        }
+        box.append(summary, list);
+        node.appendChild(box);
+      }
+
+      function createMessageNode(message, index) {
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${message.role}`;
+        if (index >= 0) wrap.dataset.index = String(index);
+
+        if (message.role === "assistant") {
+          const meta = document.createElement("div");
+          meta.className = "meta-line";
+          meta.textContent = message.model
+            ? `answered by ${message.model}`
+            : index < 0
+              ? "connecting…"
+              : "answered";
+          wrap.appendChild(meta);
+
+          if (message.tools?.length) wrap.appendChild(renderToolRow(message.tools));
+
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.innerHTML = message.content ? renderMarkdown(message.content) : "";
+          wrap.appendChild(bubble);
+          if (message.log?.length) appendLog(wrap, message.log);
+        } else {
+          if (message.images?.[0]) {
+            const image = document.createElement("img");
+            image.className = "msg-image";
+            image.src = message.images[0];
+            image.alt = "Attached image";
+            wrap.appendChild(image);
+          }
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = message.content;
+          wrap.appendChild(bubble);
+        }
+
+        if (index >= 0) {
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          actions.appendChild(addAction(wrap, "copy", "Copy"));
+          actions.appendChild(
+            message.role === "assistant" ? addAction(wrap, "regen", "Regenerate") : addAction(wrap, "edit", "Edit"),
+          );
+          actions.appendChild(addAction(wrap, "branch", "Branch"));
+          wrap.appendChild(actions);
+        }
+
+        return wrap;
+      }
+
+      function showEmpty(show) {
+        const empty = $("empty");
+        if (empty) empty.style.display = show ? "" : "none";
+      }
+
+      function renderThread() {
+        const thread = $("thread");
+        for (const node of thread.querySelectorAll(".msg")) node.remove();
+        showEmpty(state.messages.length === 0);
+        state.messages.forEach((message, index) => thread.appendChild(createMessageNode(message, index)));
+        scrollDown(true);
+        updateJump();
+        updateBudget();
+      }
+
+      /* -------------------------------------------------------------- rail */
+
+      const RAIL_KEY = "openrouter.rail.v1";
+
+      function railOpen(open) {
+        state.rail = open;
+        $("rail").classList.toggle("hidden", !open);
+        try {
+          localStorage.setItem(RAIL_KEY, open ? "1" : "0");
+        } catch {
+          /* private mode */
+        }
+        if (open) refreshFiles();
+      }
+
+      function showRailTab(tab) {
+        for (const button of document.querySelectorAll(".rail-tab")) {
+          button.classList.toggle("active", button.dataset.rail === tab);
+        }
+        // One rule for every panel id (railFiles → files). The GitHub tab shipped
+        // in 1.10.0 with its own explicit toggles missing, so its body stayed
+        // hidden; deriving the name from the id makes that impossible again.
+        for (const body of document.querySelectorAll(".rail-body")) {
+          const key = body.id.replace(/^rail/, "").toLowerCase();
+          body.classList.toggle("hidden", key !== tab);
+        }
+        if (tab === "secrets") refreshSecrets();
+        if (tab === "files") refreshFiles();
+        if (tab === "github") refreshGithub();
+        if (tab === "preview") openPreview();
+        if (tab === "status") refreshStatus();
+      }
+
+      function goUp() {
+        const parts = (state.fsPath || "").split("/").filter(Boolean);
+        parts.pop();
+        state.fsPath = parts.join("/");
+        refreshFiles();
+      }
+
+      // A starter page is written into the selected workspace, not the app
+      // folder. The preview inlines style.css because srcdoc has no relative URL.
+      const SAMPLE_STYLE = `:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#101215;color:#edf0f3;font-family:Arial,Helvetica,sans-serif}.card{width:min(620px,100%);padding:34px;border:1px solid #343c47;border-radius:18px;background:#191d22;box-shadow:0 24px 80px #0006}.eyebrow{margin:0 0 8px;color:#9fe3c0;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.05}p{color:#aab3bf;line-height:1.6}#preview{margin-top:22px;padding:12px 14px;border:1px solid #343c47;border-radius:10px;background:#222830}code{color:#9fe3c0}`;
+      const SAMPLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Sample page</title><link rel="stylesheet" href="./style.css"></head><body><main class="card"><p class="eyebrow">Workspace preview</p><h1>Sample page is working.</h1><p>This page was written to your workspace. No JavaScript is required.</p><div id="preview">HTML and CSS loaded successfully.</div></main></body></html>`;
+      const SAMPLE_PREVIEW = SAMPLE_HTML.replace(
+        '<link rel="stylesheet" href="./style.css">',
+        `<style>${SAMPLE_STYLE}</style>`,
+      );
+
+      async function createSamplePage() {
+        try {
+          await api("/api/fs/write", {
+            method: "POST",
+            body: JSON.stringify({ path: "sample/index.html", content: SAMPLE_HTML }),
+          });
+          await api("/api/fs/write", {
+            method: "POST",
+            body: JSON.stringify({ path: "sample/style.css", content: SAMPLE_STYLE }),
+          });
+          state.fsPath = "sample";
+          await refreshFiles();
+          await openFile("sample/index.html");
+          showLocalPreview(SAMPLE_PREVIEW, "sample/index.html");
+          setStatus("sample page created");
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function refreshFiles() {
+        const list = $("fsList");
+        try {
+          const data = await api(`/api/fs?path=${encodeURIComponent(state.fsPath || ".")}`);
+          $("fsHint").hidden = true;
+          $("fsPath").textContent = `/${data.path}`;
+          list.textContent = "";
+          if (data.path) {
+            const up = document.createElement("button");
+            up.type = "button";
+            up.className = "fs-row";
+            up.innerHTML = '<span class="kind">↑</span><span class="name">..</span>';
+            up.addEventListener("click", goUp);
+            list.appendChild(up);
+          }
+          for (const entry of data.entries) {
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = "fs-row";
+            row.innerHTML =
+              `<span class="kind">${entry.type === "dir" ? "▸" : "·"}</span>` +
+              `<span class="name">${escapeHtml(entry.name)}</span>` +
+              `<span class="size">${entry.type === "dir" ? "" : entry.size}</span>`;
+            row.addEventListener("click", () => {
+              const full = data.path ? `${data.path}/${entry.name}` : entry.name;
+              if (entry.type === "dir") {
+                state.fsPath = full;
+                refreshFiles();
+              } else {
+                openFile(full);
+              }
+            });
+            list.appendChild(row);
+          }
+          if (data.entries.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "This folder is empty.";
+            list.appendChild(note);
+          }
+        } catch (error) {
+          list.textContent = "";
+          $("fsHint").hidden = false;
+          $("fsHint").textContent = error.message;
+        }
+      }
+
+      async function openFile(filePath) {
+        try {
+          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+          state.fsFile = file.path;
+          $("fsFileName").textContent = `/${file.path}`;
+          $("fsContent").value = file.content;
+          $("fsEditor").classList.remove("hidden");
+          $("fsContent").focus();
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function saveFile() {
+        if (!state.fsFile) return;
+        try {
+          const result = await api("/api/fs/write", {
+            method: "POST",
+            body: JSON.stringify({ path: state.fsFile, content: $("fsContent").value }),
+          });
+          setStatus(`saved /${result.path}`);
+          refreshFiles();
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function refreshSecrets() {
+        const list = $("secList");
+        try {
+          const data = await api("/api/secrets");
+          list.textContent = "";
+          for (const secret of data.names) {
+            const row = document.createElement("div");
+            row.className = "fs-row";
+            row.innerHTML =
+              '<span class="kind">•</span>' +
+              `<span class="name">${escapeHtml(secret.name)}</span>` +
+              `<span class="size">${escapeHtml(secret.hint)}</span>`;
+            const remove = document.createElement("button");
+            remove.className = "mini";
+            remove.type = "button";
+            remove.textContent = "✕";
+            remove.title = `Delete ${secret.name}`;
+            remove.addEventListener("click", async () => {
+              if (!confirm(`Delete the secret ${secret.name}?`)) return;
+              try {
+                await api(`/api/secrets?name=${encodeURIComponent(secret.name)}`, { method: "DELETE" });
+                refreshSecrets();
+              } catch (error) {
+                setStatus(error.message);
+              }
+            });
+            row.appendChild(remove);
+            list.appendChild(row);
+          }
+          if (data.names.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "No secrets yet.";
+            list.appendChild(note);
+          }
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function addSecret() {
+        const name = $("secName").value.trim();
+        const value = $("secValue").value;
+        if (!name || !value) {
+          $("secStatus").textContent = "Name and value are required.";
+          return;
+        }
+        try {
+          await api("/api/secrets", { method: "POST", body: JSON.stringify({ name, value }) });
+          $("secName").value = "";
+          $("secValue").value = "";
+          $("secStatus").textContent = "saved";
+          setTimeout(() => {
+            $("secStatus").textContent = "";
+          }, 1500);
+          refreshSecrets();
+        } catch (error) {
+          $("secStatus").textContent = error.message;
+        }
+      }
+
+      // What this run actually did: attempts, outcomes, latency and which models
+      // are being skipped. Read-only and per-run, so it never grows a history file.
+      function retryLabel(until) {
+        const left = Number(until) - Date.now();
+        return left > 0 ? `retry in ${Math.ceil(left / 1000)}s` : "ready";
+      }
+
+      async function tryCoolingModel(id) {
+        if (!state.models.some((model) => model.id === id)) {
+          return setStatus(`switch to the provider that offers ${shortModel(id)}`);
+        }
+        await chooseModel(id);
+        setStatus(`selected ${shortModel(id)} — send when ready`);
+        $("input").focus();
+      }
+
+      async function refreshStatus() {
+        const summaryLine = $("stSummary");
+        const coolingList = $("stCooling");
+        const recentList = $("stRecent");
+        try {
+          const data = await api("/api/status");
+          const s = data.summary;
+          summaryLine.textContent = s.requests
+            ? `${s.ok}/${s.requests} ok · ${s.successRate}% · avg ${s.avgMs ?? "–"} ms`
+            : "no attempts yet this session";
+
+          const planList = $("stPlans");
+          if (planList) {
+            planList.textContent = "";
+            for (const provider of providers) {
+              const row = document.createElement("div");
+              row.className = "fs-row";
+              row.innerHTML =
+                '<span class="name">' + escapeHtml(provider.label) + "</span>" +
+                '<span class="size">' + escapeHtml(provider.planLabel || "free plan") + "</span>";
+              row.title = (provider.limitLines || []).join(" · ");
+              planList.appendChild(row);
+              const cap = document.createElement("p");
+              cap.className = "fine capLine";
+              cap.textContent = (provider.limitLines || []).join(" · ");
+              planList.appendChild(cap);
+            }
+          }
+
+          const healthList = $("stHealth");
+          if (healthList) {
+            healthList.textContent = "";
+            for (const provider of providers) {
+              const row = document.createElement("div");
+              row.className = "fs-row";
+              const keyState =
+                provider.local || provider.anonymous
+                  ? "no key needed"
+                  : provider.hasKey === true
+                    ? "key ready"
+                    : "key needed";
+              row.innerHTML =
+                '<span class="name">' + escapeHtml(provider.label) + "</span>" +
+                '<span class="size">' + escapeHtml(keyState) + "</span>";
+              healthList.appendChild(row);
+            }
+            const byModel = new Map();
+            for (const entry of data.recent || []) {
+              if (!entry.model) continue;
+              const item = byModel.get(entry.model) || { attempts: 0, failed: 0, total: 0, timed: 0 };
+              item.attempts += 1;
+              if (entry.status !== "ok") item.failed += 1;
+              if (Number.isFinite(entry.ms)) {
+                item.total += entry.ms;
+                item.timed += 1;
+              }
+              byModel.set(entry.model, item);
+            }
+            for (const [id, item] of [...byModel].sort((a, b) => b[1].attempts - a[1].attempts).slice(0, 8)) {
+              const row = document.createElement("div");
+              row.className = "fs-row";
+              row.title = id;
+              row.innerHTML =
+                '<span class="name">' + escapeHtml(shortModel(id)) + "</span>" +
+                '<span class="size">' + item.attempts + " tries · " + item.failed + " failed · avg " +
+                (item.timed ? Math.round(item.total / item.timed) : "–") + " ms</span>";
+              healthList.appendChild(row);
+            }
+            if (byModel.size === 0) {
+              const note = document.createElement("p");
+              note.className = "fine";
+              note.textContent = "Send a message to populate model health.";
+              healthList.appendChild(note);
+            }
+          }
+
+          coolingList.textContent = "";
+          if (data.cooling.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "No model is cooling down.";
+            coolingList.appendChild(note);
+          }
+          for (const item of data.cooling) {
+            const row = document.createElement("div");
+            row.className = "fs-row";
+            const until = Date.parse(item.until) || Date.now() + 60_000;
+            row.innerHTML =
+              '<span class="kind">▲</span>' +
+              `<span class="name">${escapeHtml(shortModel(item.model))}</span>`;
+            const wait = document.createElement("span");
+            wait.className = "size";
+            wait.dataset.until = String(until);
+            wait.textContent = retryLabel(until);
+            const retry = document.createElement("button");
+            retry.type = "button";
+            retry.className = "mini";
+            retry.textContent = "Try";
+            retry.title = `Select ${item.model} and focus the message box`;
+            retry.addEventListener("click", () => void tryCoolingModel(item.model));
+            row.append(wait, retry);
+            row.title = `${item.model} — ${item.reason || "failed"}; ${retryLabel(until)}`;
+            coolingList.appendChild(row);
+          }
+
+          recentList.textContent = "";
+          const recent = data.recent.slice(-12).reverse();
+          if (recent.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "Send a message and each attempt appears here.";
+            recentList.appendChild(note);
+          }
+          for (const entry of recent) {
+            const row = document.createElement("div");
+            row.className = "fs-row";
+            row.innerHTML =
+              `<span class="kind">${entry.status === "ok" ? "✓" : "✕"}</span>` +
+              `<span class="name">${escapeHtml(shortModel(entry.model || "unknown"))}</span>` +
+              `<span class="size">${
+                entry.status === "ok" ? "" : `${escapeHtml(entry.status)} `
+              }${entry.ms ?? "–"} ms</span>`;
+            recentList.appendChild(row);
+          }
+        } catch (error) {
+          summaryLine.textContent = error.message;
+        }
+      }
+
+      setInterval(() => {
+        for (const node of document.querySelectorAll("[data-until]")) {
+          node.textContent = retryLabel(Number(node.dataset.until));
+        }
+      }, 1000);
+
+      function previewNote(text) {
+        $("pvNote").textContent = text;
+      }
+
+      // Only an http(s) address ever reaches the frame. The address lives on state
+      // so switching chats and coming back reopens the same server.
+      const PV_REMOTE_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals";
+      const PV_LOCAL_SANDBOX = "allow-scripts allow-forms allow-popups";
+
+      function applyPreview(value, { load = true } = {}) {
+        const frame = $("pvFrame");
+        state.localPreview = false;
+        frame.setAttribute("sandbox", PV_REMOTE_SANDBOX);
+        frame.removeAttribute("srcdoc");
+        const raw = String(value ?? "").trim();
+        if (!raw) {
+          state.preview = "";
+          state.pvLoaded = false;
+          clearTimeout(state.pvTimer);
+          frame.removeAttribute("src");
+          $("pvUrl").value = "";
+          previewNote("Paste the address of a local dev server. It is saved with this chat.");
+          return false;
+        }
+        if (!/^https?:\/\//i.test(raw)) {
+          previewNote("Only http:// and https:// addresses can be previewed.");
+          return false;
+        }
+        state.preview = raw;
+        $("pvUrl").value = raw;
+        if (!load) return true;
+        state.pvLoaded = false;
+        previewNote("Loading… if nothing appears, that site may refuse to be framed.");
+        frame.src = raw;
+        clearTimeout(state.pvTimer);
+        state.pvTimer = setTimeout(() => {
+          if (state.pvLoaded) return;
+          previewNote(
+            "Nothing arrived. A dev server that sends X-Frame-Options or frame-ancestors " +
+              "cannot be framed — use Open ↗ instead.",
+          );
+        }, 5000);
+        return true;
+      }
+
+      function openPreview() {
+        if (state.localPreview) return;
+        if (state.preview) applyPreview(state.preview);
+        else applyPreview("");
+      }
+
+      function showLocalPreview(html, label) {
+        state.localPreview = true;
+        state.preview = "";
+        clearTimeout(state.pvTimer);
+        const frame = $("pvFrame");
+        frame.setAttribute("sandbox", PV_LOCAL_SANDBOX);
+        frame.removeAttribute("src");
+        frame.srcdoc = String(html);
+        $("pvUrl").value = "";
+        previewNote(`Previewing ${label} from the workspace. Inline CSS and JS run sandboxed; external files are not loaded.`);
+        showRailTab("preview");
+      }
+
+      async function savePreview() {
+        if (!applyPreview($("pvUrl").value)) return;
+        if (!state.threadId) {
+          previewNote("Saved with this chat once the first message is sent.");
+          return;
+        }
+        try {
+          await api(`/api/preview/${encodeURIComponent(state.threadId)}`, {
+            method: "POST",
+            body: JSON.stringify({ url: state.preview }),
+          });
+          previewNote("Saved with this chat. If nothing appears, use Open ↗.");
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      async function refreshGithub() {
+        const status = $("ghStatus");
+        const list = $("ghRepos");
+        list.textContent = "";
+        $("ghRepoBox").hidden = true;
+        try {
+          const me = await api("/api/github?what=viewer");
+          const data = await api("/api/github?what=repos");
+          status.textContent = `Signed in as ${me.login}`;
+          for (const repo of data.items) {
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = "fs-row";
+            row.innerHTML =
+              `<span class="kind">${repo.private ? "▪" : "▸"}</span>` +
+              `<span class="name">${escapeHtml(repo.fullName)}</span>`;
+            row.title = repo.description || repo.fullName;
+            row.addEventListener("click", () => openRepo(repo.fullName));
+            list.appendChild(row);
+          }
+          if (data.items.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "The token cannot see any repositories.";
+            list.appendChild(note);
+          }
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      }
+
+      async function openRepo(fullName) {
+        state.ghRepo = fullName;
+        $("ghRepoTitle").textContent = fullName;
+        $("ghRepoBox").hidden = false;
+        await loadGithubView("issues");
+      }
+
+      async function loadGithubView(what) {
+        state.ghView = what;
+        for (const button of document.querySelectorAll("[data-gh-view]")) {
+          button.classList.toggle("active", button.dataset.ghView === what);
+        }
+        const list = $("ghItems");
+        list.textContent = "";
+        try {
+          const data = await api(
+            `/api/github?what=${what}&repo=${encodeURIComponent(state.ghRepo)}`,
+          );
+          for (const item of data.items) {
+            const link = document.createElement("a");
+            link.className = "fs-row";
+            link.href = item.url;
+            link.target = "_blank";
+            link.rel = "noreferrer";
+            const label =
+              what === "commits"
+                ? `${item.sha}  ${item.message}`
+                : `#${item.number}  ${item.title}`;
+            link.innerHTML = `<span class="name">${escapeHtml(label)}</span>`;
+            list.appendChild(link);
+          }
+          if (data.items.length === 0) {
+            const note = document.createElement("p");
+            note.className = "fine";
+            note.textContent = "Nothing here.";
+            list.appendChild(note);
+          }
+        } catch (error) {
+          const note = document.createElement("p");
+          note.className = "fine";
+          note.textContent = error.message;
+          list.appendChild(note);
+        }
+      }
+
+      // A model asking to write a file: nothing happens until this is answered.
+      function addConfirmCard(node, event) {
+        let args = {};
+        try {
+          args = JSON.parse(event.arguments || "{}");
+        } catch {
+          args = {};
+        }
+        const card = document.createElement("div");
+        card.className = "confirm-card";
+        const title = document.createElement("div");
+        title.className = "confirm-title";
+        title.textContent = `Approve ${event.name}?`;
+        const detail = document.createElement("pre");
+        detail.className = "confirm-detail";
+        if (event.name === "apply_patch") {
+          detail.classList.add("diff");
+          detail.textContent =
+            typeof event.diff === "string" && event.diff
+              ? event.diff
+              : event.arguments ?? "";
+        } else if (event.name === "write_file") {
+          const content = typeof args.content === "string" ? args.content : "";
+          detail.textContent = `/${args.path ?? "?"}  ·  ${content.length} characters\n\n${
+            content.length > 400 ? `${content.slice(0, 400)}\n…` : content
+          }`;
+        } else if (event.name === "run_tests") {
+          const list = Array.isArray(args.args) ? args.args : ["test"];
+          detail.textContent =
+            `$ ${[args.program || "?", ...list].join(" ")}` +
+            (args.cwd ? `\n\nin /${args.cwd}` : "\n\nin the workspace root") +
+            "\n\nThe output is parsed into a pass/fail summary with file and line.";
+        } else if (event.name === "run_command") {
+          const list = Array.isArray(args.args) ? args.args : [];
+          detail.textContent =
+            `${args.program || "?"} ${list.join(" ")}`.trim() +
+            (args.cwd ? `\n\nin /${args.cwd}` : "\n\nin the workspace root") +
+            "\n\nNo shell: these arguments are passed to the program exactly as shown.";
+        } else {
+          detail.textContent = event.arguments ?? "";
+        }
+        const row = document.createElement("div");
+        row.className = "rail-row";
+        const allow = document.createElement("button");
+        allow.type = "button";
+        allow.className = "primary";
+        allow.textContent = "Allow";
+        const deny = document.createElement("button");
+        deny.type = "button";
+        deny.className = "ghost";
+        deny.textContent = "Deny";
+        const answer = async (value) => {
+          allow.disabled = true;
+          deny.disabled = true;
+          try {
+            await api("/api/chat/confirm", {
+              method: "POST",
+              body: JSON.stringify({ id: event.id, allow: value }),
+            });
+            title.textContent = value ? "Approved" : "Denied";
+            card.classList.add(value ? "ok" : "no");
+            setStatus("");
+          } catch (error) {
+            title.textContent = error.message;
+          }
+        };
+        allow.addEventListener("click", () => answer(true));
+        deny.addEventListener("click", () => answer(false));
+        row.append(allow, deny);
+        card.append(title, detail, row);
+        node.appendChild(card);
+      }
+
+      /* --------------------------------------------------------------- api */
+
+      // The app token belongs to one run of the server. After a restart every
+      // open tab is stale, and the only fix is to load the page again — but once
+      // per tab, so a real problem does not turn into a reload loop.
+      function retryWithFreshToken() {
+        const FLAG = "openrouter.tokenReload";
+        try {
+          if (sessionStorage.getItem(FLAG)) {
+            setStatus("This tab is out of date. Close it and open the app again.");
+            return false;
+          }
+          sessionStorage.setItem(FLAG, "1");
+        } catch {
+          return false;
+        }
+        setStatus("Reconnecting…");
+        setTimeout(() => location.reload(), 120);
+        return true;
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          // A stalled connection must fail in half a minute rather than hang for ever.
+          // Older browsers have no AbortSignal.timeout, so fall back to no signal.
+          signal:
+            options.signal ??
+            (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+              ? AbortSignal.timeout(30_000)
+              : undefined),
+          headers: {
+            "content-type": "application/json",
+            "x-app-token": APP_TOKEN,
+            ...(options.headers || {}),
+          },
+        });
+        if (response.status === 403) {
+          retryWithFreshToken();
+          throw Object.assign(new Error("The app restarted. Reloading…"), { status: 403 });
+        }
+        const text = await response.text();
+        let body = {};
+        try {
+          body = text ? JSON.parse(text) : {};
+        } catch {
+          body = { error: text };
+        }
+        if (!response.ok) {
+          throw Object.assign(new Error(body.error || `HTTP ${response.status}`), {
+            status: response.status,
+            body,
+          });
+        }
+        try {
+          sessionStorage.removeItem("openrouter.tokenReload");
+        } catch {
+          /* private mode */
+        }
+        return body;
+      }
+
+      /* ------------------------------------------------------ key + quota */
+
+      // Which provider this tab is talking to. Kept outside state because it is
+      // read by the header before the first chat exists.
+      let activeProviderId = "openrouter";
+      let providers = [];
+
+      function providerInfo(id = activeProviderId) {
+        return providers.find((provider) => provider.id === id) || {
+          id,
+          label: "OpenRouter",
+          hasKey: false,
+          requiresAccount: false,
+          hasAccount: false,
+          freePolicy: "pricing",
+          planLabel: "free plan",
+          limitLines: ["No published request numbers; the provider sets the cap."],
+          keyHint: "sk-or-v1-…",
+          keysUrl: "https://openrouter.ai/settings/keys",
+          note: "Free models only — every id is checked against live pricing before it is sent.",
+        };
+      }
+
+      function renderProviders() {
+        const select = $("provider");
+        select.textContent = "";
+        for (const provider of providers) {
+          const option = document.createElement("option");
+          option.value = provider.id;
+          // The plan is part of the name, so "free" never hides whether the
+          // allowance is daily, monthly, or a keyless demo.
+          option.textContent = provider.local
+            ? provider.available === false
+              ? `${provider.label} — not running`
+              : `${provider.label} — ${provider.planLabel}`
+            : `${provider.label} — ${provider.planLabel}${provider.hasKey ? (provider.requiresAccount && !provider.hasAccount ? ' · add account' : '') : ' · add key'}`;
+          select.appendChild(option);
+        }
+        select.value = activeProviderId;
+        updatePolicyPill();
+      }
+
+      function updatePolicyPill() {
+        const info = providerInfo();
+        const pill = $("policy");
+        pill.textContent = info.planLabel || (info.freePolicy === "pricing" ? "verified free" : "free plan");
+        pill.title = [
+          info.freePolicy === "pricing"
+            ? "Each model id is checked against live pricing before it is sent."
+            : info.freePolicy === "local"
+              ? "Runs on this computer: no key, no account, nothing sent to a company."
+              : `Allowlist of ${info.label} models; the plan is ${info.planLabel || "free"}.`,
+          info.note || "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }
+
+      async function refreshProviders() {
+        const state = await api("/api/providers").catch(() => null);
+        if (!state) return;
+        if (Array.isArray(state.providers)) providers = state.providers;
+        if (typeof state.provider === "string") activeProviderId = state.provider;
+        renderProviders();
+        updatePolicyPill();
+      }
+
+      function showKeyOverlay(message) {
+        const info = providerInfo();
+        $("keyTitle").textContent = `Connect ${info.label}`;
+        $("keySteps").innerHTML =
+          `<li>Open <a href="${escapeHtml(info.keysUrl)}" target="_blank" rel="noreferrer">` +
+          `${escapeHtml(String(info.keysUrl).replace(/^https?:\/\//, ""))}</a></li>` +
+          `<li>Create a key — the free plan needs no card</li>` +
+          `<li>Paste it below; it is stored on this computer only</li>`;
+        $("keyLimits").innerHTML = (info.limitLines || [])
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join("");
+        $("keyInput").placeholder = info.keyHint || "";
+        $("keyHelp").textContent = info.note || "";
+        $("keyAccountField").hidden = !info.requiresAccount;
+        $("keyAccount").value = "";
+        $("keyAccount").placeholder = info.accountHint || "32-character Account ID";
+        $("keyAccountHelp").textContent = info.requiresAccount
+          ? (info.hasAccount
+            ? "An account ID is already saved. Paste both values to replace them."
+            : "Cloudflare needs both its API token and the account ID from the dashboard.")
+          : "";
+        $("keyError").textContent = message || "";
+        $("keyInput").value = "";
+        const free = providers.find((provider) => provider.anonymous);
+        $("keyTry").hidden = !free || Boolean(info.anonymous);
+        $("keyTry").textContent = free
+          ? `Try ${free.label.replace(" (no key)", "")} — no key`
+          : "Try it now — no key";
+        $("keyTry").disabled = false;
+        $("keyOverlay").classList.remove("hidden");
+        $("keyInput").focus();
+      }
+
+      // First run should not be a wall. The keyless public provider lets someone
+      // see a real answer before deciding to make an account anywhere.
+      async function tryWithoutKey() {
+        const free = providers.find((provider) => provider.anonymous);
+        if (!free) return;
+        const button = $("keyTry");
+        button.disabled = true;
+        button.textContent = "Starting…";
+        try {
+          await api("/api/config", {
+            method: "POST",
+            body: JSON.stringify({ provider: free.id }),
+          });
+          activeProviderId = free.id;
+          await refreshProviders();
+          $("keyOverlay").classList.add("hidden");
+          await start();
+        } catch (error) {
+          $("keyError").textContent = error.message;
+        } finally {
+          button.disabled = false;
+          button.textContent = `Try ${free.label.replace(" (no key)", "")} — no key`;
+        }
+      }
+
+      function markKeyInvalid(message) {
+        const pill = $("quota");
+        pill.classList.add("warn");
+        pill.textContent = "key rejected — click to fix";
+        showKeyOverlay(message);
       }
 
       async function refreshQuota() {
+        const pill = $("quota");
+        // Quota reporting is an OpenRouter endpoint; the others have no such API.
+        if (activeProviderId !== "openrouter") {
+          pill.classList.remove("warn");
+          pill.textContent = providerInfo().local
+            ? "local · free"
+            : `${providerInfo().label} · ${providerInfo().planLabel}`;
+          return;
+        }
         try {
-          const info = await api("/api/key");
+          const response = await fetch("/api/key", { headers: { "x-app-token": APP_TOKEN } });
+          const info = await response.json().catch(() => ({}));
+          if (info?.status === 401 || info?.status === 403) {
+            markKeyInvalid(info.message || "OpenRouter rejected the saved key.");
+            return;
+          }
+          pill.classList.remove("warn");
           if (!info.ok) {
-            $("quota").innerHTML = `<b>key</b> unchecked`;
+            pill.innerHTML = "<b>key</b> unchecked";
             return;
           }
           const free = info.freeDaily;
           if (free && typeof free.remaining === "number") {
-            $("quota").innerHTML = `<b>${free.remaining}</b>/${free.limit} free left today`;
+            pill.innerHTML = `<b>${free.remaining}</b> free today`;
+          } else if (info.limitRemaining !== null && info.limitRemaining !== undefined) {
+            pill.innerHTML = `credits <b>${Number(info.limitRemaining).toFixed(2)}</b>`;
           } else {
-            $("quota").innerHTML = `credits <b>${Number(info.limitRemaining ?? 0).toFixed(2)}</b>`;
+            pill.textContent = "no credit limit";
           }
         } catch {
-          $("quota").innerHTML = `quota unavailable`;
+          pill.textContent = "quota unavailable";
         }
+      }
+
+      /* ------------------------------------------------------------ models */
+
+      // Each provider keeps its own choice: a Groq id is meaningless on
+      // OpenRouter, and switching back used to lose the model you had picked.
+      function modelKey() {
+        return `openrouter.model.${activeProviderId}`;
       }
 
       async function loadModels() {
-        const data = await api("/api/models");
+        const data = await api(`/api/models?free=1&provider=${encodeURIComponent(activeProviderId)}`);
         state.models = data.models;
-        if (!state.model) {
-          const saved = localStorage.getItem("openrouter.model");
-          const free = state.models.filter((m) => m.free);
-          state.model = free.find((m) => m.id === saved)?.id || free[0]?.id || state.models[0]?.id || null;
-        }
-        updateModelButton();
-        return state.models;
+        const saved =
+          state.model || localStorage.getItem(modelKey()) || localStorage.getItem("openrouter.model");
+        const match = state.models.find((m) => m.id === saved);
+        state.model = match?.id || state.models[0]?.id || null;
+        updateModelChip();
+        persist();
       }
 
-      function updateModelButton() {
+      function updateModelChip() {
         $("modelBtn").textContent = state.model ? shortModel(state.model) : "Choose model";
       }
 
       function filteredModels() {
-        const q = $("search").value.trim().toLowerCase();
-        const freeOnly = $("fFree").checked;
+        const query = $("search").value.trim().toLowerCase();
         const tools = $("fTools").checked;
         const vision = $("fVision").checked;
         const minContext = Number($("fContext").value) || 0;
         return state.models
-          .filter((m) => (freeOnly ? m.free : true))
+          .filter((m) => m.free)
           .filter((m) => (tools ? m.tools : true))
           .filter((m) => (vision ? m.vision : true))
           .filter((m) => m.context >= minContext)
-          .filter((m) => !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
+          .filter((m) => !query || m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query));
+      }
+
+      // Model pins and recents match the cloud picker. Both are view state, so
+      // they stay in this browser instead of being written into a chat.
+      const MODEL_PINS_KEY = "openrouter.modelPins";
+      const MODEL_RECENTS_KEY = "openrouter.modelRecents";
+      function readIdList(key) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || "[]");
+          return Array.isArray(value) ? value.filter((id) => typeof id === "string").slice(0, 20) : [];
+        } catch {
+          return [];
+        }
+      }
+      function toggleModelPin(id) {
+        const pins = readIdList(MODEL_PINS_KEY);
+        const next = pins.includes(id) ? pins.filter((each) => each !== id) : [id, ...pins];
+        localStorage.setItem(MODEL_PINS_KEY, JSON.stringify(next));
+        renderPicker();
+      }
+      function rememberModel(id) {
+        const next = [id, ...readIdList(MODEL_RECENTS_KEY).filter((each) => each !== id)].slice(0, 8);
+        localStorage.setItem(MODEL_RECENTS_KEY, JSON.stringify(next));
+      }
+
+      async function chooseModel(id) {
+        state.model = id;
+        rememberModel(id);
+        localStorage.setItem(modelKey(), id);
+        localStorage.setItem("openrouter.model", id);
+        updateModelChip();
+        $("picker").classList.add("hidden");
+        persist();
+        try {
+          await api("/api/config", { method: "POST", body: JSON.stringify({ model: id }) });
+        } catch {
+          /* the choice still applies to this session */
+        }
+      }
+
+      function paintPicker() {
+        state.pickerRows.forEach((row, index) => row.classList.toggle("active", index === state.pickerActive));
+        const row = state.pickerRows[state.pickerActive];
+        if (row) row.scrollIntoView({ block: "nearest" });
       }
 
       function renderPicker() {
         const list = filteredModels();
+        const pins = readIdList(MODEL_PINS_KEY);
+        const recents = readIdList(MODEL_RECENTS_KEY);
+        const pinned = list.filter((model) => pins.includes(model.id));
+        const recent = list
+          .filter((model) => !pins.includes(model.id) && recents.includes(model.id))
+          .sort((a, b) => recents.indexOf(a.id) - recents.indexOf(b.id));
+        const rest = list.filter((model) => !pins.includes(model.id) && !recents.includes(model.id));
+        const groups = [
+          { label: "Pinned", models: pinned },
+          { label: "Recent", models: recent },
+          { label: "All free models", models: rest },
+        ].filter((group) => group.models.length);
+
         $("pickerCount").textContent = `${list.length} models`;
         const container = $("modelList");
         container.textContent = "";
-        for (const model of list.slice(0, 250)) {
-          const row = document.createElement("div");
-          row.className = `model-row${model.id === state.model ? " selected" : ""}`;
-          const price = model.free ? "free" : `$${model.inPrice}/M in · $${model.outPrice}/M out`;
-          row.innerHTML = `
-            <span class="name">${escapeHtml(model.name)}<br /><span class="fine">${escapeHtml(model.id)}</span></span>
-            <span class="num">${Math.round(model.context / 1000)}K ctx</span>
-            <span class="num">${price}</span>
-            ${model.tools ? '<span class="badge">tools</span>' : ""}
-            ${model.vision ? '<span class="badge">vision</span>' : ""}
-            ${model.free ? '<span class="badge free">free</span>' : ""}
-          `;
-          row.addEventListener("click", async () => {
-            state.model = model.id;
-            localStorage.setItem("openrouter.model", model.id);
-            updateModelButton();
-            $("picker").classList.add("hidden");
-            try { await api("/api/config", { method: "POST", body: JSON.stringify({ model: model.id }) }); } catch {}
-          });
-          container.appendChild(row);
+        state.pickerRows = [];
+        for (const group of groups) {
+          const heading = document.createElement("div");
+          heading.className = "group-label";
+          heading.textContent = group.label;
+          container.appendChild(heading);
+          for (const model of group.models.slice(0, 250)) {
+            const row = document.createElement("div");
+            row.className = `model-row${model.id === state.model ? " selected" : ""}`;
+            row.dataset.id = model.id;
+            row.setAttribute("role", "option");
+            row.setAttribute("aria-selected", model.id === state.model ? "true" : "false");
+            const price = model.free ? "free" : `$${model.inPrice}/M in · $${model.outPrice}/M out`;
+            row.innerHTML =
+              `<span class="name">${escapeHtml(model.name)}<span class="sub">${escapeHtml(model.id)}</span></span>` +
+              `<span class="num">${Math.round(model.context / 1000)}K</span>` +
+              `<span class="num">${price}</span>` +
+              (model.tools ? '<span class="badge">tools</span>' : "") +
+              (model.vision ? '<span class="badge">vision</span>' : "") +
+              '<span class="badge free">free</span>';
+            const isPinned = pins.includes(model.id);
+            const star = document.createElement("button");
+            star.type = "button";
+            star.className = "star";
+            star.textContent = isPinned ? "★" : "☆";
+            star.title = isPinned ? "Unpin" : "Pin";
+            star.setAttribute("aria-label", star.title);
+            star.addEventListener("click", (event) => {
+              event.stopPropagation();
+              toggleModelPin(model.id);
+            });
+            row.appendChild(star);
+            row.addEventListener("click", () => void chooseModel(model.id));
+            state.pickerRows.push(row);
+            container.appendChild(row);
+          }
         }
-        if (list.length === 0) {
-          container.innerHTML = '<p class="fine">No models match those filters.</p>';
+        if (!state.pickerRows.length) {
+          container.innerHTML = '<p class="fine">No free models match those filters.</p>';
+        }
+        state.pickerActive = Math.max(
+          0,
+          state.pickerRows.findIndex((row) => row.dataset.id === state.model),
+        );
+        paintPicker();
+      }
+
+      $("search").addEventListener("keydown", (event) => {
+        if (!state.pickerRows.length) return;
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          state.pickerActive = (state.pickerActive + step + state.pickerRows.length) % state.pickerRows.length;
+          paintPicker();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const row = state.pickerRows[state.pickerActive];
+          if (row) void chooseModel(row.dataset.id);
+        }
+      });
+
+      /* --------------------------------------------------------- images */
+
+      function recentImages(messages, limit = 2) {
+        let left = limit;
+        return messages
+          .slice()
+          .reverse()
+          .map((message) => {
+            const images = left > 0 && Array.isArray(message.images) ? message.images.slice(0, 1) : [];
+            if (images.length) left -= 1;
+            return images.length ? { ...message, images } : { ...message, images: undefined };
+          })
+          .reverse();
+      }
+
+      async function compressImage(file) {
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+          throw new Error("Use a PNG, JPEG or WebP image.");
+        }
+        if (file.size > 10 * 1024 * 1024) throw new Error("That image is over 10 MB.");
+        const url = URL.createObjectURL(file);
+        try {
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          let best = "";
+          for (const max of [900, 700, 520, 380]) {
+            const scale = Math.min(1, max / Math.max(image.naturalWidth, image.naturalHeight));
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const context = canvas.getContext("2d");
+            context.fillStyle = "white";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            best = canvas.toDataURL("image/jpeg", 0.72);
+            if (best.length <= 300000) break;
+          }
+          if (best.length > 320000) throw new Error("That image is still too large after resizing. Try a smaller one.");
+          return best;
+        } finally {
+          URL.revokeObjectURL(url);
         }
       }
 
-      async function send() {
+      function renderAttachment() {
+        const bar = $("imageBar");
+        if (!bar) return;
+        bar.hidden = !state.attachment;
+        if (!state.attachment) return;
+        $("imageThumb").src = state.attachment.dataUrl;
+        $("imageName").textContent = state.attachment.name;
+      }
+
+      function clearAttachment() {
+        state.attachment = null;
+        renderAttachment();
+      }
+
+      async function ensureVisionModel() {
+        const current = state.models.find((model) => model.id === state.model);
+        if (current?.vision) return true;
+        const vision = state.models.find((model) => model.vision);
+        if (!vision) {
+          setStatus("No free vision model is available for this image.");
+          return false;
+        }
+        await chooseModel(vision.id);
+        setStatus(`switched to ${shortModel(vision.id)} for the image`);
+        return true;
+      }
+
+      async function attachImage(file) {
+        if (!file) return;
+        if (!(await ensureVisionModel())) return;
+        setStatus("compressing image…");
+        try {
+          const dataUrl = await compressImage(file);
+          state.attachment = { name: file.name || "image.jpg", dataUrl };
+          renderAttachment();
+          setStatus("image attached · one image per turn");
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      /* -------------------------------------------------------------- chat */
+
+      function autoGrow() {
         const input = $("input");
-        const text = input.value.trim();
-        if (!text || state.streaming) return;
-
-        input.value = "";
+        const limit = Math.max(48, Math.round(window.innerHeight * 0.4));
         input.style.height = "auto";
-        state.messages.push({ role: "user", content: text });
-        addMessage("user", text);
+        input.style.height = `${Math.min(input.scrollHeight, limit)}px`;
+      }
 
-        const { wrap, bubble } = addMessage("assistant", "");
-        const meta = addMeta("connecting…");
-        wrap.insertBefore(meta, bubble);
-        bubble.innerHTML = '<span class="fine">…</span>';
+      function addMeta(node, text, warning) {
+        const meta = node.querySelector(".meta-line");
+        meta.innerHTML = `<span class="${warning ? "warning" : "tag"}">${escapeHtml(text)}</span>`;
+      }
+
+      async function saveKey() {
+        const value = $("keyInput").value.trim();
+        const info = providerInfo();
+        const account = info.requiresAccount ? $("keyAccount").value.trim() : "";
+        $("keyError").textContent = "";
+        if (info.requiresAccount && value && !account) {
+          $("keyError").textContent = `${info.label} needs both an API token and its 32-character Account ID.`;
+          $("keyAccount").focus();
+          return;
+        }
+        if (account && !/^[a-f0-9]{32}$/i.test(account)) {
+          $("keyError").textContent = "The Account ID must be 32 hexadecimal characters.";
+          $("keyAccount").focus();
+          return;
+        }
+        try {
+          await api("/api/config", {
+            method: "POST",
+            body: JSON.stringify({ key: { id: activeProviderId, value, account } }),
+          });
+          await refreshProviders();
+          $("keyOverlay").classList.add("hidden");
+          await start();
+        } catch (error) {
+          $("keyError").textContent = error.message;
+        }
+      }
+
+      async function start() {
+        try {
+          await loadModels();
+        } catch (error) {
+          $("modelBtn").textContent = "Retry models";
+          setStatus(`models unavailable: ${error.message}`);
+        }
+        refreshQuota();
+        $("input").focus();
+      }
+
+      async function send({ replay = false, text = "" } = {}) {
+        if (state.streaming) return;
+        const box = $("input");
+
+        if (!replay) {
+          const content = text.trim();
+          const attachment = state.attachment;
+          if (!content && !attachment) return;
+          if (attachment && !(await ensureVisionModel())) return;
+          ensureThread();
+          const images = attachment ? [attachment.dataUrl] : [];
+          state.messages.push({
+            role: "user",
+            content: content || "What is in this image?",
+            ...(images.length ? { images } : {}),
+          });
+          clearAttachment();
+          persist();
+          $("thread").appendChild(createMessageNode(state.messages[state.messages.length - 1], state.messages.length - 1));
+        }
+        if (state.messages.length === 0) return;
+
+        showEmpty(false);
+        const node = createMessageNode({ role: "assistant", content: "" }, -1);
+        node.querySelector(".bubble").classList.add("streaming");
+        node.querySelector(".bubble").innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+        $("thread").appendChild(node);
+        // Queued bubbles belong under the answer that is currently streaming.
+        if (state.queue.length) restoreQueued();
+        scrollDown(true);
+
+        const bubble = node.querySelector(".bubble");
+        const toolRow = document.createElement("div");
+        toolRow.className = "tool-row";
+        const toolsUsed = [];
 
         state.streaming = true;
         state.controller = new AbortController();
-        $("sendBtn").disabled = true;
+        state.requests += 1;
+        updateBudget();
+        // Switching chats mid-answer must not push this turn into the new one.
+        const requestThread = state.threadId;
+        $("sendBtn").textContent = "Queue";
+        $("sendBtn").title = "Queue another message — sent when this answer finishes";
         $("stopBtn").disabled = false;
-        setStatus("starting…");
+        updateQueueBar();
+        setStatus("connecting…");
 
-        let buffer = "";
+        let answer = "";
+        let model = null;
+        let usage = null;
+        let aborted = false;
+        let chain = [];
+        const log = [];
+
         try {
           const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "content-type": "application/json", "x-app-token": APP_TOKEN },
-            body: JSON.stringify({ messages: state.messages.slice(-30), model: state.model }),
+            body: JSON.stringify({
+              messages: recentImages(withMemoryNote(state.messages), 2),
+              model: state.model,
+              threadId: requestThread,
+              provider: activeProviderId,
+            }),
             signal: state.controller.signal,
           });
+
+          if (response.status === 403) {
+            retryWithFreshToken();
+            throw new Error("The app restarted. Reloading…");
+          }
 
           if (!response.ok) {
             const body = await response.json().catch(() => ({}));
@@ -408,7 +3035,7 @@
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
-          let text = "";
+          let buffer = "";
 
           while (true) {
             const { value, done } = await reader.read();
@@ -423,133 +3050,1004 @@
                 const payload = line.slice(5).trim();
                 if (!payload) continue;
                 let event;
-                try { event = JSON.parse(payload); } catch { continue; }
+                try {
+                  event = JSON.parse(payload);
+                } catch {
+                  continue;
+                }
 
                 if (event.type === "meta") {
-                  setStatus(`trying ${event.chain.length} model${event.chain.length === 1 ? "" : "s"}…`);
+                  chain = event.chain || [];
+                  if (event.skipped?.length) {
+                    log.push(`Skipped ${event.skipped.join(", ")} — it failed earlier in this session.`);
+                  }
+                  if (event.fallbacks?.length) {
+                    log.push(
+                      `If ${event.provider || "this provider"} cannot answer, the turn moves to ${event.fallbacks.join(", ")}.`,
+                    );
+                  }
+                  setStatus(
+                    event.tools?.length
+                      ? `tools: ${event.tools.join(", ")}`
+                      : `trying ${event.chain.length} model${event.chain.length === 1 ? "" : "s"}…`,
+                  );
+                  if (event.memory) {
+                    addMeta(
+                      node,
+                      `memory: ${event.memory.compacted} earlier messages summarised · est. ${event.memory.beforeTokens} → ${event.memory.afterTokens} tokens`,
+                      false,
+                    );
+                  }
                 } else if (event.type === "retry") {
-                  meta.innerHTML = `<span class="warning">switching model (${escapeHtml(event.reason)})…</span>`;
-                  setStatus("switching model…");
+                  const elsewhere =
+                    event.fromProvider && event.toProvider && event.fromProvider !== event.toProvider;
+                  if (event.from && event.to && elsewhere) {
+                    log.push(
+                      `${event.fromProvider}: ${event.from} failed (${event.status || event.reason}); asking ${event.toProvider} (${event.to}).`,
+                    );
+                  } else if (event.from && event.to) {
+                    log.push(
+                      `Switched to ${event.to} after ${event.from} returned ${event.status || event.reason}.`,
+                    );
+                  } else if (event.from) {
+                    log.push(`${event.from} failed (${event.status || event.reason}).`);
+                  }
+                  addMeta(
+                    node,
+                    elsewhere ? `switching to ${event.toProvider}…` : `switching model (${event.reason})…`,
+                    true,
+                  );
+                  setStatus(elsewhere ? `trying ${event.toProvider}…` : "switching model…");
                 } else if (event.type === "model") {
-                  meta.innerHTML = `<span class="tag">answered by ${escapeHtml(event.model)}</span>`;
+                  model = event.model;
+                  addMeta(node, `answered by ${event.model}`, false);
+                } else if (event.type === "tool") {
+                  toolsUsed.push({ name: event.name, preview: event.preview, ok: event.ok });
+                  toolRow.textContent = "";
+                  for (const tool of toolsUsed) {
+                    const chip = document.createElement("span");
+                    chip.className = `tool-chip${tool.ok === false ? " failed" : ""}`;
+                    chip.title = tool.preview || "";
+                    chip.innerHTML = `⚙ <b>${escapeHtml(tool.name)}</b> → ${escapeHtml(shorten(tool.preview, 60))}`;
+                    toolRow.appendChild(chip);
+                  }
+                  if (!toolRow.isConnected) node.insertBefore(toolRow, bubble);
+                  setStatus(`ran ${event.name}`);
+                } else if (event.type === "command") {
+                  // stdout from run_command, appended while the process is still
+                  // running rather than only when it exits.
+                  let out = node.querySelector(".cmd-log");
+                  if (!out) {
+                    out = document.createElement("pre");
+                    out.className = "cmd-log";
+                    node.insertBefore(out, bubble);
+                  }
+                  const stick = nearBottom();
+                  out.textContent += event.chunk || "";
+                  if (out.textContent.length > 8000) {
+                    out.textContent = `…${out.textContent.slice(-8000)}`;
+                  }
+                  out.scrollTop = out.scrollHeight;
+                  if (stick) scrollDown(false);
+                } else if (event.type === "confirm") {
+                  addConfirmCard(node, event);
+                  setStatus(`${event.name} is waiting for your approval`);
                 } else if (event.type === "delta") {
-                  text += event.text;
-                  bubble.innerHTML = renderMarkdown(text);
-                  scrollDown();
+                  answer += event.text;
+                  const stick = nearBottom();
+                  bubble.innerHTML = renderMarkdown(answer);
+                  if (stick) scrollDown(true);
                 } else if (event.type === "done") {
-                  const usage = event.usage || {};
+                  const seen = event.usage || {};
+                  usage = event.usage || null;
                   const bits = [];
                   if (event.model) bits.push(`answered by ${event.model}`);
-                  if (usage.prompt_tokens) bits.push(`${usage.prompt_tokens} in`);
-                  if (usage.completion_tokens) bits.push(`${usage.completion_tokens} out`);
-                  if (typeof usage.cost === "number") bits.push(`$${usage.cost.toFixed(6)}`);
-                  if (event.stopped) bits.push("stopped");
-                  meta.innerHTML = `<span class="tag">${escapeHtml(bits.join(" · "))}</span>`;
-                  if (text.trim()) {
-                    state.messages.push({ role: "assistant", content: text });
-                    const copy = document.createElement("button");
-                    copy.className = "copy ghost";
-                    copy.textContent = "Copy";
-                    copy.addEventListener("click", async () => {
-                      await navigator.clipboard.writeText(text);
-                      copy.textContent = "Copied";
-                      setTimeout(() => (copy.textContent = "Copy"), 1200);
-                    });
-                    wrap.appendChild(copy);
+                  model = event.model || model;
+                  if (
+                    event.model &&
+                    chain[0] &&
+                    event.model !== chain[0] &&
+                    !log.some((line) => line.includes(event.model))
+                  ) {
+                    log.push(`Answered by ${event.model} instead of ${chain[0]}.`);
                   }
+                  if (seen.prompt_tokens) bits.push(`${seen.prompt_tokens} in`);
+                  if (seen.completion_tokens) bits.push(`${seen.completion_tokens} out`);
+                  if (typeof seen.cost === "number") {
+                    bits.push(seen.cost > 0 ? `$${seen.cost.toFixed(6)}` : "free");
+                  } else if (/:free$/.test(String(event.model || state.model))) {
+                    bits.push("free");
+                  }
+                  if (event.stopped) bits.push("stopped");
+                  addMeta(node, bits.join(" · ") || "done", false);
                   setStatus("");
                 } else if (event.type === "error") {
-                  wrap.classList.add("error");
+                  node.classList.add("error");
                   bubble.textContent = event.message;
-                  meta.innerHTML = `<span class="warning">${escapeHtml(event.reason)}</span>`;
+                  addMeta(node, event.reason, true);
                   setStatus("");
                 }
               }
               boundary = buffer.indexOf("\n\n");
             }
           }
-          if (!text.trim() && !wrap.classList.contains("error")) {
-            wrap.classList.add("error");
+
+          if (!answer.trim() && !node.classList.contains("error")) {
+            node.classList.add("error");
             bubble.textContent = "No answer was returned. Try another model, or send again.";
           }
         } catch (error) {
           if (error.name === "AbortError") {
-            meta.innerHTML = '<span class="warning">stopped</span>';
+            aborted = true;
+            addMeta(node, "stopped", true);
           } else {
-            wrap.classList.add("error");
+            node.classList.add("error");
             bubble.textContent = error.message;
-            meta.innerHTML = '<span class="warning">request failed</span>';
+            addMeta(node, "request failed", true);
           }
         } finally {
           state.streaming = false;
           state.controller = null;
-          $("sendBtn").disabled = false;
+          $("sendBtn").textContent = "Send";
+          $("sendBtn").title = "";
           $("stopBtn").disabled = true;
+          bubble.classList.remove("streaming");
+          updateQueueBar();
+
+          const stillHere = state.threadId === requestThread;
+          if (stillHere && answer.trim()) {
+            const message = {
+              role: "assistant",
+              content: answer,
+              model,
+              tools: toolsUsed.length ? toolsUsed : null,
+              log: log.length ? log : null,
+              usage:
+                usage && (usage.prompt_tokens || usage.completion_tokens)
+                  ? {
+                      prompt_tokens: Number(usage.prompt_tokens) || 0,
+                      completion_tokens: Number(usage.completion_tokens) || 0,
+                    }
+                  : null,
+            };
+            state.messages.push(message);
+            node.dataset.index = String(state.messages.length - 1);
+            const actions = document.createElement("div");
+            actions.className = "actions";
+            actions.appendChild(addAction(node, "copy", "Copy"));
+            actions.appendChild(addAction(node, "regen", "Regenerate"));
+            appendLog(node, log);
+            node.appendChild(actions);
+            persist();
+            // Repaint the footer immediately: waiting for the next render made
+            // the token total look one answer behind.
+            updateBudget();
+          }
+
+          if (!answer.trim() && aborted && !node.classList.contains("error")) {
+            node.classList.add("error");
+            bubble.textContent = "Stopped before any text arrived.";
+          }
+
+          if (!answer.trim() && toolsUsed.length && !node.classList.contains("error")) {
+            node.classList.add("error");
+            bubble.textContent = "The model used tools but never produced an answer.";
+          }
+
+          box.focus();
           refreshQuota();
+          if (stillHere) drainQueue();
         }
+      }
+
+      /* ------------------------------------------------------------- queue */
+
+      function updateQueueBar() {
+        const count = state.queue.length;
+        $("queueBar").hidden = count === 0;
+        if (count === 0) return;
+        $("queueInfo").textContent = `${count} queued${state.paused ? " · paused" : ""}`;
+        $("queueFlush").disabled = state.streaming;
+      }
+
+      function removeQueued(qid) {
+        const item = state.queue.find((entry) => entry.qid === qid);
+        state.queue = state.queue.filter((entry) => entry.qid !== qid);
+        item?.node?.remove();
+        if (state.queue.length === 0) state.paused = false;
+        updateQueueBar();
+      }
+
+      function enqueue(text) {
+        const item = { qid: ++state.qid, text, node: null };
+        state.queue.push(item);
+
+        const wrap = document.createElement("div");
+        wrap.className = "msg user queued";
+        wrap.dataset.qid = String(item.qid);
+        item.node = wrap;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text;
+        const meta = document.createElement("div");
+        meta.className = "meta-line";
+        const tag = document.createElement("span");
+        tag.textContent = "queued";
+        const kill = document.createElement("button");
+        kill.type = "button";
+        kill.className = "mini";
+        kill.textContent = "✕";
+        kill.title = "Remove from queue";
+        kill.addEventListener("click", () => removeQueued(item.qid));
+        meta.append(tag, kill);
+        wrap.append(bubble, meta);
+
+        $("thread").appendChild(wrap);
+        showEmpty(false);
+        scrollDown(true);
+        updateQueueBar();
+      }
+
+      function drainQueue() {
+        if (state.streaming || state.paused || state.queue.length === 0) return;
+        const next = state.queue.shift();
+        next.node?.remove();
+        updateQueueBar();
+        send({ text: next.text });
+      }
+
+      function submit() {
+        const box = $("input");
+        const text = box.value.trim();
+        if (!text && !state.attachment) return;
+        if (state.attachment && (state.streaming || state.queue.length > 0)) {
+          return setStatus("wait for the current answer before attaching an image");
+        }
+        box.value = "";
+        autoGrow();
+        if (state.streaming || state.queue.length > 0) {
+          enqueue(text);
+          state.paused = false;
+          drainQueue();
+          return;
+        }
+        send({ text });
+      }
+
+      function flushQueue() {
+        state.paused = false;
+        updateQueueBar();
+        drainQueue();
+      }
+
+      function clearQueue() {
+        for (const item of state.queue) item.node?.remove();
+        state.queue = [];
+        state.paused = false;
+        updateQueueBar();
+      }
+
+      function restoreQueued() {
+        for (const item of state.queue) if (item.node) $("thread").appendChild(item.node);
+        updateQueueBar();
+      }
+
+      // Copy the conversation through this message into a fresh chat. The
+      // original is already saved, so the branch cannot destroy it; the new
+      // thread is created on the next send.
+      function branchAt(index) {
+        if (state.streaming) return;
+        if (!state.messages[index]) return;
+        state.messages = state.messages.slice(0, index + 1).map((message) => ({ ...message }));
+        state.threadId = null;
+        state.rev = 0;
+        state.customTitle = "";
+        persist();
+        renderThread();
+        setStatus("branched into a new chat — send a message to save it");
+      }
+
+      function regenerate(index) {
+        if (state.streaming) return;
+        if (!state.messages[index] || state.messages[index].role !== "assistant") return;
+        state.messages = state.messages.slice(0, index);
+        renderThread();
+        restoreQueued();
+        send({ replay: true });
+      }
+
+      function editMessage(index) {
+        if (state.streaming) return;
+        const message = state.messages[index];
+        if (!message || message.role !== "user") return;
+        state.messages = state.messages.slice(0, index);
+        renderThread();
+        restoreQueued();
+        $("input").value = message.content;
+        autoGrow();
+        $("input").focus();
+        persist();
+      }
+
+      function resetThread() {
+        if (state.streaming) state.controller?.abort();
+        clearAttachment();
+        void flushSave();
+        clearQueue();
+        state.messages = [];
+        state.threadId = null;
+        state.customTitle = "";
+        state.requests = 0;
+        state.rev = 0;
+        state.draft = null;
+        state.preview = "";
+        state.localPreview = false;
+        $("pvUrl").value = "";
+        // A new chat must not keep showing the previous chat's preview.
+        if (!$("railPreview").classList.contains("hidden")) applyPreview("");
+        $("recoverBar").hidden = true;
+        setStatus("");
+        renderThread();
+        renderThreadList();
+        updateBudget();
+        persist();
+        closeSidebar(true);
+        // New Chat also forgets which models were rate-limited this session.
+        api("/api/session/reset", { method: "POST" }).catch(() => {});
+        $("input").focus();
       }
 
       function stop() {
+        if (state.queue.length) {
+          state.paused = true;
+          updateQueueBar();
+        }
         state.controller?.abort();
       }
 
-      async function saveKey() {
-        const value = $("keyInput").value.trim();
-        $("keyError").textContent = "";
-        try {
-          await api("/api/config", { method: "POST", body: JSON.stringify({ apiKey: value }) });
-          $("keyOverlay").classList.add("hidden");
-          await start();
-        } catch (error) {
-          $("keyError").textContent = error.message;
-        }
-      }
+      /* ---------------------------------------------------------- recovery */
 
-      async function start() {
-        await loadModels().catch((error) => setStatus(`models unavailable: ${error.message}`));
-        refreshQuota();
-      }
-
-      async function boot() {
-        const config = await api("/api/config").catch(() => ({ hasKey: false }));
-        if (!config.hasKey) {
-          $("keyOverlay").classList.remove("hidden");
-          $("keyInput").focus();
+      function renderDraft() {
+        const bar = $("recoverBar");
+        if (!bar) return;
+        const draft = state.draft;
+        const text = typeof draft?.content === "string" ? draft.content : "";
+        const last = state.messages[state.messages.length - 1];
+        // A Stop the browser already saved is not a lost answer, so do not
+        // offer it again.
+        const already = last?.role === "assistant" && last.content.includes(text.slice(0, 160));
+        if (!text.trim() || already) {
+          state.draft = null;
+          bar.hidden = true;
           return;
         }
-        await start();
+        const who = draft.model ? `, ${shortModel(draft.model)}` : "";
+        $("recoverInfo").textContent =
+          `Partial answer recovered (${text.length} chars${who}) — it was cut off before it finished.`;
+        bar.hidden = false;
       }
 
-      $("sendBtn").addEventListener("click", send);
+      function keepRecovered() {
+        const draft = state.draft;
+        if (!draft?.content) return;
+        state.draft = null;
+        $("recoverBar").hidden = true;
+        state.messages.push({
+          role: "assistant",
+          content: draft.content,
+          model: draft.model || null,
+          tools: null,
+          log: ["Recovered after the answer was cut off."],
+        });
+        renderThread();
+        persist();
+        setStatus("recovered answer kept");
+      }
+
+      function dropRecovered() {
+        state.draft = null;
+        $("recoverBar").hidden = true;
+        // The next save writes the chat with no draft, which clears it.
+        persist();
+        setStatus("partial answer discarded");
+      }
+
+      /* ---------------------------------------------------------- settings */
+
+      function openSettings() {
+        $("sPrompt").value = state.settings.systemPrompt || "";
+        $("sTemp").value = state.settings.temperature ?? "";
+        $("sMax").value = state.settings.maxTokens ?? 1200;
+        $("sTools").checked = state.settings.tools !== false;
+        $("sLog").checked = state.settings.showLog !== false;
+        $("sCap").value = state.settings.requestCap ?? 0;
+        $("sWorkspace").value = state.workspace || "";
+        $("sCommands").checked = state.settings.allowCommands === true;
+        $("sAllowlist").value = state.settings.commandAllowlist || "";
+        $("settingsError").textContent = "";
+        $("settingsOverlay").classList.remove("hidden");
+        $("sPrompt").focus();
+      }
+
+      async function saveSettings() {
+        const temperature = $("sTemp").value.trim();
+        const parsed = temperature === "" ? null : Number(temperature);
+        if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0 || parsed > 2)) {
+          $("settingsError").textContent = "Temperature must be between 0 and 2, or blank for the model default.";
+          $("sTemp").focus();
+          return;
+        }
+        const maxTokens = Number($("sMax").value);
+        if (!Number.isInteger(maxTokens) || maxTokens < 256 || maxTokens > 4000) {
+          $("settingsError").textContent = "Max output tokens must be a whole number from 256 to 4000.";
+          $("sMax").focus();
+          return;
+        }
+        const requestCap = Number($("sCap").value) || 0;
+        if (!Number.isInteger(requestCap) || requestCap < 0 || requestCap > 1000) {
+          $("settingsError").textContent = "Requests per chat must be a whole number from 0 to 1000.";
+          $("sCap").focus();
+          return;
+        }
+        const payload = {
+          systemPrompt: $("sPrompt").value,
+          temperature: parsed,
+          maxTokens,
+          tools: $("sTools").checked,
+          showLog: $("sLog").checked,
+          requestCap,
+          allowCommands: $("sCommands").checked,
+          commandAllowlist: $("sAllowlist").value,
+        };
+        $("settingsError").textContent = "";
+        try {
+          const workspace = $("sWorkspace").value.trim();
+          const result = await api("/api/config", {
+            method: "POST",
+            body: JSON.stringify({ settings: payload, workspace }),
+          });
+          state.settings = result.settings;
+          state.workspace = workspace;
+          if (state.rail) refreshFiles();
+          $("settingsOverlay").classList.add("hidden");
+          renderThread();
+          updateBudget();
+          setStatus("settings saved");
+          setTimeout(() => setStatus(""), 2000);
+        } catch (error) {
+          $("settingsError").textContent = error.message;
+        }
+      }
+
+      /* -------------------------------------------------------------- boot */
+
+      async function boot() {
+        restore();
+
+        const config = await api("/api/config").catch(() => null);
+        if (config?.settings) state.settings = config.settings;
+        if (typeof config?.provider === "string") activeProviderId = config.provider;
+        await refreshProviders();
+        if (config?.version) $("version").textContent = `v${config.version}`;
+        if (typeof config?.workspace === "string") state.workspace = config.workspace;
+        try {
+          if (localStorage.getItem(RAIL_KEY) === "1") railOpen(true);
+        } catch {
+          /* private mode */
+        }
+        if (config?.model && !state.model) state.model = config.model;
+
+        // Load the saved chat before models: loading models persists the model
+        // choice, and that must not write stale browser content over the file.
+        applySidebarPreference();
+        await loadThreads().catch(() => {});
+        const lastId = localStorage.getItem(ACTIVE_KEY);
+        const target = state.threads.find((t) => t.id === lastId);
+
+        if (target) {
+          try {
+            await openThread(target.id, true);
+          } catch {
+            /* keep the local copy already loaded by restore() */
+          }
+        } else if (state.messages.length > 0) {
+          // A chat that only exists in this browser: adopt it into the list.
+          ensureThread();
+          scheduleSave();
+        } else if (state.threads.length > 0) {
+          try {
+            await openThread(state.threads[0].id, true);
+          } catch {
+            /* stay on a new chat */
+          }
+        }
+
+        if (config && (!config.hasKey || (config.requiresAccount && !config.hasAccount))) {
+          showKeyOverlay(
+            config.hasKey && !config.hasAccount
+              ? "That provider also needs its Account ID before it can make requests."
+              : "",
+          );
+        } else {
+          await start();
+        }
+
+        renderThread();
+        renderThreadList();
+        updateBudget();
+        autoGrow();
+
+        if (state.messages.length === 0) $("input").focus();
+      }
+
+      /* --------------------------------------------------------- listeners */
+
+      $("thread").addEventListener("click", async (event) => {
+        const copyButton = event.target.closest("[data-copy]");
+        if (copyButton) {
+          const ok = await copyText(decodeURIComponent(copyButton.dataset.copy));
+          flash(copyButton, ok ? "Copied" : "Failed", "Copy");
+          return;
+        }
+
+        const action = event.target.closest("[data-act]");
+        if (!action) return;
+        const node = action.closest(".msg");
+        const index = Number(node?.dataset.index ?? -1);
+        if (Number.isNaN(index) || index < 0 || !state.messages[index]) return;
+
+        if (action.dataset.act === "copy") {
+          const ok = await copyText(state.messages[index].content);
+          flash(action, ok ? "Copied" : "Failed", "Copy");
+        } else if (action.dataset.act === "regen") {
+          regenerate(index);
+        } else if (action.dataset.act === "edit") {
+          editMessage(index);
+        } else if (action.dataset.act === "branch") {
+          branchAt(index);
+        }
+      });
+
+      /* Quick-start chips fill the box but never send: the first click should
+         cost nothing. An existing draft is kept and the starter goes in front. */
+      $("suggest").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-fill]");
+        if (!button) return;
+        const input = $("input");
+        const draft = input.value.trim();
+        input.value = draft ? `${button.dataset.fill}${draft}` : button.dataset.fill;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        autoGrow();
+      });
+
+      $("attach").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        if (file.size > 200 * 1024) return setStatus("that file is over 200 KB");
+        const text = await file.text();
+        const box = $("input");
+        box.value += `${box.value ? "\n\n" : ""}[Attached file: ${file.name}]\n${text}`;
+        box.focus();
+        setStatus(`attached ${file.name}`);
+      });
+
+      $("imageFile").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        await attachImage(file);
+      });
+      $("imageRemove").addEventListener("click", () => {
+        clearAttachment();
+        setStatus("image removed");
+      });
+      $("sendBtn").addEventListener("click", submit);
       $("stopBtn").addEventListener("click", stop);
+      $("queueFlush").addEventListener("click", flushQueue);
+      $("queueDrop").addEventListener("click", clearQueue);
+      $("recoverKeep").addEventListener("click", keepRecovered);
+      $("recoverDrop").addEventListener("click", dropRecovered);
       $("keySave").addEventListener("click", saveKey);
-      $("keyInput").addEventListener("keydown", (event) => { if (event.key === "Enter") saveKey(); });
-      $("modelBtn").addEventListener("click", () => {
+      $("keyTry").addEventListener("click", tryWithoutKey);
+      $("keyCancel").addEventListener("click", () => $("keyOverlay").classList.add("hidden"));
+      $("keyInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") saveKey();
+      });
+      $("keyAccount").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") saveKey();
+      });
+      /* --------------------------------------------------- prompts + export */
+      const PROMPTS_KEY = "openrouter.prompts";
+
+      function readPrompts() {
+        try {
+          const value = JSON.parse(localStorage.getItem(PROMPTS_KEY) || "[]");
+          return Array.isArray(value)
+            ? value.filter((prompt) => prompt && typeof prompt.text === "string" && prompt.text.trim())
+            : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writePrompts(list) {
+        try {
+          localStorage.setItem(PROMPTS_KEY, JSON.stringify(list.slice(0, 30)));
+        } catch {
+          /* private mode: the list still works for this session */
+        }
+      }
+
+      function renderPrompts() {
+        const list = $("promptList");
+        list.textContent = "";
+        $("promptError").textContent = "";
+        const prompts = readPrompts();
+        if (!prompts.length) {
+          const empty = document.createElement("p");
+          empty.className = "fine";
+          empty.textContent = "No saved prompts yet. Type one in the message box, then Save current draft.";
+          list.append(empty);
+          return;
+        }
+        prompts.forEach((prompt, index) => {
+          const row = document.createElement("div");
+          row.className = "model-row";
+          const open = document.createElement("button");
+          open.type = "button";
+          open.className = "name";
+          open.style.background = "transparent";
+          open.style.border = "0";
+          open.style.textAlign = "left";
+          open.textContent = prompt.text.replace(/\s+/g, " ").slice(0, 100);
+          open.title = prompt.text;
+          open.addEventListener("click", () => {
+            const box = $("input");
+            box.value = prompt.text;
+            autoGrow();
+            box.focus();
+            $("promptOverlay").classList.add("hidden");
+          });
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "mini";
+          remove.textContent = "×";
+          remove.title = "Delete this prompt";
+          remove.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const next = readPrompts();
+            next.splice(index, 1);
+            writePrompts(next);
+            renderPrompts();
+          });
+          row.append(open, remove);
+          list.append(row);
+        });
+      }
+
+      $("promptsBtn").addEventListener("click", () => {
+        renderPrompts();
+        $("promptOverlay").classList.remove("hidden");
+      });
+      $("promptClose").addEventListener("click", () => $("promptOverlay").classList.add("hidden"));
+      $("promptSave").addEventListener("click", () => {
+        const text = $("input").value.trim();
+        if (!text) {
+          $("promptError").textContent = "Type the prompt in the message box first, then save it.";
+          return;
+        }
+        const next = readPrompts().filter((prompt) => prompt.text.trim() !== text);
+        next.unshift({ text, at: Date.now() });
+        writePrompts(next);
+        $("promptOverlay").classList.add("hidden");
+      });
+
+      $("exportMdBtn").addEventListener("click", () => {
+        if (!state.messages.length) {
+          $("settingsError").textContent = "Nothing to export yet — send a message first.";
+          return;
+        }
+        const info = providerInfo();
+        const lines = [
+          "# Freeway transcript",
+          "",
+          `- Exported: ${new Date().toISOString()}`,
+          `- Provider: ${info.label}`,
+          `- Model: ${state.model || "unknown"}`,
+          "",
+          "---",
+          "",
+        ];
+        for (const message of state.messages) {
+          lines.push(`## ${message.role === "user" ? "You" : "Assistant"}`, "", String(message.content || "").trim(), "");
+        }
+        const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `freeway-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.md`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      $("settingsBtn").addEventListener("click", openSettings);
+      $("settingsCancel").addEventListener("click", () => $("settingsOverlay").classList.add("hidden"));
+      $("settingsSave").addEventListener("click", saveSettings);
+      $("newChatBtn").addEventListener("click", resetThread);
+      $("sideNew").addEventListener("click", resetThread);
+      $("sideBtn").addEventListener("click", toggleSidebar);
+      $("sideClose").addEventListener("click", () => closeSidebar());
+      window.addEventListener("resize", () => applySidebarPreference());
+      $("sideBackdrop").addEventListener("click", closeSidebar);
+      // Titles filter as you type; message text needs the server, so a short
+      // pause asks /api/threads?q= and merges what it finds.
+      let threadSearchTimer = null;
+      $("threadSearch").addEventListener("input", () => {
+        renderThreadList();
+        clearTimeout(threadSearchTimer);
+        const query = $("threadSearch").value.trim();
+        if (!query) {
+          state.threadHits = null;
+          renderThreadList();
+          return;
+        }
+        threadSearchTimer = setTimeout(async () => {
+          try {
+            const data = await api(`/api/threads?q=${encodeURIComponent(query)}`);
+            state.threadHits = new Set((data.threads || []).map((thread) => thread.id));
+          } catch {
+            state.threadHits = null;
+          }
+          renderThreadList();
+        }, 250);
+      });
+      $("exportBtn").addEventListener("click", exportChats);
+      $("importBtn").addEventListener("click", () => $("importFile").click());
+      $("importFile").addEventListener("change", async () => {
+        const file = $("importFile").files?.[0];
+        $("importFile").value = "";
+        if (file) await importChats(file);
+      });
+      $("provider").addEventListener("change", async (event) => {
+        activeProviderId = event.target.value;
+        state.model = null;
+        try {
+          await api("/api/config", { method: "POST", body: JSON.stringify({ provider: activeProviderId }) });
+        } catch {
+          /* the choice still applies to this tab */
+        }
+        updatePolicyPill();
+        try {
+          await loadModels();
+        } catch (error) {
+          $("modelBtn").textContent = "Retry models";
+          setStatus(`models unavailable: ${error.message}`);
+        }
+        if (!providerInfo().hasKey) showKeyOverlay("");
+        else refreshQuota();
+      });
+
+      $("quota").addEventListener("click", () => showKeyOverlay(""));
+      $("jumpBtn").addEventListener("click", () => scrollDown(true));
+
+      $("modelBtn").addEventListener("click", async () => {
+        if (state.models.length === 0) await start();
+        if (state.models.length === 0) return;
         $("picker").classList.remove("hidden");
         renderPicker();
         $("search").focus();
       });
+
       $("pickerClose").addEventListener("click", () => $("picker").classList.add("hidden"));
-      for (const id of ["search", "fFree", "fTools", "fVision", "fContext"]) {
+      for (const id of ["search", "fTools", "fVision", "fContext"]) {
         $(id).addEventListener("input", renderPicker);
         $(id).addEventListener("change", renderPicker);
       }
+
+      $("scroll").addEventListener("scroll", updateJump);
+
+      $("railBtn").addEventListener("click", () => railOpen($("rail").classList.contains("hidden")));
+      $("railClose").addEventListener("click", () => railOpen(false));
+      for (const tab of document.querySelectorAll(".rail-tab")) {
+        tab.addEventListener("click", () => showRailTab(tab.dataset.rail));
+      }
+      $("fsRefresh").addEventListener("click", refreshFiles);
+      $("fsUp").addEventListener("click", goUp);
+      $("fsSample").addEventListener("click", createSamplePage);
+      $("fsSave").addEventListener("click", saveFile);
+      $("fsPreview").addEventListener("click", () => {
+        const label = $("fsFileName").textContent.replace(/^\//, "") || "workspace file";
+        if (!/\.(html?|svg)$/i.test(label)) return setStatus("Preview works for .html, .htm and .svg files.");
+        showLocalPreview($("fsContent").value, label);
+      });
+      $("fsClose").addEventListener("click", () => $("fsEditor").classList.add("hidden"));
+      $("secAdd").addEventListener("click", addSecret);
+      $("secValue").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") addSecret();
+      });
+      for (const button of document.querySelectorAll("[data-gh-view]")) {
+        button.addEventListener("click", () => loadGithubView(button.dataset.ghView));
+      }
+      $("stRefresh").addEventListener("click", refreshStatus);
+      $("pvLoad").addEventListener("click", savePreview);
+      $("pvReload").addEventListener("click", () =>
+        applyPreview(state.preview || $("pvUrl").value),
+      );
+      $("pvOpen").addEventListener("click", () => {
+        if (state.preview) window.open(state.preview, "_blank", "noopener");
+        else previewNote("Load an address first.");
+      });
+      $("pvUrl").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") savePreview();
+      });
+      $("pvFrame").addEventListener("load", () => {
+        if (!state.preview) return;
+        state.pvLoaded = true;
+        clearTimeout(state.pvTimer);
+        previewNote("Loaded. Scripts run inside the frame; it cannot touch this page.");
+      });
+
       $("quitBtn").addEventListener("click", async () => {
-        if (!confirm("Stop the app? The browser tab will stop working until you start it again.")) return;
+        if (!confirm("Stop the app? This tab will stop working until you start it again.")) return;
         await api("/api/quit", { method: "POST" }).catch(() => {});
-        document.body.innerHTML = '<div style="margin:auto;padding:40px;text-align:center;color:#8b95a9">App stopped. You can close this tab.</div>';
+        document.body.innerHTML =
+          '<div style="margin:auto;padding:40px;text-align:center;color:var(--muted)">App stopped. You can close this tab.</div>';
+      });
+
+      /* ---------------------------------------------------- command palette */
+      // Same commands in both editions: things the header can do, without the
+      // hunt for the right button. Ctrl+K opens it, Ctrl+M is the model picker.
+      const PALETTE_COMMANDS = [
+        { label: "New chat", keys: "Alt+N", run: () => resetThread() },
+        { label: "Choose a model…", keys: "Ctrl+M", run: () => $("modelBtn").click() },
+        { label: "Settings…", keys: "", run: () => $("settingsOverlay").classList.remove("hidden") },
+        { label: "Paste a provider key…", keys: "", run: () => $("keyOverlay").classList.remove("hidden") },
+        { label: "Saved prompts…", keys: "", run: () => $("promptOverlay").classList.remove("hidden") },
+        { label: "Export all chats", keys: "", run: () => $("exportBtn").click() },
+        { label: "Show or hide the chats panel", keys: "", run: () => toggleSidebar() },
+        { label: "Pin or unpin this chat", keys: "", run: () => togglePin(state.threadId) },
+        { label: "Rename this chat…", keys: "", run: () => void renameCurrentThread() },
+        { label: "Delete this chat…", keys: "", run: () => deleteCurrentThread() },
+        { label: "Files, secrets and preview", keys: "", run: () => $("railBtn").click() },
+        { label: "Jump to the message box", keys: "", run: () => $("input").focus() },
+      ];
+
+      const palette = { items: [], active: 0 };
+
+      function paletteCommands() {
+        const commands = PALETTE_COMMANDS.slice();
+        const select = $("provider");
+        for (const option of select.options) {
+          commands.push({
+            label: "Switch provider to " + option.textContent,
+            keys: option.value === select.value ? "current" : "",
+            run: () => {
+              if (option.value === select.value) return;
+              select.value = option.value;
+              select.dispatchEvent(new Event("change"));
+            },
+          });
+        }
+        // Quick switcher: every saved chat is one palette row, so Ctrl+K plus a
+        // few letters opens any of them without a trip through the sidebar.
+        for (const thread of state.threads.slice(0, 50)) {
+          commands.push({
+            label: "Open chat: " + thread.title,
+            keys: "",
+            run: () => {
+              openThread(thread.id).catch((error) => setStatus(error.message));
+            },
+          });
+        }
+        return commands;
+      }
+
+      function paletteRender(resetActive = true) {
+        const needle = $("paletteInput").value.trim().toLowerCase();
+        palette.items = paletteCommands().filter((command) => command.label.toLowerCase().includes(needle));
+        if (resetActive) palette.active = 0;
+        palette.active = Math.min(palette.active, Math.max(0, palette.items.length - 1));
+        const list = $("paletteList");
+        list.innerHTML = "";
+        palette.items.forEach((command, index) => {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "palette-item" + (index === palette.active ? " active" : "");
+          const label = document.createElement("span");
+          label.textContent = command.label;
+          item.append(label);
+          if (command.keys) {
+            const keys = document.createElement("span");
+            keys.className = "keys";
+            keys.textContent = command.keys;
+            item.append(keys);
+          }
+          item.addEventListener("click", () => paletteRun(command));
+          list.append(item);
+        });
+        if (!palette.items.length) {
+          const empty = document.createElement("p");
+          empty.className = "help";
+          empty.textContent = "No command matches that.";
+          list.append(empty);
+        }
+      }
+
+      function paletteRun(command) {
+        paletteClose();
+        try { command.run(); } catch {}
+      }
+
+      function paletteOpen() {
+        $("paletteInput").value = "";
+        paletteRender();
+        $("paletteOverlay").classList.remove("hidden");
+        setTimeout(() => $("paletteInput").focus(), 20);
+      }
+
+      function paletteClose() {
+        $("paletteOverlay").classList.add("hidden");
+      }
+
+      $("paletteInput").addEventListener("input", () => paletteRender());
+      $("paletteInput").addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          if (!palette.items.length) return;
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          palette.active = (palette.active + step + palette.items.length) % palette.items.length;
+          paletteRender(false);
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const command = palette.items[palette.active];
+          if (command) paletteRun(command);
+        }
+      });
+      $("paletteOverlay").addEventListener("click", (event) => {
+        if (event.target === $("paletteOverlay")) paletteClose();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          $("picker").classList.add("hidden");
+          $("settingsOverlay").classList.add("hidden");
+          $("keyOverlay").classList.add("hidden");
+          $("promptOverlay").classList.add("hidden");
+          paletteClose();
+          closeSidebar();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          paletteOpen();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "m") {
+          event.preventDefault();
+          $("modelBtn").click();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "n") {
+          event.preventDefault();
+          resetThread();
+        }
+        // Chrome reserves Ctrl+Shift+N for incognito, so Alt+N is the one that
+        // reliably reaches the page.
+        if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "n") {
+          event.preventDefault();
+          resetThread();
+        }
       });
 
       const input = $("input");
-      input.addEventListener("input", () => {
-        input.style.height = "auto";
-        input.style.height = `${Math.min(input.scrollHeight, 220)}px`;
-      });
+      input.addEventListener("input", autoGrow);
+      window.addEventListener("resize", autoGrow);
       input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault();
-          send();
-        }
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault();
+        submit();
       });
 
       boot();

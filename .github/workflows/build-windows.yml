@@ -1,0 +1,81 @@
+name: Windows client
+
+# Builds Freeway.exe from the single-file bundle on a real Windows machine.
+# Node SEA injects a blob into node.exe, so the result can only be produced (and
+# smoke-tested) on Windows — which is why this runs here and not in the local app.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Rebuild the single file
+        run: node build/bundle.mjs
+
+      - name: Unit tests
+        # A directory, not a glob: PowerShell does not expand lib/*.test.mjs.
+        run: node --test lib
+
+      - name: CLI and single-file tests
+        run: node test/cli.mjs
+
+      - name: Build the SEA blob
+        run: node --experimental-sea-config sea-config.json
+
+      - name: Inject the blob into node.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "Freeway.exe"
+          Copy-Item (Get-Command node).Source $exe
+          npx --yes postject $exe NODE_SEA_BLOB sea-prep.blob `
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          # Appending the blob invalidates the Authenticode signature that node.exe
+          # ships with; Windows refuses to start a binary whose signature is broken,
+          # so the signature has to be removed before it will run.
+          $signtool = Get-Command signtool.exe -ErrorAction SilentlyContinue
+          if ($signtool) {
+            & $signtool.Source remove /s $exe
+          } else {
+            Write-Host "signtool not found; leaving the signature untouched"
+          }
+
+      - name: Smoke-test the executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\Freeway.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "the executable did not report a version" }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $zip = "Freeway-$version-windows.zip"
+          Copy-Item README.md, VERSIONS.md, start.cmd -Destination . -ErrorAction SilentlyContinue
+          Compress-Archive -Path Freeway.exe, README.md, VERSIONS.md, start.cmd `
+            -DestinationPath $zip -Force
+          "ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-client
+          path: ${{ env.ZIP }}
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP }}

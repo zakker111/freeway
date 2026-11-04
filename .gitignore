@@ -1,6 +1,12 @@
 .env
 .env.*
 config.json
+threads.json
+secrets.json
+sea-prep.blob
+Freeway.exe
+freeway.mjs
+freeway.cjs
 node_modules/
 dist/
 *.log

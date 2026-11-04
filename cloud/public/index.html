@@ -1,0 +1,3763 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <title>Freeway — cloud edition</title>
+    <!-- Installable: a home-screen icon opens the same page, full screen. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f0f0f" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <style>
+      /* -------------------------------------------------------------- tokens
+         The cloud page uses the same dark palette as the desktop app so the
+         two editions read as one product: near-black surfaces, grey borders,
+         soft-white text that stays easy on the eyes. Retune the theme from
+         this block only. */
+      :root {
+        color-scheme: dark;
+        --bg: #0f0f0f;
+        --bg-wash: #161616;
+        --surface: #171717;
+        --surface-2: #1d1d1d;
+        --surface-3: #262626;
+        --line: #2c2c2c;
+        --line-2: #3f3f3f;
+        --text: #e8e8e8;
+        --muted: #b3b3b3;
+        --dim: #8f8f8f;
+        --accent: #f0f0f0;
+        --accent-strong: #ffffff;
+        --accent-soft: #242424;
+        --accent-line: #454545;
+        --warn: #d8d8d8;
+        --warn-soft: #222222;
+        --warn-line: #4a4a4a;
+        --danger: #f0f0f0;
+        --danger-soft: #2a2a2a;
+        --danger-line: #5a5a5a;
+        --panel: var(--surface);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .55);
+        --shadow-lg: 0 24px 70px rgba(0, 0, 0, .65);
+        --mono: "Cascadia Code", ui-monospace, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(900px 420px at 50% -12%, var(--bg-wash) 0%, rgba(0, 0, 0, 0) 70%),
+          var(--bg);
+        color: var(--text);
+        font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::selection { background: var(--accent-soft); color: var(--accent-strong); }
+      * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+      *::-webkit-scrollbar { width: 10px; height: 10px; }
+      *::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+
+      button, input, select, textarea { font: inherit; color: inherit; }
+      button {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 7px 12px;
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+        transition: border-color .15s, background .15s, box-shadow .15s, opacity .15s;
+      }
+      button:hover:not(:disabled) { border-color: var(--line-2); background: var(--surface-2); }
+      button:disabled { opacity: .45; cursor: default; box-shadow: none; }
+      button.primary {
+        background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, .30);
+      }
+      button.primary:hover:not(:disabled) { background: var(--accent-strong); border-color: var(--accent-strong); }
+      button.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); }
+      button.ghost:hover:not(:disabled) { background: var(--surface-3); border-color: var(--line); color: var(--text); }
+      button.mini { padding: 3px 9px; font-size: 11.5px; border-radius: 8px; color: var(--muted); background: transparent; box-shadow: none; }
+      button.mini:hover:not(:disabled) { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+        padding: 10px clamp(12px, 3vw, 20px);
+        border-bottom: 1px solid var(--line);
+        background: rgba(20, 20, 20, .86);
+        backdrop-filter: saturate(140%) blur(8px);
+        position: relative;
+        z-index: 20;
+      }
+      .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
+      .brand::before { content: ""; width: 9px; height: 9px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .brand span { color: var(--muted); font-weight: 550; }
+      .ver, .tag {
+        font-size: 11px;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 2px 8px;
+        white-space: nowrap;
+        background: var(--surface-2);
+        font-family: var(--mono);
+      }
+      .tag.free { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+      .spacer { flex: 1 1 auto; }
+      .limits { margin: 0 0 12px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .caps { margin: -4px 0 8px 10px; }
+      /* Same pill as the desktop picker, so both editions read the same. */
+      .accountRow {
+        display: flex; flex-direction: column; gap: 7px; align-items: flex-start;
+        margin-bottom: 12px; padding: 9px 11px;
+        border: 1px solid var(--line); border-radius: 10px;
+        background: var(--surface-2); font-size: 12.5px;
+      }
+      .accountRow form { margin: 0; }
+      .accountRow a.signIn {
+        text-decoration: none; border: 1px solid var(--line-2); border-radius: 999px;
+        padding: 4px 10px; color: var(--text); background: var(--surface);
+      }
+      .accountRow a.signIn:hover { background: var(--surface-3); }
+      /* The header control is the discoverable one: Settings is a detour. */
+      .accountSlot { display: inline-flex; align-items: center; gap: 6px; }
+      .accountSlot:empty { display: none; }
+      .accountSlot form { margin: 0; }
+      .accountSlot .who {
+        font-size: 12px; color: var(--muted); max-width: 140px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .accountSlot a.signIn {
+        text-decoration: none; font-size: 12.5px;
+        border: 1px solid var(--line-2); border-radius: 999px;
+        padding: 4px 10px; color: var(--text); background: var(--surface);
+      }
+      .accountSlot a.signIn:hover { background: var(--surface-3); }
+      .count {
+        display: inline-block; min-width: 16px; margin-left: 4px; padding: 0 5px;
+        border-radius: 999px; background: var(--surface-3); color: var(--muted);
+        font-family: var(--mono); font-size: 10.5px; line-height: 16px; text-align: center;
+      }
+
+      select#provider {
+        max-width: 190px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12.5px;
+        cursor: pointer;
+      }
+      select#provider:hover { border-color: var(--line-2); }
+      .picker { position: relative; }
+      .modelBtn {
+        max-width: min(52vw, 380px);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 13px;
+        font-size: 13px;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .modelBtn::after { content: "⌄"; color: var(--dim); margin-left: 7px; }
+      .modelMenu {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 6px);
+        right: 0;
+        width: min(92vw, 430px);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 8px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .modelMenu[hidden] { display: none; }
+      .modelMenu input {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 13px;
+        box-shadow: var(--shadow-sm);
+      }
+      .modelMenu input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); outline: none; }
+      .modelList { max-height: min(56vh, 360px); overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+      .groupLabel { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 8px 8px 3px; }
+      .modelRow { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+      .modelRow:hover, .modelRow.active { background: var(--accent-soft); }
+      .modelRow.current { border: 1px solid var(--accent-line); }
+      .modelName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .modelId { display: block; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+      .modelCtx { font-size: 11px; color: var(--muted); white-space: nowrap; }
+      .star { border: 0; background: transparent; padding: 2px 4px; font-size: 14px; color: var(--dim); box-shadow: none; }
+      .star:hover { color: var(--accent); background: transparent; }
+      .pill {
+        font-size: 11.5px; color: var(--muted);
+        border: 1px solid var(--line); border-radius: 999px;
+        padding: 4px 10px; background: var(--surface-2); white-space: nowrap;
+      }
+      .pill.warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-soft); }
+      .ascii {
+        font-family: var(--mono);
+        font-size: 11.5px; line-height: 1.5; color: var(--muted);
+        display: inline-block; text-align: left; overflow-x: auto; max-width: 100%;
+        margin: 12px 0 6px; padding: 11px 13px;
+        border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+        box-shadow: var(--shadow-sm);
+      }
+
+      main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: clamp(16px, 2.6vw, 30px) clamp(12px, 3vw, 20px) 8px; }
+      .wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(16px, 2.2vw, 26px); }
+
+      .empty { color: var(--muted); text-align: center; margin: clamp(14px, 5vh, 56px) auto 0; max-width: 56ch; }
+      .empty h1 { font-size: clamp(21px, 2.4vw, 27px); color: var(--text); margin: 0 0 10px; font-weight: 650; letter-spacing: -.2px; }
+      .empty p { margin: 0 0 10px; }
+      .empty .fine { font-size: 12.5px; color: var(--dim); }
+      .empty ul { text-align: left; display: inline-block; margin: 6px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--muted); }
+      .empty code { color: var(--text); }
+      .suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 4px; }
+      .suggest button {
+        font-size: 12.5px; color: var(--accent-strong); background: var(--accent-soft);
+        border: 1px solid var(--accent-line); border-radius: 999px; padding: 6px 13px; box-shadow: none;
+      }
+      .suggest button:hover:not(:disabled) { background: #333333; border-color: #555555; }
+
+      .msg { display: flex; flex-direction: column; gap: 6px; animation: rise .18s ease-out; }
+      @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      /* Left-aligned like the answer: one transcript, not a two-sided chat. */
+      .msg.user { align-items: flex-start; }
+      .bubble {
+        max-width: min(92%, 70ch);
+        padding: 12px 16px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        line-height: 1.7;
+        box-shadow: var(--shadow-sm);
+      }
+      .msg.user .bubble {
+        background: var(--accent-soft); color: var(--text); border-color: var(--accent-line);
+        border-bottom-left-radius: 6px; box-shadow: none;
+      }
+      .msg.assistant .bubble { font-size: clamp(1rem, 0.5vw + 0.85rem, 1.1rem); line-height: 1.75; }
+      /* Same reading treatment as the desktop transcript: paragraphs, lists,
+         headings, inline code and fenced blocks instead of one plain blob. */
+      .bubble p { margin: 0 0 10px; }
+      .bubble p:last-child { margin-bottom: 0; }
+      .bubble h1, .bubble h2, .bubble h3 { margin: 12px 0 6px; line-height: 1.3; color: var(--text); }
+      .bubble h1 { font-size: 1.2em; }
+      .bubble h2 { font-size: 1.12em; }
+      .bubble h3 { font-size: 1.04em; }
+      .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 22px; }
+      .bubble li { margin: 4px 0; }
+      .bubble blockquote { margin: 8px 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--accent-line); color: var(--muted); }
+      .bubble a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--accent-line); }
+      .bubble strong { color: var(--text); }
+      .bubble code {
+        font-family: var(--mono); font-size: 12.5px;
+        background: var(--surface-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px;
+      }
+      .msg.user .bubble code { background: #333333; border-color: var(--accent-line); color: var(--text); }
+      .msg.user .bubble strong { color: var(--text); }
+      .code { margin: 8px 0 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+      .code-bar {
+        padding: 4px 10px; border-bottom: 1px solid var(--line); background: var(--surface-3);
+        font-size: 10.5px; color: var(--dim);
+        font-family: var(--mono);
+        display: flex; justify-content: space-between; gap: 8px;
+      }
+      .code pre { margin: 0; padding: 11px 12px; overflow-x: auto; line-height: 1.55; }
+      .code code { background: transparent; border: 0; padding: 0; }
+      .msg.error .bubble { border-color: var(--danger-line); background: var(--danger-soft); color: var(--text); }
+      .msg.error .bubble b { display: block; margin-bottom: 4px; }
+      .meta { font-size: 11.5px; color: var(--dim); display: flex; gap: 10px; align-items: center; padding: 0 4px; flex-wrap: wrap; }
+      .cursor::after { content: "▌"; color: var(--accent); animation: blink 1s steps(2, start) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      footer {
+        flex: 0 0 auto;
+        border-top: 1px solid var(--line);
+        background: rgba(20, 20, 20, .9);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, .05);
+        padding: 10px clamp(12px, 3vw, 20px) max(12px, env(safe-area-inset-bottom));
+        position: relative;
+        z-index: 5;
+      }
+      .composer { max-width: 860px; margin: 0 auto; display: flex; gap: 9px; align-items: flex-end; }
+      .image-bar {
+        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
+        font-size: 12px; color: var(--muted);
+      }
+      .image-bar[hidden] { display: none; }
+      .image-thumb {
+        width: 54px; height: 54px; object-fit: cover; border-radius: 10px;
+        border: 1px solid var(--line); background: var(--surface-2); flex: 0 0 auto;
+      }
+      .image-bar .fine { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .msg-image {
+        display: block; max-width: min(100%, 420px); max-height: 280px;
+        border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2);
+        margin-bottom: 6px;
+      }
+      textarea#input {
+        flex: 1;
+        resize: none;
+        min-height: 50px;
+        max-height: 190px;
+        padding: 13px 15px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: var(--shadow-sm);
+        line-height: 1.5;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+      }
+      textarea#input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
+      textarea#input::placeholder { color: var(--dim); }
+      .hint { max-width: 860px; margin: 7px auto 0; font-size: 11.5px; color: var(--dim); display: flex; gap: 10px; flex-wrap: wrap; }
+
+      dialog {
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+        width: min(92vw, 480px);
+        box-shadow: var(--shadow-lg);
+      }
+      dialog::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px); }
+      #paletteDialog { width: min(92vw, 540px); }
+      .palette-list { margin-top: 10px; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+      .palette-item {
+        display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
+        padding: 8px 10px; border-radius: 9px; border: 1px solid transparent;
+        background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+      }
+      .palette-item.active, .palette-item:hover { background: var(--surface-2, #1b1b1b); border-color: var(--line-2, #333); }
+      .palette-item .keys { color: var(--dim); font-size: 11.5px; font-family: var(--mono); white-space: nowrap; }
+      dialog h2 { margin: 0 0 8px; font-size: 17px; color: var(--text); }
+      dialog p { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
+      dialog a { color: var(--accent-strong); text-underline-offset: 2px; }
+      dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; font-weight: 550; }
+      dialog input {
+        width: 100%;
+        padding: 9px 11px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        box-shadow: var(--shadow-sm);
+      }
+      dialog input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); outline: none; }
+      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+      .promptList { max-height: min(50vh, 320px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+      .promptList .fine { color: var(--dim); font-size: 12.5px; margin: 0; }
+      .promptRow { display: flex; gap: 6px; align-items: center; }
+      .promptText {
+        flex: 1; min-width: 0; text-align: left;
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px;
+        padding: 8px 10px; font-size: 12.5px; box-shadow: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .promptText:hover { background: var(--accent-soft); border-color: var(--accent-line); }
+      .threadText { white-space: normal; }
+      .notice {
+        flex: 0 0 auto;
+        border-bottom: 1px solid var(--line);
+        background: var(--accent-soft);
+        color: var(--muted);
+        font-size: 12.5px;
+        padding: 8px clamp(12px, 3vw, 20px);
+        text-align: center;
+      }
+      .notice b { color: var(--accent-strong); font-weight: 600; }
+      .notice a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
+      .banner {
+        max-width: 860px;
+        margin: 0 auto 10px;
+        border: 1px solid var(--warn-line);
+        background: var(--warn-soft);
+        border-radius: 12px;
+        padding: 10px 13px;
+        font-size: 13px;
+        color: var(--warn);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .banner span { color: var(--text); }
+      [hidden] { display: none !important; }
+      /* The rail mirrors the desktop app. Storage is browser-local because a
+         Worker has no disk, and the panels say so instead of pretending. */
+      /* --------------------------------------------------------- chats panel */
+      /* Same rule as the desktop app: a docked column on wide windows, a drawer
+         on narrow ones, remembered across reloads. */
+      .sidebar {
+        position: fixed; inset: 0 auto 0 0; z-index: 18;
+        width: 268px; display: flex; flex-direction: column; gap: 10px;
+        padding: 12px; background: var(--surface-3); border-right: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .sidebar.hidden { display: none; }
+      body.docked { padding-left: 268px; }
+      .side-head { display: flex; gap: 8px; align-items: center; }
+      .side-head input { flex: 1; min-width: 0; }
+      .side-head .mini { padding: 6px 11px; font-size: 15px; line-height: 1; }
+      .thread-list {
+        flex: 1; min-height: 0; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 3px;
+        margin: 0 -4px; padding: 2px 4px;
+      }
+      .thread-item { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px; }
+      .thread-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--line); }
+      .thread-item.active {
+        background: var(--surface); border-color: var(--line);
+        box-shadow: var(--shadow-sm), inset 3px 0 0 var(--accent);
+      }
+      .thread-item .open {
+        flex: 1; min-width: 0; text-align: left; background: transparent;
+        border: 0; padding: 8px 10px; border-radius: 9px; box-shadow: none;
+      }
+      .thread-item .open:hover { background: transparent; border-color: transparent; }
+      .thread-item .ttl { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .thread-item .sub { display: block; font-size: 11px; color: var(--dim); }
+      .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; }
+      .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
+      .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
+      .side-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 17; }
+      .side-backdrop:not(.hidden) { display: block; }
+      @media (max-width: 900px) {
+        body.docked { padding-left: 0; }
+        .sidebar {
+          width: 284px; max-width: 86vw; transform: translateX(-102%);
+          transition: transform .18s ease-out; box-shadow: var(--shadow-lg);
+        }
+        .sidebar.open { transform: none; }
+      }
+
+      .rail {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100dvh;
+        width: min(94vw, 420px);
+        background: var(--surface);
+        border-left: 1px solid var(--line);
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        box-shadow: -20px 0 50px rgba(0, 0, 0, .14);
+      }
+      .rail[hidden] { display: none; }
+      .rail-head { display: flex; gap: 2px; padding: 7px 6px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; align-items: center; background: var(--surface-2); }
+      .rail-tab { flex: 0 1 auto; min-width: 0; font-size: 11.5px; padding: 6px 5px; border-radius: 8px; background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rail-tab:hover:not(.active) { color: var(--text); background: var(--surface-3); }
+      .rail-tab.active { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent-line); font-weight: 600; }
+      #railClose { flex: 0 0 auto; margin-left: auto; }
+      .health-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+      .health-row:last-child { border-bottom: 0; }
+      .health-row .open { flex: none; width: auto; padding: 0; border: 0; background: transparent; white-space: normal; overflow: visible; text-overflow: clip; font-size: 12px; }
+      .health-row .open:hover { background: transparent; border-color: transparent; }
+      .health-row .fine { font-size: 11.5px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+      .rail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+      .rail-body[hidden] { display: none; }
+      .rail input, .rail textarea {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        font-size: 12.5px;
+        box-shadow: var(--shadow-sm);
+      }
+      .rail input:focus, .rail textarea:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); outline: none; }
+      .rail textarea { resize: vertical; font-family: var(--mono); }
+      .rail input[type="checkbox"] { width: auto; margin: 0; padding: 0; accent-color: var(--accent); flex: 0 0 auto; }
+      .rail a { color: var(--accent-strong); text-underline-offset: 2px; }
+      .rail .row { margin-top: 4px; }
+      .file-row { display: flex; gap: 6px; align-items: center; }
+      .file-row .open { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 1px solid transparent; padding: 4px 6px; box-shadow: none; }
+      .file-row .open:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+      dialog input[type="checkbox"] { width: auto; }
+      .tool-card b { display: block; margin-bottom: 4px; }
+      .tool-card .row { margin-top: 8px; }
+      .tool-card .fine { font-family: var(--mono); white-space: pre-wrap; }
+      dialog textarea {
+        width: 100%; padding: 9px 11px; background: var(--surface);
+        border: 1px solid var(--line); border-radius: 10px;
+        font-size: 12.5px; font-family: inherit; resize: vertical;
+      }
+
+      @media (max-width: 560px) {
+        .ver { display: none; }
+        .accountSlot .who { display: none; }
+        select#model { max-width: 100%; order: 5; flex: 1 1 100%; }
+        .modelBtn { max-width: min(64vw, 320px); }
+        header button { min-height: 36px; }
+        .hint { font-size: 11px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar" id="sidebar" aria-label="Saved chats">
+      <div class="side-head">
+        <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
+        <button id="sideNew" class="mini" type="button" title="New chat">+</button>
+        <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
+      </div>
+      <div class="thread-list" id="threadList"></div>
+      <div class="side-foot"><span class="fine" id="threadCount"></span></div>
+    </aside>
+    <div class="side-backdrop hidden" id="sideBackdrop"></div>
+
+    <header>
+      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰</button>
+      <div class="brand">Free<span>way</span></div>
+      <span class="ver" id="ver">v…</span>
+      <select id="provider" title="Provider" aria-label="Provider"></select>
+      <div class="picker" id="modelPicker">
+        <button id="modelBtn" class="modelBtn chip" type="button" aria-haspopup="listbox" aria-expanded="false">
+          Loading…
+        </button>
+        <div class="modelMenu" id="modelMenu" hidden>
+          <input
+            id="modelSearch"
+            type="search"
+            placeholder="Search models…"
+            autocomplete="off"
+            aria-label="Search models"
+            aria-controls="modelList"
+          />
+          <div id="modelList" class="modelList" role="listbox" aria-label="Free models"></div>
+        </div>
+      </div>
+      <span class="tag free" id="freeTag" title="How free is decided here">free</span>
+      <div class="spacer"></div>
+      <button class="pill" id="quota" type="button" title="API key">quota unavailable</button>
+      <div id="accountSlot" class="accountSlot"></div>
+      <button class="ghost" id="clearBtn" type="button" title="New chat (Alt+N)">New</button>
+      <button class="ghost" id="settingsBtn" type="button" title="Settings">⚙</button>
+      <button class="ghost" id="railBtn" type="button" title="Files and secrets">▤</button>
+      <button class="ghost" id="quitBtn" type="button" title="Stop this tab">Quit</button>
+    </header>
+
+    <div class="notice">
+      <b>Cloud edition — chat, files and preview.</b>
+      All ten hosted providers work here; OVHcloud needs no key and the rest take one, with Cloudflare also needing an Account ID.
+      Upload text or HTML, preview it in a sandbox, or sign in to keep a synced copy.
+      Commands and real disk folders need the desktop app (v<span class="desktopVer">…</span>):
+      <a href="https://pv-3c245e2ecaef-a687c140-8db4-40ec-986b-1d2e1bdfbcee.style.dev" target="_blank" rel="noreferrer">open it ↗</a>.
+      A Worker has no disk and cannot run your files or commands.
+    </div>
+
+    <aside class="rail" id="rail" hidden aria-label="Panels">
+      <div class="rail-head">
+        <button class="rail-tab active" type="button" data-rail="files">Files</button>
+        <button class="rail-tab" type="button" data-rail="secrets">Secrets</button>
+        <button class="rail-tab" type="button" data-rail="github">GitHub</button>
+        <button class="rail-tab" type="button" data-rail="preview">Preview</button>
+        <button class="rail-tab" type="button" data-rail="status">Health</button>
+        <button class="ghost mini" type="button" id="railClose" style="margin-left:auto" title="Close panels">×</button>
+      </div>
+
+      <div class="rail-body" id="railFiles">
+        <p class="fine">
+          <b>This browser.</b> Kept in IndexedDB, not on a disk. Names are always shared with the
+          model; tick a file to send its text too. Nothing leaves the tab until you send a message.
+        </p>
+        <div class="file-row">
+          <input id="fileName" placeholder="notes.txt" autocomplete="off" aria-label="File name" />
+          <button class="mini" type="button" id="fileNew">new</button>
+          <button class="ghost mini" type="button" id="fileSample">sample</button>
+          <label class="mini" title="Upload text, HTML or SVG files">upload<input id="fileUpload" type="file" multiple hidden></label>
+        </div>
+        <div id="fileList"></div>
+        <textarea id="fileBody" rows="9" placeholder="Select or create a file…" aria-label="File contents"></textarea>
+        <div class="row">
+          <button class="ghost mini" type="button" id="fileDelete">delete</button>
+          <button class="ghost mini" type="button" id="fileDownload">download</button>
+          <button class="ghost mini" type="button" id="filePreview">preview</button>
+          <button class="primary mini" type="button" id="fileSave">save</button>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%;margin:6px 0" />
+        <p class="fine">
+          <b>Account files.</b> Synced through your sign-in, available on any device. Text and HTML
+          only, 1 MB each, up to 40 files and 8 MB per account.
+        </p>
+        <div class="row">
+          <label class="mini" title="Upload a text or HTML file to your account">upload<input id="accountUpload" type="file" multiple hidden></label>
+          <button class="ghost mini" type="button" id="accountRefresh">refresh</button>
+          <button class="ghost mini" type="button" id="accountSave">save editor</button>
+        </div>
+        <p class="fine" id="accountNote">Checking whether account files are enabled…</p>
+        <div id="accountFileList"></div>
+      </div>
+
+      <div class="rail-body" id="railSecrets" hidden>
+        <p class="fine">Kept in this tab only (<code>sessionStorage</code>). Used only by the GitHub panel below.</p>
+        <div class="file-row">
+          <input id="secretName" placeholder="GITHUB_TOKEN" autocomplete="off" aria-label="Secret name" />
+          <input id="secretValue" type="password" placeholder="value" autocomplete="off" aria-label="Secret value" />
+        </div>
+        <div class="row"><button class="primary mini" type="button" id="secretSave">save</button></div>
+        <div id="secretList"></div>
+      </div>
+
+      <div class="rail-body" id="railGithub" hidden>
+        <p class="fine">Needs a secret named <code>GITHUB_TOKEN</code>. Calls api.github.com straight from this tab.</p>
+        <div class="row"><button class="primary mini" type="button" id="ghLoad">load repositories</button></div>
+        <div id="ghList"></div>
+      </div>
+
+      <div class="rail-body" id="railPreview" hidden>
+        <p class="fine">
+          Sandboxed iframe. Preview an HTML file you saved, or a public address. Many sites refuse to
+          be embedded; if the frame stays blank, open it in a new tab.
+        </p>
+        <div class="file-row">
+          <input id="previewUrl" placeholder="https://example.com" autocomplete="off" aria-label="Preview URL" />
+          <button class="mini" type="button" id="previewGo">go</button>
+        </div>
+        <p class="fine" id="previewNote">Nothing previewed yet.</p>
+        <a class="fine" id="previewOpen" href="#" target="_blank" rel="noreferrer" hidden>open in a new tab ↗</a>
+        <iframe id="previewFrame" title="Preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" style="width:100%;height:58vh;border:1px solid var(--line-2);border-radius:8px;background:#fff"></iframe>
+      </div>
+
+      <div class="rail-body" id="railStatus" hidden>
+        <p class="fine">Provider and model health from this tab's requests.</p>
+        <div id="statusBody"></div>
+        <div id="healthBody"></div>
+      </div>
+    </aside>
+
+    <main id="scroller">
+      <div class="wrap" id="thread">
+        <div class="empty" id="hello">
+          <h1>Free models. Real tools.</h1>
+          <p>Ask anything. If a free model is busy, pick another from the list — every model here is free and the list shows what each one can hold.</p>
+          <pre class="ascii">      you
+       |  message
+       v
++---------+   +-------------+   +-----------+
+| browser |--&gt;| cloud worker|--&gt;| OpenRouter|
+|         |&lt;--|   your key  |&lt;--| free models|
++---------+   +-------------+   +-----------+</pre>
+          <div class="suggest" id="suggest">
+            <button type="button" data-fill="Explain this error and how to fix it:\n">Explain an error</button>
+            <button type="button" data-fill="Summarise this in five short bullets:\n">Summarise something</button>
+            <button type="button" data-fill="Review this code for bugs and say what you would change:\n">Review code</button>
+            <button type="button" data-fill="Write a clear commit message for this change:\n">Commit message</button>
+          </div>
+          <p class="fine">In the tab the model can use workspace tools on browser files; the desktop app (v<span class="desktopVer">…</span>) reads real files and runs commands. Your key stays in this tab.</p>
+        </div>
+      </div>
+      <div id="bannerSlot"></div>
+    </main>
+
+    <footer>
+      <div class="image-bar" id="imageBar" hidden>
+        <img class="image-thumb" id="imageThumb" alt="Attached image preview" />
+        <span class="fine" id="imageName"></span>
+        <button class="mini" id="imageRemove" type="button" title="Remove the attached image">Remove</button>
+      </div>
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="Message…"></textarea>
+        <label class="mini" title="Attach a PNG, JPEG or WebP image">🖼<input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+        <label class="mini" title="Attach a text file">📎<input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden></label>
+        <button id="memoryBtn" class="mini" type="button" title="Edit the note sent with this chat">memory</button>
+        <button class="primary" id="send">Send</button>
+        <button class="ghost" id="stop" disabled>Stop</button>
+      </div>
+      <div class="hint">
+        <span id="hintText">Free models only.</span>
+        <span>·</span>
+        <span id="counter">0 messages</span>
+        <span>·</span>
+        <span>Enter to send · Shift+Enter newline · Ctrl+K commands · Ctrl+M models · Alt+N new chat</span>
+      </div>
+    </footer>
+
+    <dialog id="paletteDialog">
+      <h2>Commands</h2>
+      <p>Everything the header can do. Ctrl+K opens this; Ctrl+M is the model picker.</p>
+      <input id="paletteInput" placeholder="Type a command…" autocomplete="off" spellcheck="false" aria-label="Command" />
+      <div id="paletteList" class="palette-list" role="listbox" aria-label="Commands"></div>
+    </dialog>
+
+    <dialog id="keyDialog">
+      <h2 id="keyTitle">OpenRouter key</h2>
+      <p id="keyNote">
+        This deployment has no server key, so the page asks for yours. It is kept in this tab only
+        (<code>sessionStorage</code>) and sent straight to the provider through the proxy. Clear it any time.
+      </p>
+      <p class="fine"><a id="keyLink" href="#" target="_blank" rel="noreferrer">get a key ↗</a></p>
+      <p class="fine">What this plan allows</p>
+      <ul class="limits" id="keyLimits"></ul>
+      <p class="fine" id="keyTryNote">
+        No key? OVHcloud’s public demo works immediately, at 2 requests a minute per model.
+      </p>
+      <label for="keyInput" id="keyLabel">Key (starts with <code>sk-or-</code>)</label>
+      <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…" />
+      <div id="keyAccountField" hidden>
+        <label for="keyAccount" id="keyAccountLabel">Account ID</label>
+        <input id="keyAccount" type="text" autocomplete="off" spellcheck="false" placeholder="32-character Account ID" />
+        <p class="fine" id="keyAccountHelp"></p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="keyClear">Clear</button>
+        <button class="ghost" id="keyTry" type="button">Try it now — no key</button>
+        <button class="ghost" id="keyCancel">Cancel</button>
+        <button class="primary" id="keySave">Save</button>
+      </div>
+    </dialog>
+
+    <dialog id="promptDialog">
+      <h2>Saved prompts</h2>
+      <p>Kept in this browser only. Click one to drop it into the composer.</p>
+      <div class="promptList" id="promptList"></div>
+      <div class="row">
+        <button class="ghost" id="promptClose">Close</button>
+        <button class="primary" id="promptSave">Save current draft</button>
+      </div>
+    </dialog>
+
+    <dialog id="settingsDialog">
+      <h2>Settings</h2>
+      <p>Applied to every request from this tab.</p>
+      <div id="accountRow" class="accountRow">
+        <span class="fine" id="accountNote">Checking sign-in…</span>
+      </div>
+      <label for="settingSystem">System prompt (optional)</label>
+      <textarea id="settingSystem" rows="4" placeholder="Be concise."></textarea>
+      <label for="settingMax">Max tokens</label>
+      <input id="settingMax" type="number" min="64" max="4096" step="64" value="2048" />
+      <label for="settingTemp">Temperature (blank = provider default)</label>
+      <input id="settingTemp" type="number" min="0" max="2" step="0.1" placeholder="0.7" />
+      <label for="settingTools" style="display:flex; gap:8px; align-items:center; margin-top:10px">
+        <input id="settingTools" type="checkbox" style="width:auto" />
+        Workspace tools (testing): let the model list, read and write browser files
+      </label>
+      <div class="row" style="justify-content:flex-start; flex-wrap:wrap; margin-top:14px">
+        <button class="ghost mini" id="historyBtn" type="button">Saved chats</button>
+        <button class="ghost mini" id="promptsBtn" type="button">Prompts</button>
+        <button class="ghost mini" id="exportBtn" type="button">Export Markdown</button>
+        <button class="ghost mini" id="exportChatsBtn" type="button">Export chats (.json)</button>
+        <button class="ghost mini" id="keyBtn" type="button">Provider key</button>
+      </div>
+      <div class="row">
+        <button class="ghost" id="settingsCancel">Cancel</button>
+        <button class="primary" id="settingsSave">Save</button>
+      </div>
+    </dialog>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const KEY_PREFIX = 'orc.key.';
+      const ACCOUNT_PREFIX = 'orc.account.';
+      const state = {
+        version: '?',
+        provider: 'openrouter',
+        providers: [],
+        serverKeys: [],
+        models: [],
+        model: '',
+        rows: [],
+        active: 0,
+        messages: [],
+        threadId: null,
+        stopRequested: false,
+        stats: { requests: 0, ok: 0, failed: 0, lastMs: 0, lastModel: '', tokensIn: 0, tokensOut: 0 },
+        busy: false,
+        abort: null,
+        user: null,
+        accounts: false,
+        quota: null,
+        quotaAt: 0,
+        perModel: {},
+        cooling: {},
+        attachment: null,
+        accountFiles: [],
+        accountUsage: null,
+        accountFilesEnabled: false,
+        accountFilesError: '',
+        fileLimits: null,
+      };
+
+      const keyFor = (id = state.provider) => sessionStorage.getItem(KEY_PREFIX + id) || '';
+      const accountFor = (id = state.provider) => sessionStorage.getItem(ACCOUNT_PREFIX + id) || '';
+      const providerInfo = (id = state.provider) =>
+        state.providers.find((provider) => provider.id === id) || {
+          id,
+          label: 'OpenRouter',
+          keyHint: 'sk-or-v1-…',
+          keysUrl: 'https://openrouter.ai/settings/keys',
+          requiresAccount: false,
+          accountHint: '',
+          tier: 'verified',
+          planLabel: 'free · always',
+          limitLines: ['Reported by the key; the header pill shows what is left.'],
+          note: 'Free models only.',
+        };
+
+      // A deployment can carry the keys in Sites secrets. Cloudflare also needs
+      // its account id, so a key alone is not enough to call its API.
+      const hasKey = () => {
+        const info = providerInfo();
+        if (info.anonymous) return true;
+        const keyReady = Boolean(keyFor() || state.serverKeys.includes(state.provider));
+        if (!keyReady) return false;
+        return !info.requiresAccount || Boolean(accountFor() || state.serverKeys.includes(state.provider));
+      };
+
+      function providerHeaders() {
+        const headers = {};
+        if (keyFor()) headers['x-provider-key'] = keyFor();
+        if (accountFor()) headers['x-provider-account'] = accountFor();
+        return headers;
+      }
+
+      function el(tag, cls, text) {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
+      }
+
+      // Everything is escaped before a tag is added, so model output cannot
+      // inject markup. Mirrors the desktop renderer, minus the copy button.
+      function inline(text) {
+        return String(text)
+          .split('`')
+          .map((part, index) =>
+            index % 2 === 1
+              ? `<code>${part}</code>`
+              : part
+                  .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+                  .replace(
+                    /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>',
+                  ),
+          )
+          .join('');
+      }
+
+      function renderMarkdown(source) {
+        const lines = String(source ?? '').split('\n');
+        const out = [];
+        let paragraph = [];
+        let list = null;
+        let listType = 'ul';
+
+        const flushParagraph = () => {
+          if (paragraph.length) {
+            out.push(`<p>${paragraph.map(inline).join('<br />')}</p>`);
+            paragraph = [];
+          }
+        };
+        const flushList = () => {
+          if (list) {
+            out.push(`<${listType}>${list.map((item) => `<li>${inline(item)}</li>`).join('')}</${listType}>`);
+            list = null;
+          }
+        };
+
+        for (let index = 0; index < lines.length; index += 1) {
+          const raw = lines[index];
+
+          if (/^```/.test(raw.trim())) {
+            flushParagraph();
+            flushList();
+            const lang = raw.trim().slice(3).trim();
+            const code = [];
+            index += 1;
+            while (index < lines.length && !/^```/.test(lines[index].trim())) {
+              code.push(lines[index]);
+              index += 1;
+            }
+            out.push(
+              `<div class="code"><div class="code-bar">${escapeHtml(lang || 'text')}</div>` +
+                `<pre><code>${escapeHtml(code.join('\n'))}</code></pre></div>`,
+            );
+            continue;
+          }
+
+          const heading = /^(#{1,6})\s+(.*)$/.exec(raw);
+          if (heading) {
+            flushParagraph();
+            flushList();
+            const level = Math.min(heading[1].length, 3);
+            out.push(`<h${level}>${inline(escapeHtml(heading[2]))}</h${level}>`);
+            continue;
+          }
+
+          const unordered = /^\s*[-*+]\s+(.*)$/.exec(raw);
+          const ordered = /^\s*\d+\.\s+(.*)$/.exec(raw);
+          if (unordered || ordered) {
+            flushParagraph();
+            const type = unordered ? 'ul' : 'ol';
+            if (list && listType !== type) flushList();
+            list = list || [];
+            listType = type;
+            list.push(escapeHtml((unordered || ordered)[1]));
+            continue;
+          }
+
+          if (!raw.trim()) {
+            flushParagraph();
+            flushList();
+            continue;
+          }
+
+          paragraph.push(escapeHtml(raw));
+        }
+
+        flushParagraph();
+        flushList();
+        return out.join('');
+      }
+
+      function fmtContext(n) {
+        if (!n) return '';
+        return n >= 1000 ? Math.round(n / 1000) + 'k ctx' : n + ' ctx';
+      }
+
+      function setHints() {
+        const tokens = state.stats.tokensIn + state.stats.tokensOut;
+        $('counter').textContent =
+          state.messages.filter((m) => m.role === 'user').length + ' sent' +
+          (tokens ? ' · ' + tokens.toLocaleString() + ' tokens' : '');
+        $('hintText').textContent = providerInfo().anonymous
+          ? `${providerInfo().label} · no key needed.`
+          : keyFor()
+          ? `${providerInfo().label} · key kept in this tab only.`
+          : hasKey()
+            ? `${providerInfo().label} · key held by this deployment.`
+            : `${providerInfo().label} · press “key” to paste one.`;
+      }
+
+      function banner(text, actionLabel, action) {
+        const slot = $('bannerSlot');
+        slot.innerHTML = '';
+        if (!text) return;
+        const box = el('div', 'banner');
+        box.append(el('span', '', text));
+        if (actionLabel) {
+          const btn = el('button', 'mini', actionLabel);
+          btn.onclick = () => { action(); box.remove(); };
+          box.append(btn);
+        }
+        slot.append(box);
+      }
+
+      // ------------------------------------------------------------- models
+      async function loadModels() {
+        try {
+          const headers = providerHeaders();
+          const res = await fetch(`/api/models?provider=${encodeURIComponent(state.provider)}`, { headers });
+          const data = await res.json();
+          if (!res.ok) {
+            if (data.error === 'missing_key' || data.error === 'missing_account' || data.error === 'key_rejected') {
+              openKey(
+                data.error === 'key_rejected'
+                  ? `${providerInfo().label} rejected that key. Paste a working one.`
+                  : data.error === 'missing_account'
+                    ? `Paste the ${providerInfo().label} Account ID as well as its API token.`
+                    : `Paste a ${providerInfo().label} key to load its models.`,
+              );
+            }
+            throw new Error(data.message || 'Could not load models');
+          }
+          state.models = data.models || [];
+          if (!state.models.length) {
+            state.model = '';
+            updateModelButton('no free models available');
+            return;
+          }
+          const preferred =
+            localStorage.getItem(`orc.model.${state.provider}`) || localStorage.getItem('orc.model');
+          const has = (id) => state.models.some((m) => m.id === id);
+          state.model = has(preferred) ? preferred : state.models[0].id;
+          updateModelButton();
+          // The badge names the plan, not just "free": a daily allowance and an
+          // always-free catalog are different promises.
+          $('freeTag').textContent =
+            providerInfo().planLabel || (data.tier === 'verified' ? 'free · always' : 'free plan');
+          $('quota').textContent = state.models.length + ' free models';
+        } catch (error) {
+          state.models = [];
+          state.model = '';
+          updateModelButton('Retry models');
+          $('freeTag').textContent = 'offline';
+          $('quota').textContent = 'quota unavailable';
+          banner('Could not load the model list: ' + error.message, 'retry', loadModels);
+        }
+      }
+
+      // --------------------------------------------------------- images
+      function recentImages(messages, limit = 2) {
+        let left = limit;
+        return messages
+          .slice()
+          .reverse()
+          .map((message) => {
+            const images = left > 0 && Array.isArray(message.images) ? message.images.slice(0, 1) : [];
+            if (images.length) left -= 1;
+            return images.length ? { ...message, images } : { ...message, images: undefined };
+          })
+          .reverse();
+      }
+
+      async function compressImage(file) {
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+          throw new Error('Use a PNG, JPEG or WebP image.');
+        }
+        if (file.size > 10 * 1024 * 1024) throw new Error('That image is over 10 MB.');
+        const url = URL.createObjectURL(file);
+        try {
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          let best = '';
+          for (const max of [900, 700, 520, 380]) {
+            const scale = Math.min(1, max / Math.max(image.naturalWidth, image.naturalHeight));
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const context = canvas.getContext('2d');
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            best = canvas.toDataURL('image/jpeg', 0.72);
+            if (best.length <= 300000) break;
+          }
+          if (best.length > 320000) throw new Error('That image is still too large after resizing. Try a smaller one.');
+          return best;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      function renderAttachment() {
+        const bar = $('imageBar');
+        if (!bar) return;
+        bar.hidden = !state.attachment;
+        if (!state.attachment) return;
+        $('imageThumb').src = state.attachment.dataUrl;
+        $('imageName').textContent = state.attachment.name;
+      }
+
+      function clearAttachment() {
+        state.attachment = null;
+        renderAttachment();
+      }
+
+      async function ensureVisionModel() {
+        const current = state.models.find((model) => model.id === state.model);
+        if (current?.vision) return true;
+        const vision = state.models.find((model) => model.vision);
+        if (!vision) {
+          banner('No free vision model is available for this image.', 'close', () => {});
+          return false;
+        }
+        chooseModel(vision.id);
+        banner(`Switched to ${vision.id} for the image.`, 'close', () => {});
+        return true;
+      }
+
+      async function attachImage(file) {
+        if (!file) return;
+        if (!(await ensureVisionModel())) return;
+        try {
+          const dataUrl = await compressImage(file);
+          state.attachment = { name: file.name || 'image.jpg', dataUrl };
+          renderAttachment();
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      // --------------------------------------------------------------- chat
+      function addMessage(role, text, images = []) {
+        $('hello')?.remove();
+        const wrap = el('div', 'msg ' + role);
+        if (role === 'user' && images[0]) {
+          const image = el('img', 'msg-image');
+          image.src = images[0];
+          image.alt = 'Attached image';
+          wrap.append(image);
+        }
+        const bubble = el('div', 'bubble');
+        if (role === 'assistant') bubble.innerHTML = renderMarkdown(text);
+        else bubble.textContent = text;
+        wrap.append(bubble);
+        $('thread').append(wrap);
+        scrollDown();
+        return { wrap, bubble };
+      }
+
+      // One error shape for both the streaming and tool paths: the Worker's
+      // Retry-After header is authoritative, and the body carries the same
+      // number for a client that only read JSON.
+      function requestError(res, data) {
+        const header = Number(res.headers.get('retry-after'));
+        const retryAfterMs =
+          Number(data.retryAfterMs) || (Number.isFinite(header) && header > 0 ? header * 1000 : 0);
+        return Object.assign(new Error(data.message || 'Request failed (' + res.status + ')'), {
+          code: data.error,
+          model: data.model || '',
+          retryAfterMs,
+        });
+      }
+
+      function addMeta(wrap, text, copyText) {
+        const meta = el('div', 'meta');
+        meta.append(el('span', '', text));
+        if (copyText) {
+          const copy = el('button', 'mini', 'copy');
+          copy.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(copyText);
+              copy.textContent = 'copied';
+              setTimeout(() => (copy.textContent = 'copy'), 1200);
+            } catch {
+              copy.textContent = 'select it instead';
+            }
+          };
+          meta.append(copy);
+        }
+        wrap.append(meta);
+      }
+
+      function scrollDown() {
+        const main = $('scroller');
+        main.scrollTop = main.scrollHeight;
+      }
+
+      function autoGrow() {
+        const box = $('input');
+        box.style.height = 'auto';
+        box.style.height = Math.min(box.scrollHeight, 190) + 'px';
+      }
+
+      // ------------------------------------------- workspace tools (testing)
+      // Same shape as the desktop tools, but a Worker has no disk: these read and
+      // write the browser workspace. Writes always ask first, like Windows does.
+      const WORKSPACE_TOOLS = [
+        {
+          type: 'function',
+          function: {
+            name: 'list_files',
+            description: 'List the files in the browser workspace.',
+            parameters: { type: 'object', properties: {}, required: [] },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'read_file',
+            description: 'Read one file from the browser workspace.',
+            parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'write_file',
+            description: 'Create or overwrite a file in the browser workspace. The user must approve.',
+            parameters: {
+              type: 'object',
+              properties: { path: { type: 'string' }, content: { type: 'string' } },
+              required: ['path', 'content'],
+            },
+          },
+        },
+      ];
+
+      function runTool(name, args) {
+        const files = readFiles();
+        if (name === 'list_files') return Object.keys(files).sort().join('\n') || '(empty workspace)';
+        if (name === 'read_file') {
+          return args.path in files ? files[args.path] : `No such file: ${args.path}`;
+        }
+        if (name === 'write_file') {
+          const content = String(args.content ?? '');
+          if (content.length > 200000) return 'Refused: file would exceed 200,000 characters.';
+          files[args.path] = content;
+          writeFiles(files);
+          renderFiles();
+          return `Wrote ${args.path} (${content.length} chars).`;
+        }
+        return `Unknown tool: ${name}`;
+      }
+
+      function askTool(name, args) {
+        return new Promise((resolve) => {
+          const wrap = el('div', 'msg assistant');
+          const card = el('div', 'bubble tool-card');
+          card.append(el('b', '', `Tool: ${name}`));
+          card.append(el('div', 'fine', JSON.stringify(args).slice(0, 400)));
+          const row = el('div', 'row');
+          const deny = el('button', 'ghost mini', 'Deny');
+          const allow = el('button', 'primary mini', 'Allow');
+          deny.type = 'button';
+          allow.type = 'button';
+          const finish = (ok) => {
+            row.remove();
+            card.append(el('span', 'fine', ok ? 'allowed' : 'denied'));
+            resolve(ok);
+          };
+          deny.onclick = () => finish(false);
+          allow.onclick = () => finish(true);
+          row.append(deny, allow);
+          card.append(row);
+          wrap.append(card);
+          $('thread').append(wrap);
+          scrollDown();
+        });
+      }
+
+      async function toolSend(images = []) {
+        const box = $('input');
+        const text = box.value.trim();
+        if ((!text && !images.length) || state.busy) return;
+        if (!state.model) return banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
+        if (!hasKey()) return openKey(`Paste a ${providerInfo().label} key to chat from this deployment.`);
+
+        box.value = '';
+        autoGrow();
+        const content = text || 'What is in this image?';
+        state.messages.push({ role: 'user', content, ...(images.length ? { images } : {}) });
+        clearAttachment();
+        saveThread();
+        const userNode = addMessage('user', content, images);
+        addActions(userNode.wrap, state.messages.length - 1, 'user');
+
+        state.busy = true;
+        $('send').disabled = true;
+        $('send').textContent = '…';
+        $('stop').disabled = false;
+        state.stopRequested = false;
+        const pending = addMessage('assistant', '');
+        pending.bubble.classList.add('cursor');
+        pending.bubble.textContent = 'thinking';
+        const meta = el('div', 'meta', state.model);
+        pending.wrap.append(meta);
+        // The assistant message is not in state yet, but its index is known;
+        // clicks are blocked while busy and become valid once the answer lands.
+        addActions(pending.wrap, state.messages.length, 'assistant');
+
+        const startedAt = Date.now();
+        const settings = readSettings();
+        let lastUsage = null;
+        // The file-name/tick context belongs in tool mode too; without it the
+        // model knew the tools existed but never saw the workspace contents.
+        const system = [settings.system, fileContext()].filter(Boolean).join('\n\n');
+        const convo = system
+          ? [{ role: 'system', content: system }, ...state.messages]
+          : [...state.messages];
+
+        try {
+          let answer = '';
+          let answeredBy = '';
+          let fallbackFrom = '';
+          let compacted = 0;
+          for (let step = 0; step < 3; step += 1) {
+            if (state.stopRequested) throw new DOMException('stopped', 'AbortError');
+            const headers = { 'content-type': 'application/json' };
+            Object.assign(headers, providerHeaders());
+            const body = {
+              provider: state.provider,
+              model: state.model,
+              stream: false,
+              messages: recentImages(withMemoryNote(convo), 2),
+              max_tokens: settings.maxTokens,
+              tools: WORKSPACE_TOOLS,
+            };
+            if (settings.temperature !== null) body.temperature = settings.temperature;
+            const res = await fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify(body) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw requestError(res, data);
+            answeredBy = data.provider || '';
+            fallbackFrom = data.fallbackFrom || '';
+            compacted = Number(data.memory?.compacted || 0);
+            if (data.usage) lastUsage = data.usage;
+            if (data.text) {
+              answer += data.text;
+              pending.bubble.innerHTML = renderMarkdown(answer);
+              scrollDown();
+            }
+            const calls = Array.isArray(data.toolCalls) ? data.toolCalls : [];
+            if (!calls.length) break;
+            convo.push({ role: 'assistant', content: data.text || '' });
+            const results = [];
+            for (const call of calls) {
+              const name = call?.function?.name || 'unknown';
+              let args = {};
+              try {
+                args = JSON.parse(call?.function?.arguments || '{}');
+              } catch {
+                args = {};
+              }
+              const allowed = name === 'write_file' ? await askTool(name, args) : true;
+              results.push(`${name}(${JSON.stringify(args)}) -> ${allowed ? runTool(name, args) : 'DENIED by the user'}`);
+            }
+            convo.push({ role: 'user', content: 'TOOL RESULTS\n' + results.join('\n') });
+          }
+
+          if (!answer.trim()) answer = '(the model used tools but returned no text)';
+          pending.bubble.classList.remove('cursor');
+          pending.bubble.innerHTML = renderMarkdown(answer);
+          state.messages.push({ role: 'assistant', content: answer, usage: lastUsage });
+          saveThread();
+          const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+          meta.textContent =
+            state.model + ' · ' + seconds + 's' +
+            (lastUsage
+              ? ` · ${Number(lastUsage.prompt_tokens) || 0} in / ${Number(lastUsage.completion_tokens) || 0} out`
+              : '');
+          meta.textContent += costNote(lastUsage);
+          if (fallbackFrom && answeredBy) meta.textContent += ' · via ' + answeredBy;
+          if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
+          addMeta(pending.wrap, '', answer);
+          bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
+        } catch (error) {
+          bumpStats(false, Date.now() - startedAt);
+          if (['upstream_rate', 'rate_limited'].includes(error.code)) {
+            noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
+          }
+          if (error.code === 'missing_key' || error.code === 'key_rejected') {
+            state.messages.pop();
+            setTimeout(() => openKey('That key was rejected. Paste a working one.'), 200);
+          }
+          pending.bubble.classList.remove('cursor');
+          pending.wrap.className = 'msg error';
+          pending.bubble.textContent = '';
+          pending.bubble.append(el('b', '', 'That did not work'));
+          pending.bubble.append(document.createTextNode(error.message));
+          meta.textContent = error.code || '';
+        } finally {
+          state.busy = false;
+          $('send').disabled = false;
+          $('send').textContent = 'Send';
+          $('stop').disabled = true;
+          setHints();
+          scrollDown();
+        }
+      }
+
+      function addActions(wrap, index, role) {
+        const row = el('div', 'actions');
+        row.style.cssText = 'display:flex;gap:6px;margin-top:4px';
+        const make = (kind, label) => {
+          const button = el('button', 'mini', label);
+          button.dataset.act = kind;
+          button.dataset.index = String(index);
+          row.append(button);
+        };
+        make('copy', 'Copy');
+        make(role === 'assistant' ? 'regen' : 'edit', role === 'assistant' ? 'Regenerate' : 'Edit');
+        make('branch', 'Branch');
+        wrap.append(row);
+      }
+
+      async function actOnMessage(event) {
+        const button = event.target.closest('[data-act]');
+        if (!button || state.busy) return;
+        const index = Number(button.dataset.index);
+        const message = state.messages[index];
+        if (!message) return;
+        if (button.dataset.act === 'copy') {
+          try { await navigator.clipboard.writeText(message.content); button.textContent = 'Copied'; setTimeout(() => (button.textContent = 'Copy'), 1200); } catch { button.textContent = 'Select it'; }
+        } else if (button.dataset.act === 'branch') {
+          state.messages = state.messages.slice(0, index + 1).map((item) => ({ ...item }));
+          state.threadId = null;
+          saveThread();
+          $('thread').innerHTML = '';
+          state.messages.forEach((item, at) => {
+            const node = addMessage(item.role, item.content);
+            if (item.role === 'assistant') addMeta(node.wrap, '', item.content);
+            addActions(node.wrap, at, item.role);
+          });
+          banner('Branched into a new chat.', 'close', () => {});
+        } else if (button.dataset.act === 'regen') {
+          if (message.role !== 'assistant') return;
+          let user = index - 1;
+          while (user >= 0 && state.messages[user].role !== 'user') user -= 1;
+          if (user < 0) return;
+          const text = state.messages[user].content;
+          state.messages = state.messages.slice(0, user);
+          saveThread();
+          [...$('thread').querySelectorAll('.msg')].slice(user).forEach((node) => node.remove());
+          $('input').value = text;
+          send();
+        } else if (button.dataset.act === 'edit') {
+          if (message.role !== 'user') return;
+          const next = prompt('Edit your message', message.content);
+          if (next === null || !next.trim()) return;
+          state.messages = state.messages.slice(0, index);
+          saveThread();
+          [...$('thread').querySelectorAll('.msg')].slice(index).forEach((node) => node.remove());
+          $('input').value = next.trim();
+          send();
+        }
+      }
+      $('thread').addEventListener('click', actOnMessage);
+
+      $('attach').addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > 200 * 1024) return banner('That file is over 200 KB.', 'close', () => {});
+        const text = await file.text();
+        const box = $('input');
+        box.value += `${box.value ? '\n\n' : ''}[Attached file: ${file.name}]\n${text}`;
+        box.focus();
+      });
+
+      async function send() {
+        const images = state.attachment ? [state.attachment.dataUrl] : [];
+        if (images.length && state.busy) {
+          banner('Wait for the current answer before attaching an image.', 'close', () => {});
+          return;
+        }
+        if (images.length && !(await ensureVisionModel())) return;
+        const cooling = state.cooling || {};
+        if ((cooling[state.model] || 0) > Date.now()) {
+          const alternative = state.models.find(
+            (model) => model.id !== state.model && (cooling[model.id] || 0) <= Date.now(),
+          );
+          if (alternative) {
+            const skipped = state.model;
+            state.model = alternative.id;
+            updateModelButton();
+            banner(`Skipped cooling ${skipped} — using ${alternative.id}.`, 'close', () => {});
+          }
+        }
+        return readSettings().tools ? toolSend(images) : streamSend(images);
+      }
+
+      async function streamSend(images = []) {
+        const box = $('input');
+        const text = box.value.trim();
+        if ((!text && !images.length) || state.busy) return;
+        if (!state.model) {
+          banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
+          return;
+        }
+        if (!hasKey()) {
+          openKey(`Paste a ${providerInfo().label} key to chat from this deployment.`);
+          return;
+        }
+
+        box.value = '';
+        autoGrow();
+        const content = text || 'What is in this image?';
+        state.messages.push({ role: 'user', content, ...(images.length ? { images } : {}) });
+        clearAttachment();
+        saveThread();
+        const userNode = addMessage('user', content, images);
+        addActions(userNode.wrap, state.messages.length - 1, 'user');
+
+        state.busy = true;
+        $('send').disabled = true;
+        $('send').textContent = '…';
+        $('stop').disabled = false;
+        state.stopRequested = false;
+        const pending = addMessage('assistant', '');
+        pending.bubble.classList.add('cursor');
+        pending.bubble.textContent = 'thinking';
+        const meta = el('div', 'meta', state.model);
+        pending.wrap.append(meta);
+        // The assistant message is not in state yet, but its index is known;
+        // clicks are blocked while busy and become valid once the answer lands.
+        addActions(pending.wrap, state.messages.length, 'assistant');
+
+        state.abort = new AbortController();
+        const startedAt = Date.now();
+        try {
+          const headers = { 'content-type': 'application/json' };
+          Object.assign(headers, providerHeaders());
+          const settings = readSettings();
+          const system = [settings.system, fileContext()].filter(Boolean).join('\n\n');
+          const outgoing = { provider: state.provider, model: state.model, stream: true };
+          outgoing.messages = recentImages(
+            withMemoryNote(system ? [{ role: 'system', content: system }, ...state.messages] : state.messages),
+            2,
+          );
+          outgoing.max_tokens = settings.maxTokens;
+          if (settings.temperature !== null) outgoing.temperature = settings.temperature;
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(outgoing),
+            signal: state.abort.signal,
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw requestError(res, data);
+          }
+          if (!res.body) throw new Error('This browser cannot read a streamed reply.');
+          const answeredBy = res.headers.get('x-answer-provider') || '';
+          const fallbackFrom = res.headers.get('x-fallback-from') || '';
+          const compacted = Number(res.headers.get('x-memory-compacted') || 0);
+
+          // The Worker sends `{"delta":…}` frames while the model talks, then
+          // one `{"done":true,…}` frame. Paint each delta as it lands.
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let answer = '';
+          let info = null;
+          pending.bubble.textContent = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const frames = buffer.split('\n\n');
+            buffer = frames.pop() || '';
+            for (const frame of frames) {
+              const line = frame.split('\n').find((part) => part.startsWith('data:'));
+              if (!line) continue;
+              let event;
+              try {
+                event = JSON.parse(line.slice(5).trim());
+              } catch {
+                continue;
+              }
+              if (event.error) {
+                throw Object.assign(new Error(event.message || 'The stream stopped early.'), { code: event.error });
+              }
+              if (event.delta) {
+                answer += event.delta;
+                pending.bubble.innerHTML = renderMarkdown(answer);
+                scrollDown();
+              }
+              if (event.done) info = event;
+            }
+          }
+
+          if (!answer) throw new Error('The model returned no text. Try another free model.');
+          pending.bubble.classList.remove('cursor');
+          pending.bubble.innerHTML = renderMarkdown(answer);
+          state.messages.push({
+            role: 'assistant',
+            content: answer,
+            usage:
+              info && info.usage
+                ? {
+                    prompt_tokens: Number(info.usage.prompt_tokens) || 0,
+                    completion_tokens: Number(info.usage.completion_tokens) || 0,
+                    cost: Number(info.usage.cost) || 0,
+                  }
+                : null,
+          });
+          saveThread();
+          bumpStats(true, Date.now() - startedAt, (info && info.model) || state.model, info && info.usage);
+          const finalModel = (info && info.model) || state.model;
+          const ms = (info && info.ms) || 0;
+          meta.textContent =
+            finalModel +
+            (ms ? ' · ' + (ms / 1000).toFixed(1) + 's' : '') +
+            (info && info.usage
+              ? ` · ${Number(info.usage.prompt_tokens) || 0} in / ${Number(info.usage.completion_tokens) || 0} out`
+              : '');
+          meta.textContent += costNote(info && info.usage);
+          if (fallbackFrom && answeredBy) meta.textContent += ' · via ' + answeredBy;
+          if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
+          addMeta(pending.wrap, '', answer);
+          if (info && info.keySource === 'browser') meta.textContent += ' · your key';
+        } catch (error) {
+          if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
+          if (['upstream_rate', 'rate_limited'].includes(error.code)) {
+            noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
+          }
+          pending.bubble.classList.remove('cursor');
+          if (error.name === 'AbortError') {
+            pending.wrap.remove();
+            state.messages.pop();
+          } else {
+            pending.wrap.className = 'msg error';
+            pending.bubble.textContent = '';
+            pending.bubble.append(el('b', '', 'That did not work'));
+            pending.bubble.append(document.createTextNode(error.message));
+            meta.textContent = error.code || '';
+            if (error.retryAfterMs) {
+              meta.textContent += ' · ' + retryText(Date.now() + error.retryAfterMs);
+            }
+            if (error.code === 'missing_key' || error.code === 'key_rejected') {
+              state.messages.pop();
+              setTimeout(() => openKey('That key was rejected. Paste a working one.'), 200);
+            }
+          }
+        } finally {
+          state.busy = false;
+          $('send').disabled = false;
+          $('send').textContent = 'Send';
+          $('stop').disabled = true;
+          state.abort = null;
+          setHints();
+          scrollDown();
+        }
+      }
+
+      // ------------------------------------------------------------- panels
+      const FILES_KEY = 'orc.files';
+      const SECRETS_KEY = 'orc.secrets';
+      const INCLUDE_KEY = 'orc.include';
+      const SETTINGS_KEY = 'orc.settings';
+
+      function readJsonStore(store, key, fallback) {
+        try {
+          const value = JSON.parse(store.getItem(key) || 'null');
+          return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      // The workspace used to be one localStorage string, capped around 5 MB and
+      // rewritten on every save. Keep the map in memory for the synchronous tool
+      // path and persist it to IndexedDB; the old key is copied forward once.
+      let localFiles = readJsonStore(localStorage, FILES_KEY, {});
+      let fileDb = null;
+      let fileWriteTimer = null;
+
+      const readFiles = () => localFiles;
+      const writeFiles = (map) => {
+        localFiles = map;
+        if (!fileDb) {
+          try {
+            localStorage.setItem(FILES_KEY, JSON.stringify(map));
+          } catch {
+            /* browser storage is full; the in-memory copy still works */
+          }
+          return;
+        }
+        clearTimeout(fileWriteTimer);
+        fileWriteTimer = setTimeout(() => saveFileDb().catch(() => {}), 120);
+      };
+
+      function openFileDb() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open('freeway-files', 1);
+          request.onupgradeneeded = () => {
+            if (!request.result.objectStoreNames.contains('files')) {
+              request.result.createObjectStore('files');
+            }
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      function readAllStored(db) {
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('files', 'readonly');
+          const cursor = tx.objectStore('files').openCursor();
+          const out = {};
+          cursor.onsuccess = () => {
+            const row = cursor.result;
+            if (!row) return resolve(out);
+            out[String(row.key)] = String(row.value);
+            row.continue();
+          };
+          cursor.onerror = () => reject(cursor.error);
+        });
+      }
+
+      function saveFileDb() {
+        if (!fileDb) return Promise.resolve();
+        const snapshot = localFiles;
+        return new Promise((resolve, reject) => {
+          const tx = fileDb.transaction('files', 'readwrite');
+          const store = tx.objectStore('files');
+          store.clear();
+          for (const [name, body] of Object.entries(snapshot)) store.put(String(body), name);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error);
+        });
+      }
+
+      async function initLocalFiles() {
+        if (!('indexedDB' in window)) return;
+        try {
+          fileDb = await openFileDb();
+          const stored = await readAllStored(fileDb);
+          if (Object.keys(stored).length) localFiles = stored;
+          else if (Object.keys(localFiles).length) await saveFileDb();
+          // The copy-forward succeeded; the old string is no longer authoritative.
+          if (Object.keys(localFiles).length) localStorage.removeItem(FILES_KEY);
+        } catch {
+          fileDb = null;
+        }
+      }
+      const readSecrets = () => readJsonStore(sessionStorage, SECRETS_KEY, {});
+      const writeSecrets = (map) => sessionStorage.setItem(SECRETS_KEY, JSON.stringify(map));
+
+      function readSettings() {
+        const raw = readJsonStore(localStorage, SETTINGS_KEY, {});
+        return {
+          system: typeof raw.system === 'string' ? raw.system : '',
+          maxTokens: Number.isFinite(raw.maxTokens) ? raw.maxTokens : 2048,
+          temperature: Number.isFinite(raw.temperature) ? raw.temperature : null,
+          tools: raw.tools === true,
+        };
+      }
+
+      function readInclude() {
+        try {
+          const value = JSON.parse(localStorage.getItem(INCLUDE_KEY) || '[]');
+          return Array.isArray(value) ? value.filter((name) => typeof name === 'string') : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function toggleInclude(name, on) {
+        const files = readFiles();
+        const next = readInclude().filter((each) => each !== name && each in files);
+        if (on && name in files) next.push(name);
+        localStorage.setItem(INCLUDE_KEY, JSON.stringify(next));
+      }
+
+      /**
+       * The model cannot read this browser. Names always travel so it knows the
+       * workspace exists; only ticked files get their text, inside a character
+       * budget so a large file cannot swallow the context.
+       */
+      function fileContext() {
+        const files = readFiles();
+        const names = Object.keys(files).sort();
+        if (!names.length) return '';
+        const included = readInclude().filter((name) => name in files);
+        const lines = [
+          'The user has a browser-local workspace in this tab. These files exist:',
+          ...names.map((name) => `- ${name} (${files[name].length} chars)`),
+          'You cannot read the disk or the network. Only the content included below is visible.',
+        ];
+        if (included.length) {
+          lines.push('', 'Included file contents:', '');
+          let budget = 12000;
+          for (const name of included) {
+            const body = files[name].slice(0, Math.max(0, budget));
+            if (!body) break;
+            lines.push(`--- ${name} ---`, body, `--- end ${name} ---`, '');
+            budget -= body.length;
+            if (budget <= 0) break;
+          }
+        }
+        return lines.join('\n');
+      }
+
+      function renderFiles() {
+        const map = readFiles();
+        const list = $('fileList');
+        list.innerHTML = '';
+        const names = Object.keys(map).sort();
+        if (!names.length) list.append(el('p', 'fine', 'No files yet — name one above and press new.'));
+        for (const name of names) {
+          const row = el('div', 'file-row');
+          const toggle = document.createElement('input');
+          toggle.type = 'checkbox';
+          toggle.checked = readInclude().includes(name);
+          toggle.title = 'Include this file in the next message';
+          toggle.setAttribute('aria-label', `Include ${name} in the next message`);
+          toggle.onchange = () => toggleInclude(name, toggle.checked);
+          const open = el('button', 'open', name);
+          open.type = 'button';
+          open.onclick = () => {
+            $('fileName').value = name;
+            $('fileBody').value = map[name];
+          };
+          const remove = el('button', 'mini', '×');
+          remove.type = 'button';
+          remove.title = 'Delete file';
+          remove.onclick = () => {
+            const next = readFiles();
+            delete next[name];
+            writeFiles(next);
+            if ($('fileName').value.trim() === name) $('fileBody').value = '';
+            renderFiles();
+          };
+          row.append(toggle, open, remove);
+          list.append(row);
+        }
+      }
+
+      // A self-contained starter page for the browser workspace. The preview
+      // inlines the CSS because srcdoc has no relative URL to fetch style.css.
+      const SAMPLE_STYLE = `:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#101215;color:#edf0f3;font-family:Arial,Helvetica,sans-serif}.card{width:min(620px,100%);padding:34px;border:1px solid #343c47;border-radius:18px;background:#191d22;box-shadow:0 24px 80px #0006}.eyebrow{margin:0 0 8px;color:#9fe3c0;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.05}p{color:#aab3bf;line-height:1.6}#preview{margin-top:22px;padding:12px 14px;border:1px solid #343c47;border-radius:10px;background:#222830}code{color:#9fe3c0}`;
+      const SAMPLE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Sample page</title><link rel="stylesheet" href="./style.css"></head><body><main class="card"><p class="eyebrow">Browser workspace</p><h1>Sample page is working.</h1><p>This page was created in your browser files. No JavaScript is required.</p><div id="preview">HTML and CSS loaded successfully.</div></main></body></html>`;
+      const SAMPLE_PREVIEW = SAMPLE_HTML.replace(
+        '<link rel="stylesheet" href="./style.css">',
+        `<style>${SAMPLE_STYLE}</style>`,
+      );
+
+      function loadSamplePage() {
+        const map = readFiles();
+        map['sample/index.html'] = SAMPLE_HTML;
+        map['sample/style.css'] = SAMPLE_STYLE;
+        writeFiles(map);
+        $('fileName').value = 'sample/index.html';
+        $('fileBody').value = SAMPLE_HTML;
+        renderFiles();
+        showPreview(SAMPLE_PREVIEW, 'sample/index.html');
+        banner('Sample page created. Preview uses an inlined copy of style.css.', 'close', () => {});
+      }
+
+      function filePath() {
+        return $('fileName').value.trim().replace(/[^A-Za-z0-9._\-/]/g, '');
+      }
+
+      $('fileNew').onclick = () => {
+        const name = filePath();
+        if (!name) return banner('Name the file first, e.g. notes.txt', 'close', () => {});
+        const map = readFiles();
+        if (!(name in map)) {
+          map[name] = '';
+          writeFiles(map);
+        }
+        $('fileBody').value = map[name];
+        renderFiles();
+      };
+      $('fileSave').onclick = () => {
+        const name = filePath();
+        if (!name) return banner('Name the file first.', 'close', () => {});
+        const body = $('fileBody').value;
+        if (body.length > 200000) return banner('That file is too large for browser storage.', 'close', () => {});
+        const map = readFiles();
+        map[name] = body;
+        writeFiles(map);
+        renderFiles();
+        banner('Saved in this browser.', 'close', () => {});
+      };
+      $('fileDelete').onclick = () => {
+        const name = filePath();
+        const map = readFiles();
+        if (!(name in map)) return banner('That file is not saved.', 'close', () => {});
+        delete map[name];
+        writeFiles(map);
+        $('fileBody').value = '';
+        renderFiles();
+      };
+
+      $('fileUpload').addEventListener('change', async (event) => {
+        const picked = Array.from(event.target.files || []);
+        event.target.value = '';
+        if (!picked.length) return;
+        const map = readFiles();
+        let added = 0;
+        for (const file of picked) {
+          if (file.size > 400_000) {
+            banner(`${file.name} is over 400 KB — too large for the browser copy.`, 'close', () => {});
+            continue;
+          }
+          let text;
+          try {
+            text = await file.text();
+          } catch {
+            continue;
+          }
+          if (text.includes(String.fromCharCode(0))) {
+            banner(`${file.name} looks binary; only text, HTML and SVG belong here.`, 'close', () => {});
+            continue;
+          }
+          const name = file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64) || `file-${added + 1}.txt`;
+          map[name] = text;
+          added += 1;
+        }
+        if (!added) return;
+        writeFiles(map);
+        renderFiles();
+        banner(`Added ${added} file${added === 1 ? '' : 's'} to this browser.`, 'close', () => {});
+      });
+
+      $('fileDownload').onclick = () => {
+        const name = filePath();
+        if (!name) return banner('Open a file first.', 'close', () => {});
+        const blob = new Blob([$('fileBody').value], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name.split('/').pop() || 'freeway.txt';
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      };
+
+      $('fileSample').onclick = loadSamplePage;
+
+      $('filePreview').onclick = () => {
+        const name = filePath();
+        if (!name) return banner('Open a file first.', 'close', () => {});
+        if (!/\.(html?|svg)$/i.test(name)) {
+          return banner('Preview works for .html, .htm and .svg files.', 'close', () => {});
+        }
+        showPreview($('fileBody').value, name);
+      };
+
+      // ------------------------------------------------------- account files
+      function accountEnabled() {
+        return state.accountFilesEnabled && Boolean(state.user);
+      }
+
+      function setAccountNote(text) {
+        const note = $('accountNote');
+        if (note) note.textContent = text;
+      }
+
+      function renderAccountFiles() {
+        const list = $('accountFileList');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!state.accountFilesEnabled) {
+          setAccountNote('Account files are not enabled on this deployment.');
+          return;
+        }
+        if (!state.user) {
+          setAccountNote('Sign in to sync files across devices.');
+          return;
+        }
+        if (state.accountFilesError) {
+          setAccountNote(state.accountFilesError);
+          return;
+        }
+        const usage = state.accountUsage;
+        setAccountNote(
+          usage
+            ? `${state.accountFiles.length} file${state.accountFiles.length === 1 ? '' : 's'} · ` +
+                `${Math.ceil(usage.bytes / 1024)} KB of ${Math.round(usage.maxBytes / 1024 / 1024)} MB`
+            : 'Loading account files…',
+        );
+        if (!state.accountFiles.length) {
+          list.append(el('p', 'fine', 'No account files yet — upload one above.'));
+          return;
+        }
+        for (const file of state.accountFiles) {
+          const row = el('div', 'file-row');
+          const open = el('button', 'open', file.name);
+          open.type = 'button';
+          open.title = 'Load this file into the editor';
+          open.onclick = () => openAccountFile(file.name);
+          row.append(open);
+          if (/\.(html?|svg)$/i.test(file.name)) {
+            const preview = el('button', 'mini', 'preview');
+            preview.type = 'button';
+            preview.title = 'Preview this file in the sandbox';
+            preview.onclick = () => previewAccountFile(file.name);
+            row.append(preview);
+          }
+          const download = el('a', 'mini', '↓');
+          download.href = `/api/files/${encodeURIComponent(file.name)}`;
+          download.download = file.name;
+          download.title = 'Download';
+          const remove = el('button', 'mini', '×');
+          remove.type = 'button';
+          remove.title = 'Delete from your account';
+          remove.onclick = () => deleteAccountFile(file.name);
+          row.append(download, remove);
+          list.append(row);
+        }
+      }
+
+      async function loadAccountFiles() {
+        if (!state.accountFilesEnabled) {
+          renderAccountFiles();
+          return;
+        }
+        if (!state.user) {
+          state.accountFiles = [];
+          state.accountUsage = null;
+          renderAccountFiles();
+          return;
+        }
+        try {
+          const res = await fetch('/api/files', { headers: { accept: 'application/json' } });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || `Files returned ${res.status}.`);
+          state.accountFiles = Array.isArray(data.files) ? data.files : [];
+          state.accountUsage = data.usage || null;
+          state.accountFilesError = '';
+        } catch (error) {
+          state.accountFiles = [];
+          state.accountUsage = null;
+          state.accountFilesError = error.message;
+        }
+        renderAccountFiles();
+      }
+
+      async function openAccountFile(name) {
+        try {
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}`);
+          if (!res.ok) throw new Error(`Could not open ${name}.`);
+          $('fileName').value = name;
+          $('fileBody').value = await res.text();
+          banner(`Opened ${name}. “save editor” writes it back to your account.`, 'close', () => {});
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      async function previewAccountFile(name) {
+        try {
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}`);
+          if (!res.ok) throw new Error(`Could not open ${name}.`);
+          showPreview(await res.text(), name);
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      async function deleteAccountFile(name) {
+        if (!confirm(`Delete ${name} from your account?`)) return;
+        try {
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || `Delete returned ${res.status}.`);
+          await loadAccountFiles();
+          banner(`Deleted ${name}.`, 'close', () => {});
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      async function saveToAccount(name, body, type = 'text/plain') {
+        const clean = String(name || '').trim();
+        if (!clean) throw new Error('Name the file first.');
+        const res = await fetch(`/api/files/${encodeURIComponent(clean)}`, {
+          method: 'PUT',
+          headers: { 'content-type': type },
+          body,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || `Upload returned ${res.status}.`);
+        await loadAccountFiles();
+        return clean;
+      }
+
+      $('accountRefresh').onclick = () => loadAccountFiles();
+      $('accountSave').onclick = async () => {
+        const name = filePath();
+        if (!name) return banner('Name the file first.', 'close', () => {});
+        try {
+          await saveToAccount(name, $('fileBody').value, /\.html?$/i.test(name) ? 'text/html' : 'text/plain');
+          banner(`Saved ${name} to your account.`, 'close', () => {});
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      };
+      $('accountUpload').addEventListener('change', async (event) => {
+        const picked = Array.from(event.target.files || []);
+        event.target.value = '';
+        if (!picked.length) return;
+        let saved = 0;
+        for (const file of picked) {
+          if (file.size > (state.fileLimits?.maxFileBytes || 1_000_000)) {
+            banner(`${file.name} is over the account size limit.`, 'close', () => {});
+            continue;
+          }
+          const name = file.name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64) || `file-${saved + 1}.txt`;
+          try {
+            await saveToAccount(name, await file.text(), file.type || 'text/plain');
+            saved += 1;
+          } catch (error) {
+            banner(`${file.name}: ${error.message}`, 'close', () => {});
+          }
+        }
+        if (saved) banner(`Uploaded ${saved} file${saved === 1 ? '' : 's'} to your account.`, 'close', () => {});
+      });
+
+      function renderSecrets() {
+        const map = readSecrets();
+        const list = $('secretList');
+        list.innerHTML = '';
+        const names = Object.keys(map).sort();
+        if (!names.length) list.append(el('p', 'fine', 'No secrets in this tab.'));
+        for (const name of names) {
+          const row = el('div', 'file-row');
+          row.append(el('span', 'open', name + ' · ••••••••'));
+          const remove = el('button', 'mini', '×');
+          remove.type = 'button';
+          remove.title = 'Forget this secret';
+          remove.onclick = () => {
+            const next = readSecrets();
+            delete next[name];
+            writeSecrets(next);
+            renderSecrets();
+          };
+          row.append(remove);
+          list.append(row);
+        }
+      }
+
+      $('secretSave').onclick = () => {
+        const name = $('secretName').value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+        const value = $('secretValue').value.trim();
+        if (!name || !value) return banner('A name and a value are both needed.', 'close', () => {});
+        const map = readSecrets();
+        map[name] = value;
+        writeSecrets(map);
+        $('secretValue').value = '';
+        renderSecrets();
+      };
+
+      $('ghLoad').onclick = async () => {
+        const token = readSecrets().GITHUB_TOKEN;
+        const list = $('ghList');
+        list.innerHTML = '';
+        if (!token) {
+          list.append(el('p', 'fine', 'Add a secret named GITHUB_TOKEN under Secrets first.'));
+          return;
+        }
+        list.append(el('p', 'fine', 'loading…'));
+        try {
+          const res = await fetch('https://api.github.com/user/repos?per_page=20&sort=updated', {
+            headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' },
+          });
+          const data = await res.json().catch(() => null);
+          list.innerHTML = '';
+          if (!res.ok) {
+            list.append(el('p', 'fine', (data && data.message) || `GitHub returned ${res.status}.`));
+            return;
+          }
+          if (!Array.isArray(data) || !data.length) {
+            list.append(el('p', 'fine', 'No repositories for this token.'));
+            return;
+          }
+          for (const repo of data) {
+            const row = el('div', 'file-row');
+            const link = el('a', 'open', repo.full_name);
+            link.href = repo.html_url;
+            link.target = '_blank';
+            link.rel = 'noreferrer';
+            row.append(link);
+            row.append(el('span', 'fine', repo.private ? 'private' : 'public'));
+            list.append(row);
+          }
+        } catch (error) {
+          list.innerHTML = '';
+          list.append(el('p', 'fine', 'Could not reach GitHub: ' + error.message));
+        }
+      };
+
+      // Uploaded HTML renders with srcdoc in a sandbox WITHOUT allow-same-origin.
+      // That keeps a generated page away from the session cookie, localStorage and
+      // this page's own /api routes.
+      function showPreview(html, label) {
+        const frame = $('previewFrame');
+        frame.removeAttribute('src');
+        frame.srcdoc = html;
+        $('previewNote').textContent =
+          `Previewing ${label}. Inline CSS and JS run sandboxed; external images and fonts may be blocked.`;
+        $('previewOpen').hidden = true;
+        $('rail').hidden = false;
+        switchRail('preview');
+      }
+
+      $('previewGo').onclick = () => {
+        let url;
+        try {
+          url = new URL($('previewUrl').value.trim());
+        } catch {
+          return banner('That is not a URL.', 'close', () => {});
+        }
+        if (!/^https?:$/.test(url.protocol)) return banner('Only http(s) previews are allowed.', 'close', () => {});
+        const frame = $('previewFrame');
+        frame.removeAttribute('srcdoc');
+        frame.src = url.href;
+        $('previewNote').textContent =
+          'If this stays blank, the site refuses to be embedded. Use the link below.';
+        const link = $('previewOpen');
+        link.href = url.href;
+        link.textContent = 'open in a new tab ↗';
+        link.hidden = false;
+      };
+
+      function renderStatus() {
+        const stats = state.stats;
+        const body = $('statusBody');
+        body.innerHTML = '';
+        const rows = [
+          ['Requests', stats.requests],
+          ['Answered', stats.ok],
+          ['Failed', stats.failed],
+          ['Last model', stats.lastModel || '—'],
+          ['Last time', stats.lastMs ? stats.lastMs + ' ms' : '—'],
+          ['Provider', providerInfo().label],
+          [
+            'Shared key',
+            state.guard?.deploymentKey
+              ? `yes · ${state.guard.turnTokens} tokens/turn` +
+                (state.budget
+                  ? ` · ${state.budget.remaining} of ${state.budget.limit} turns left today`
+                  : ` · ${state.guard.perVisitorPerDay}/visitor/day`)
+              : 'no — visitors use their own',
+          ],
+          ['Free models', state.models.length],
+          ['Tokens in', stats.tokensIn.toLocaleString()],
+          ['Tokens out', stats.tokensOut.toLocaleString()],
+          [
+            'This chat',
+            stats.tokensIn + stats.tokensOut
+              ? (stats.tokensIn + stats.tokensOut).toLocaleString() + ' tokens'
+              : 'no tokens yet',
+          ],
+          [
+            'Free left today',
+            state.quota?.freeDaily && typeof state.quota.freeDaily.remaining === 'number'
+              ? `${state.quota.freeDaily.remaining} of ${state.quota.freeDaily.limit}`
+              : '—',
+          ],
+        ];
+        for (const [label, value] of rows) {
+          const row = el('div', 'file-row');
+          row.append(el('span', 'open', label));
+          row.append(el('span', 'fine', String(value)));
+          body.append(row);
+        }
+        // Provider readiness plus the per-model record from this tab. A model
+        // that fails before answering still gets a row, so silence is visible.
+        const health = $('healthBody');
+        health.innerHTML = '';
+        health.append(el('p', 'fine', 'Provider readiness'));
+        for (const provider of state.providers || []) {
+          const row = el('div', 'health-row');
+          row.append(el('span', 'open', provider.label));
+          const stateText = provider.anonymous
+            ? 'no key needed'
+            : state.serverKeys.includes(provider.id)
+              ? 'deployment key'
+              : provider.id === state.provider && keyFor()
+                ? 'your key'
+                : 'key needed';
+          row.append(el('span', 'fine', stateText + ' · ' + (provider.planLabel || 'free plan')));
+          health.append(row);
+        }
+        health.append(el('p', 'fine', 'Attempted models'));
+        const models = Object.entries(state.perModel || {});
+        if (!models.length) health.append(el('p', 'fine', 'Send a message to populate model health.'));
+        for (const [id, row] of models.slice(0, 10)) {
+          const line = el('div', 'health-row');
+          line.title = id;
+          line.append(el('span', 'open', id));
+          line.append(
+            el(
+              'span',
+              'fine',
+              `${row.answers || 0} ok · ${row.fails || 0} failed · avg ${
+                row.answers ? Math.round(row.totalMs / row.answers) : '–'
+              } ms · last ${row.lastMs || '–'} ms`,
+            ),
+          );
+          health.append(line);
+        }
+        health.append(el('p', 'fine', 'Provider limits'));
+        for (const provider of state.providers || []) {
+          const limits = Array.isArray(provider.limitLines) ? provider.limitLines : [];
+          if (!limits.length) continue;
+          const line = el('div', 'health-row');
+          line.title = limits.join(' · ');
+          line.append(el('span', 'open', provider.label));
+          line.append(el('span', 'fine', limits[0]));
+          health.append(line);
+        }
+        health.append(el('p', 'fine', 'Cooling down'));
+        const cooling = Object.entries(state.cooling || {}).filter(([, until]) => until > Date.now());
+        if (!cooling.length) health.append(el('p', 'fine', 'No model is cooling down.'));
+        for (const [id, until] of cooling) {
+          const line = el('div', 'file-row');
+          line.append(el('span', 'open', id));
+          const wait = el('span', 'fine', retryText(until));
+          wait.dataset.until = String(until);
+          const retry = el('button', 'mini', 'Try');
+          retry.type = 'button';
+          retry.title = `Select ${id} and focus the message box`;
+          retry.onclick = () => tryCloudModel(id);
+          line.append(wait, retry);
+          health.append(line);
+        }
+      }
+
+      // The free daily quota belongs to the key, not the tab, so it is asked for
+      // at most once a minute and shown wherever the numbers are.
+      async function refreshQuota() {
+        const now = Date.now();
+        if (state.quotaAt && now - state.quotaAt < 60_000) return;
+        const key = keyFor();
+        // Only OpenRouter publishes a free daily count, and only a key can ask.
+        if (state.provider !== 'openrouter' || (!key && !state.serverKeys.includes('openrouter'))) {
+          state.quota = null;
+          updateQuotaPill();
+          return;
+        }
+        try {
+          const headers = { accept: 'application/json' };
+          // The visitor's own key travels for this one call and is never stored.
+          if (key) headers['x-provider-key'] = key;
+          const res = await fetch('/api/quota', { headers });
+          const data = await res.json();
+          state.quotaAt = now;
+          state.quota = data && data.ok ? data : null;
+        } catch {
+          state.quota = null;
+        }
+        updateQuotaPill();
+      }
+
+      // How many shared-key turns this visitor has left today. The Worker counts
+      // them per address and per day, so this is a report, never a setting.
+      async function refreshBudget() {
+        if (!state.guard?.deploymentKey) {
+          state.budget = null;
+          return;
+        }
+        try {
+          const res = await fetch('/api/budget', { headers: { accept: 'application/json' } });
+          const data = await res.json();
+          state.budget = data && typeof data.remaining === 'number' ? data : null;
+        } catch {
+          state.budget = null;
+        }
+      }
+
+      function updateQuotaPill() {
+        const pill = $('quota');
+        if (!pill) return;
+        const free = state.quota?.freeDaily;
+        if (free && typeof free.remaining === 'number') {
+          pill.innerHTML = '';
+          pill.append(el('b', '', String(free.remaining)));
+          pill.append(document.createTextNode(' free left'));
+          pill.title = `${free.remaining} of ${free.limit} free requests left today`;
+          return;
+        }
+        pill.textContent = state.models.length ? state.models.length + ' free' : 'quota unavailable';
+        pill.title = 'Daily quota is only known when the deployment holds the key';
+      }
+
+      // OpenRouter reports what a request cost when asked; a free model is 0.
+      function costNote(usage) {
+        if (!usage || typeof usage.cost !== 'number') return '';
+        return usage.cost > 0 ? ` · $${usage.cost.toFixed(6)}` : ' · free';
+      }
+
+      function retryText(until) {
+        const left = Number(until) - Date.now();
+        return left > 0 ? `retry in ${Math.ceil(left / 1000)}s` : 'ready';
+      }
+
+      function noteCooldown(model, ms = 60_000) {
+        if (!model) return;
+        state.cooling = state.cooling || {};
+        state.cooling[model] = Date.now() + Math.min(Math.max(Number(ms) || 60_000, 5_000), 15 * 60_000);
+        if (!$('rail').hidden && !$('railStatus').hidden) renderStatus();
+      }
+
+      function tryCloudModel(id) {
+        state.model = id;
+        updateModelButton();
+        renderStatus();
+        $('input').focus();
+      }
+
+      setInterval(() => {
+        for (const node of document.querySelectorAll('[data-until]')) {
+          node.textContent = retryText(Number(node.dataset.until));
+        }
+      }, 1000);
+
+      function bumpStats(ok, ms, model, usage) {
+        state.stats.requests += 1;
+        if (usage) {
+          state.stats.tokensIn += Number(usage.prompt_tokens) || 0;
+          state.stats.tokensOut += Number(usage.completion_tokens) || 0;
+        }
+        const id = model || state.model;
+        if (id) {
+          const row = state.perModel[id] || { answers: 0, fails: 0, totalMs: 0, lastMs: 0 };
+          row.fails = Number(row.fails) || 0;
+          if (ok) {
+            row.answers += 1;
+            row.totalMs += Number(ms) || 0;
+            row.lastMs = Number(ms) || 0;
+          } else {
+            row.fails += 1;
+          }
+          state.perModel[id] = row;
+        }
+        if (ok) {
+          state.stats.ok += 1;
+          state.stats.lastMs = ms;
+          state.stats.lastModel = model || state.model;
+        } else {
+          state.stats.failed += 1;
+        }
+        // The quota moved with that request; the guard keeps this to one call a minute.
+        refreshQuota();
+        // A shared-key turn just spent one of today's budget rows.
+        refreshBudget().then(() => {
+          if (!$('rail').hidden && !$('railStatus').hidden) renderStatus();
+        });
+        if (!$('rail').hidden && !$('railStatus').hidden) renderStatus();
+      }
+
+      const RAIL_PANELS = {
+        files: 'railFiles',
+        secrets: 'railSecrets',
+        github: 'railGithub',
+        preview: 'railPreview',
+        status: 'railStatus',
+      };
+
+      function switchRail(tab) {
+        for (const button of document.querySelectorAll('[data-rail]')) {
+          button.classList.toggle('active', button.dataset.rail === tab);
+        }
+        for (const [name, id] of Object.entries(RAIL_PANELS)) $(id).hidden = name !== tab;
+        if (tab === 'files') {
+          renderFiles();
+          if (state.accountFilesEnabled) loadAccountFiles();
+        }
+        if (tab === 'secrets') renderSecrets();
+        if (tab === 'status') {
+          renderStatus();
+          refreshBudget().then(renderStatus);
+        }
+      }
+
+      $('railBtn').onclick = () => {
+        if ($('rail').hidden) {
+          $('rail').hidden = false;
+          switchRail($('railBtn').dataset.tab || 'files');
+        } else {
+          $('rail').hidden = true;
+        }
+      };
+      $('railClose').onclick = () => {
+        $('rail').hidden = true;
+      };
+      for (const button of document.querySelectorAll('[data-rail]')) {
+        button.onclick = () => {
+          $('railBtn').dataset.tab = button.dataset.rail;
+          $('rail').hidden = false;
+          switchRail(button.dataset.rail);
+        };
+      }
+
+      $('settingsBtn').onclick = () => {
+        const settings = readSettings();
+        $('settingSystem').value = settings.system;
+        $('settingMax').value = settings.maxTokens;
+        $('settingTemp').value = settings.temperature === null ? '' : settings.temperature;
+        $('settingTools').checked = settings.tools === true;
+        $('settingsDialog').showModal();
+      };
+      $('settingsCancel').onclick = () => $('settingsDialog').close();
+      $('settingsSave').onclick = () => {
+        const max = Number($('settingMax').value);
+        const rawTemp = $('settingTemp').value.trim();
+        const temperature = rawTemp === '' ? null : Number(rawTemp);
+        localStorage.setItem(
+          SETTINGS_KEY,
+          JSON.stringify({
+            system: $('settingSystem').value.trim(),
+            maxTokens: Number.isFinite(max) ? Math.min(Math.max(max, 64), 4096) : 2048,
+            temperature: temperature !== null && Number.isFinite(temperature)
+              ? Math.min(Math.max(temperature, 0), 2)
+              : null,
+            tools: $('settingTools').checked,
+          }),
+        );
+        $('settingsDialog').close();
+        banner('Settings saved for this browser.', 'close', () => {});
+      };
+
+      // ---------------------------------------------------------------- key
+      function openKey(note) {
+        const info = providerInfo();
+        $('keyTitle').textContent = `${info.label} key`;
+        // Only a hint that spells out a prefix (`sk-or-v1-…`, `gsk_…`) is shown
+        // in the label; the prose hints for the newer providers are not.
+        $('keyLabel').textContent = String(info.keyHint || '').includes('…')
+          ? `Key (${info.keyHint})`
+          : 'API key';
+        $('keyNote').textContent =
+          note ||
+          `Kept in this tab only (sessionStorage) and sent to ${info.label} through this proxy. ${info.note || ''}`;
+        $('keyLimits').textContent = '';
+        for (const line of info.limitLines || []) {
+          const item = document.createElement('li');
+          item.textContent = line;
+          $('keyLimits').append(item);
+        }
+        $('keyInput').placeholder = info.keyHint;
+        $('keyInput').value = keyFor();
+        $('keyAccountField').hidden = !info.requiresAccount;
+        $('keyAccount').value = accountFor();
+        $('keyAccount').placeholder = info.accountHint || '32-character Account ID';
+        $('keyAccountHelp').textContent = info.requiresAccount
+          ? 'Cloudflare needs this ID as well as the API token; both stay in this tab only.'
+          : '';
+        const link = $('keyLink');
+        link.hidden = !info.keysUrl;
+        if (info.keysUrl) {
+          link.href = info.keysUrl;
+          link.textContent = `get a ${info.label} key ↗`;
+        }
+        const free = state.providers.find((provider) => provider.anonymous);
+        $('keyTry').hidden = !free || Boolean(info.anonymous);
+        $('keyTryNote').hidden = $('keyTry').hidden;
+        $('keyDialog').showModal();
+        setTimeout(() => $('keyInput').focus(), 30);
+      }
+
+      $('keyBtn').onclick = () => openKey('');
+      $('keyCancel').onclick = () => $('keyDialog').close();
+      $('keyClear').onclick = () => {
+        sessionStorage.removeItem(KEY_PREFIX + state.provider);
+        sessionStorage.removeItem(ACCOUNT_PREFIX + state.provider);
+        $('keyInput').value = '';
+        $('keyAccount').value = '';
+        setHints();
+        banner('Key cleared.', 'close', () => {});
+        $('keyDialog').close();
+      };
+      $('keySave').onclick = () => {
+        const value = $('keyInput').value.trim();
+        const info = providerInfo();
+        const account = info.requiresAccount ? $('keyAccount').value.trim() : '';
+        // A prose hint like "your Mistral key" contains no '…' and therefore
+        // no prefix; using it as one rejected every valid key.
+        const hint = String(info.keyHint || '');
+        const prefix = hint.includes('…') ? hint.split('…')[0] : '';
+        if (value && prefix && !value.startsWith(prefix)) {
+          const hint =
+            state.provider === 'groq'
+              ? ' Groq (gsk_) is not xAI’s Grok; Grok is paid, so it is not offered here.'
+              : '';
+          banner(`That does not look like a ${info.label} key — it should start with ${prefix}.${hint}`, 'close', () => {});
+          return;
+        }
+        if (info.requiresAccount && value && !account) {
+          banner(`${info.label} needs both an API token and its 32-character Account ID.`, 'close', () => {});
+          return;
+        }
+        if (account && !/^[a-f0-9]{32}$/i.test(account)) {
+          banner('The Account ID must be 32 hexadecimal characters.', 'close', () => {});
+          return;
+        }
+        if (info.requiresAccount && account && !value) {
+          banner(`Paste the ${info.label} API token as well, or clear both fields.`, 'close', () => {});
+          return;
+        }
+        if (!value) sessionStorage.removeItem(KEY_PREFIX + state.provider);
+        else sessionStorage.setItem(KEY_PREFIX + state.provider, value);
+        if (account) sessionStorage.setItem(ACCOUNT_PREFIX + state.provider, account);
+        else sessionStorage.removeItem(ACCOUNT_PREFIX + state.provider);
+        $('keyDialog').close();
+        setHints();
+        if (value) banner('Credentials saved for this tab.', 'close', () => {});
+        loadModels().catch(() => {});
+      };
+      // The same escape hatch as the desktop edition: one click selects the
+      // keyless provider, so nobody has to fetch a key to see an answer.
+      $('keyTry').onclick = () => {
+        const free = state.providers.find((provider) => provider.anonymous);
+        if (!free) return;
+        $('keyDialog').close();
+        $('provider').value = free.id;
+        applyProvider(free.id);
+        banner(`${free.label} needs no key. ${free.limitLines?.[0] || ''} Paste a key for another provider any time.`, 'close', () => {});
+        refreshQuota();
+      };
+
+      // ------------------------------------------------- prompts + export
+      const PROMPTS_KEY = 'orc.prompts';
+
+      function readPrompts() {
+        try {
+          const value = JSON.parse(localStorage.getItem(PROMPTS_KEY) || '[]');
+          return Array.isArray(value)
+            ? value.filter((prompt) => typeof prompt?.text === 'string' && prompt.text.trim())
+            : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writePrompts(list) {
+        localStorage.setItem(PROMPTS_KEY, JSON.stringify(list.slice(0, 30)));
+      }
+
+      function renderPrompts() {
+        const list = $('promptList');
+        list.innerHTML = '';
+        const prompts = readPrompts();
+        if (!prompts.length) {
+          list.append(el('p', 'fine', 'No saved prompts yet. Type one in the composer, then save it.'));
+          return;
+        }
+        prompts.forEach((prompt, index) => {
+          const row = el('div', 'promptRow');
+          const text = el('button', 'promptText', prompt.text);
+          text.type = 'button';
+          text.title = 'Insert into the composer';
+          text.onclick = () => {
+            const box = $('input');
+            box.value = prompt.text;
+            autoGrow();
+            box.focus();
+            $('promptDialog').close();
+          };
+          const remove = el('button', 'mini', '×');
+          remove.type = 'button';
+          remove.title = 'Delete this prompt';
+          remove.setAttribute('aria-label', 'Delete prompt');
+          remove.onclick = () => {
+            const next = readPrompts();
+            next.splice(index, 1);
+            writePrompts(next);
+            renderPrompts();
+          };
+          row.append(text, remove);
+          list.append(row);
+        });
+      }
+
+      function transcriptMarkdown() {
+        const lines = [
+          '# Freeway transcript',
+          '',
+          `- Exported: ${new Date().toISOString()}`,
+          `- Provider: ${providerInfo().label}`,
+          `- Model: ${state.model || 'unknown'}`,
+          '',
+          '---',
+          '',
+        ];
+        for (const message of state.messages) {
+          lines.push(`## ${message.role === 'user' ? 'You' : 'Assistant'}`, '', message.content.trim(), '');
+        }
+        return lines.join('\n');
+      }
+
+      function exportTranscript() {
+        if (!state.messages.length) {
+          banner('Nothing to export yet — send a message first.', 'close', () => {});
+          return;
+        }
+        const blob = new Blob([transcriptMarkdown()], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+        link.href = url;
+        link.download = `freeway-${stamp}.md`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        banner('Transcript downloaded as Markdown.', 'close', () => {});
+      }
+
+      // The desktop app validates ids with its own pattern and de-duplicates on
+      // import, so a stable id here means a second import updates the same chat
+      // instead of leaving a duplicate next to it.
+      function exportId(thread) {
+        const id = String(thread.id || '');
+        if (/^[A-Za-z0-9_-]{6,64}$/.test(id)) return id;
+        const slug = id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 56);
+        return (slug.length >= 6 ? slug : `${slug}000000`).slice(0, 64);
+      }
+
+      // Same shape the desktop app writes from Settings → Saved chats → Export,
+      // so "Import…" there reads this file with no conversion and no key.
+      function exportChatsJson() {
+        const threads = readThreads();
+        if (!threads.length) {
+          banner('No saved chats to export yet — send a message first.', 'close', () => {});
+          return;
+        }
+        const payload = {
+          app: 'freeway',
+          source: 'cloud',
+          exportedAt: new Date().toISOString(),
+          threads: threads.map((thread) => ({
+            id: exportId(thread),
+            title: thread.title,
+            createdAt: thread.createdAt || thread.updatedAt,
+            updatedAt: thread.updatedAt,
+            provider: thread.provider || null,
+            model: thread.model || null,
+            messages: Array.isArray(thread.messages) ? thread.messages : [],
+          })),
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+        link.href = url;
+        link.download = `freeway-cloud-${stamp}.json`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        banner(
+          `Exported ${threads.length} chat${threads.length === 1 ? '' : 's'} — open the desktop app's Settings → Saved chats → Import… and pick this file.`,
+          'close',
+          () => {},
+        );
+      }
+
+      $('promptsBtn').onclick = () => {
+        renderPrompts();
+        $('promptDialog').showModal();
+      };
+      $('promptClose').onclick = () => $('promptDialog').close();
+      $('promptSave').onclick = () => {
+        const text = $('input').value.trim();
+        if (!text) {
+          banner('Type the prompt in the composer first, then save it.', 'close', () => {});
+          return;
+        }
+        const prompts = readPrompts().filter((prompt) => prompt.text.trim() !== text);
+        prompts.unshift({ text, at: Date.now() });
+        writePrompts(prompts);
+        $('promptDialog').close();
+        banner('Prompt saved in this browser.', 'close', () => {});
+      };
+      $('exportBtn').onclick = exportTranscript;
+      $('exportChatsBtn').onclick = exportChatsJson;
+
+      // ------------------------------------------------------------- history
+      const THREADS_KEY = 'orc.threads';
+
+      // A renamed chat keeps its name. The override is tied to the chat id, so a
+      // new chat cannot inherit it and only the renamed one reads it again.
+      let titleOverride = { id: '', title: '' };
+
+      function readThreads() {
+        try {
+          const value = JSON.parse(localStorage.getItem(THREADS_KEY) || '[]');
+          return Array.isArray(value)
+            ? value.filter((thread) => thread && typeof thread.id === 'string' && Array.isArray(thread.messages))
+            : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveThread() {
+        if (!state.messages.length) return;
+        // Saving a chat must not read browser pin state. Pins are a view
+        // preference, and a missing pin helper must never break a tool write.
+        const threads = readThreads()
+          .slice()
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        const now = Date.now();
+        const id =
+          state.threadId ||
+          (typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : 't' + now.toString(36) + Math.random().toString(36).slice(2, 8));
+        state.threadId = id;
+        const firstUser = state.messages.find((message) => message.role === 'user');
+        const derived = (firstUser?.content || 'Untitled chat').replace(/\s+/g, ' ').trim().slice(0, 60);
+        const title = titleOverride.id === id && titleOverride.title ? titleOverride.title : derived;
+        const next = [
+          { id, title, provider: state.provider, model: state.model, messages: state.messages, updatedAt: now },
+          ...threads.filter((thread) => thread.id !== id),
+        ]
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          // Keep every chat the server keeps; 30 used to hide older history here.
+          .slice(0, 200);
+        localStorage.setItem(THREADS_KEY, JSON.stringify(next));
+        pushThread(next[0]);
+      }
+
+      function deleteThread(id) {
+        const next = readThreads().filter((thread) => thread.id !== id);
+        localStorage.setItem(THREADS_KEY, JSON.stringify(next));
+        if (state.threadId === id) state.threadId = null;
+        if (titleOverride.id === id) titleOverride = { id: '', title: '' };
+        forgetThread(id);
+        renderHistory();
+      }
+
+      // Palette actions, so a chat can be renamed or removed from Ctrl+K.
+      function renameCurrentThread() {
+        if (!state.threadId) return banner('Open a chat first.', 'close', () => {});
+        const current = readThreads().find((thread) => thread.id === state.threadId);
+        const answer = prompt('Rename this chat', current?.title || 'Untitled chat');
+        if (answer === null) return;
+        const title = answer.replace(/\s+/g, ' ').trim().slice(0, 60);
+        if (!title) return banner('A chat needs a title.', 'close', () => {});
+        titleOverride = { id: state.threadId, title };
+        saveThread();
+        renderHistory();
+        banner('Chat renamed.', 'close', () => {});
+      }
+
+      function deleteCurrentThread() {
+        if (!state.threadId) return banner('Open a chat first.', 'close', () => {});
+        const id = state.threadId;
+        deleteThread(id);
+        banner('Chat deleted.', 'close', () => {});
+      }
+
+      // ------------------------------------------------------------- account
+      // Signed out, chats live in this browser exactly as before. Signed in, the
+      // Worker keeps a copy per account, keyed by the session's user id, so a
+      // chat started here opens on a phone.
+      async function loadAccount() {
+        try {
+          const res = await fetch('/api/me', { headers: { accept: 'application/json' } });
+          const data = await res.json();
+          state.user = data.user || null;
+          state.accounts = Boolean(data.accounts);
+        } catch {
+          state.user = null;
+        }
+        renderAccount();
+        // Say it once, on the way back from the sign-in redirect: silently
+        // switching where chats are stored is how this looked broken.
+        const before = localStorage.getItem('orc.signedin') || '';
+        const now = state.user ? state.user.sub : '';
+        localStorage.setItem('orc.signedin', now);
+        if (now && now !== before) {
+          const who = state.user.email || state.user.name;
+          banner(
+            `Signed in${who ? ' as ' + who : ''} — chats now follow your account.`,
+            'close',
+            () => {},
+          );
+        } else if (!now && before) {
+          banner('Signed out — chats stay in this browser again.', 'close', () => {});
+        }
+      }
+
+      function renderAccount() {
+        renderHeaderAccount();
+        const row = $('accountRow');
+        const note = $('accountNote');
+        if (!row || !note) return;
+        while (row.firstChild) row.removeChild(row.firstChild);
+        if (!state.accounts) {
+          note.textContent = 'Sign-in is not configured here, so chats stay in this browser.';
+          row.append(note);
+          return;
+        }
+        if (state.user) {
+          const who = state.user.email || state.user.name;
+          note.textContent = who
+            ? `Signed in as ${who} — chats follow your account.`
+            : 'Signed in — chats follow your account.';
+          row.append(note);
+          const form = el('form', 'inlineForm');
+          form.method = 'post';
+          form.action = '/auth/freebuff/signout';
+          const out = el('button', 'ghost mini', 'Sign out');
+          out.type = 'submit';
+          form.append(out);
+          row.append(form);
+        } else {
+          note.textContent = 'Sign in to keep chats on your account instead of this browser.';
+          row.append(note);
+          const link = el('a', 'ghost mini signIn', 'Sign in with Freebuff');
+          link.href = '/auth/freebuff/signin?returnTo=' + encodeURIComponent(location.pathname);
+          row.append(link);
+        }
+        const count = $('threadCount');
+        if (count) {
+          count.title = state.user
+            ? 'Saved to your account and this browser'
+            : 'Stored in this browser only — sign in and chats follow your account';
+        }
+      }
+
+      function renderHeaderAccount() {
+        const slot = $('accountSlot');
+        if (!slot) return;
+        while (slot.firstChild) slot.removeChild(slot.firstChild);
+        if (!state.accounts) return;
+        if (state.user) {
+          const who = state.user.name || state.user.email;
+          if (who) {
+            const label = el('span', 'who', who);
+            label.title = state.user.email || who;
+            slot.append(label);
+          }
+          const form = el('form');
+          form.method = 'post';
+          form.action = '/auth/freebuff/signout';
+          const out = el('button', 'ghost', 'Sign out');
+          out.type = 'submit';
+          form.append(out);
+          slot.append(form);
+        } else {
+          const link = el('a', 'signIn', 'Sign in');
+          link.href = '/auth/freebuff/signin?returnTo=' + encodeURIComponent(location.pathname);
+          link.title = 'Sign in with Freebuff to keep chats on your account';
+          slot.append(link);
+        }
+      }
+
+      function pushThread(thread) {
+        if (!state.user || !thread) return;
+        fetch('/api/threads/' + encodeURIComponent(thread.id), {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            title: thread.title,
+            provider: thread.provider,
+            model: thread.model,
+            messages: thread.messages,
+          }),
+        }).catch(() => {});
+      }
+
+      function forgetThread(id) {
+        if (!state.user) return;
+        fetch('/api/threads/' + encodeURIComponent(id), { method: 'DELETE' }).catch(() => {});
+      }
+
+      async function syncThreads() {
+        if (!state.user) return;
+        try {
+          const res = await fetch('/api/threads', { headers: { accept: 'application/json' } });
+          if (!res.ok) return;
+          const data = await res.json();
+          const remote = Array.isArray(data.threads) ? data.threads : [];
+          if (!remote.length) return;
+          const byId = new Map();
+          for (const thread of [...readThreads(), ...remote]) {
+            if (!thread || typeof thread.id !== 'string' || !Array.isArray(thread.messages)) continue;
+            const seen = byId.get(thread.id);
+            if (!seen || (thread.updatedAt || 0) > (seen.updatedAt || 0)) byId.set(thread.id, thread);
+          }
+          const merged = [...byId.values()]
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .slice(0, 200); // matches the server's ceiling, so nothing is hidden
+          localStorage.setItem(THREADS_KEY, JSON.stringify(merged));
+          renderHistory();
+        } catch {
+          /* offline: the browser copy still works */
+        }
+      }
+
+      // Pins are a browser preference, not chat content: they stay in
+      // localStorage so a reload keeps them without rewriting the chat.
+      const PINNED_KEY = 'orc.pinned';
+      function readPins() {
+        try {
+          const value = JSON.parse(localStorage.getItem(PINNED_KEY) || '[]');
+          return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
+        } catch {
+          return new Set();
+        }
+      }
+      function togglePin(id) {
+        if (!id) return;
+        const pins = readPins();
+        if (pins.has(id)) pins.delete(id);
+        else pins.add(id);
+        localStorage.setItem(PINNED_KEY, JSON.stringify([...pins]));
+        renderHistory();
+      }
+
+      const PROJECTS_KEY = 'orc.projects.v1';
+      const NOTES_KEY = 'orc.memory-notes.v1';
+      function readOrgMap(key) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || '{}');
+          return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        } catch { return {}; }
+      }
+      function projectOf(id) { return String(readOrgMap(PROJECTS_KEY)[id] || '').slice(0, 40); }
+      function memoryNoteFor(id) { return String(readOrgMap(NOTES_KEY)[id] || '').slice(0, 4000); }
+      function withMemoryNote(messages) {
+        const note = memoryNoteFor(state.threadId).trim();
+        return note
+          ? [{ role: 'system', content: `User memory note for this chat (keep following it):\n${note}` }, ...messages]
+          : messages;
+      }
+      function assignProject(id) {
+        const answer = prompt('Project name (blank = Ungrouped)', projectOf(id));
+        if (answer === null) return;
+        const name = answer.replace(/\s+/g, ' ').trim().slice(0, 40);
+        const map = readOrgMap(PROJECTS_KEY);
+        if (name) map[id] = name; else delete map[id];
+        localStorage.setItem(PROJECTS_KEY, JSON.stringify(map));
+        renderHistory();
+        banner(name ? `Moved to ${name}.` : 'Moved to Ungrouped.', 'close', () => {});
+      }
+      $('memoryBtn').addEventListener('click', () => {
+        if (!state.threadId) return banner('Open a chat first.', 'close', () => {});
+        const answer = prompt('Memory note sent with every message in this chat (blank removes it):', memoryNoteFor(state.threadId));
+        if (answer === null) return;
+        const note = answer.trim().slice(0, 4000);
+        const map = readOrgMap(NOTES_KEY);
+        if (note) map[state.threadId] = note; else delete map[state.threadId];
+        localStorage.setItem(NOTES_KEY, JSON.stringify(map));
+        banner(note ? 'Memory note saved.' : 'Memory note removed.', 'close', () => {});
+      });
+
+      function renderHistory() {
+        const list = $('threadList');
+        list.innerHTML = '';
+        const all = readThreads();
+        const pins = readPins();
+        const query = ($('threadSearch')?.value || '').trim().toLowerCase();
+        // The whole chat is already in this browser, so a search covers the title
+        // and every message without a round trip or an account.
+        const threads = query
+          ? all.filter(
+              (thread) =>
+                String(thread.title || '').toLowerCase().includes(query) ||
+                (Array.isArray(thread.messages) &&
+                  thread.messages.some(
+                    (message) =>
+                      typeof message.content === 'string' &&
+                      message.content.toLowerCase().includes(query),
+                  )),
+            )
+          : all;
+        threads.sort(
+          (a, b) => (projectOf(a.id) || '\uffff').localeCompare(projectOf(b.id) || '\uffff'),
+        );
+        // The header says how many chats exist, so the list is findable without
+        // opening anything.
+        const count = $('threadCount');
+        if (count) count.textContent = all.length === 1 ? '1 chat' : `${all.length} chats`;
+        if (!threads.length) {
+          list.append(
+            el(
+              'p',
+              'fine',
+              query
+                ? 'No chat matches that search.'
+                : 'No saved chats yet — send a message and it lands here.',
+            ),
+          );
+          return;
+        }
+        let activeProject;
+        for (const thread of threads) {
+          const project = projectOf(thread.id);
+          if (project !== activeProject) {
+            activeProject = project;
+            const heading = el('div', 'thread-group', project || 'Ungrouped');
+            heading.style.cssText = 'padding:10px 8px 3px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);';
+            list.append(heading);
+          }
+          const row = el('div', 'thread-item' + (thread.id === state.threadId ? ' active' : ''));
+          const open = el('button', 'open', '');
+          open.type = 'button';
+          open.title = thread.title;
+          open.append(el('span', 'ttl', (pins.has(thread.id) ? '📌 ' : '') + thread.title));
+          open.append(
+            el(
+              'span',
+              'sub',
+              `${thread.provider || '?'} · ${thread.model || 'model'} · ${new Date(thread.updatedAt).toLocaleString()}`,
+            ),
+          );
+          open.onclick = () => loadThread(thread.id);
+          const pin = el('button', 'mini', pins.has(thread.id) ? '📌' : '☆');
+          pin.type = 'button';
+          pin.title = pins.has(thread.id) ? 'Unpin this chat' : 'Pin this chat';
+          pin.setAttribute('aria-label', pin.title);
+          pin.onclick = () => togglePin(thread.id);
+          const remove = el('button', 'mini del', '×');
+          remove.type = 'button';
+          remove.title = 'Delete this chat';
+          remove.setAttribute('aria-label', 'Delete chat');
+          remove.onclick = () => deleteThread(thread.id);
+          const move = el('button', 'mini', '▦');
+          move.type = 'button';
+          move.title = `Project: ${project || 'Ungrouped'}`;
+          move.setAttribute('aria-label', move.title);
+          move.onclick = () => assignProject(thread.id);
+          row.append(open, move, pin, remove);
+          list.append(row);
+        }
+      }
+
+      async function loadThread(id) {
+        const thread = readThreads().find((each) => each.id === id);
+        if (!thread) return;
+        if (state.busy && state.abort) state.abort.abort();
+        const canSwitch =
+          thread.provider &&
+          thread.provider !== state.provider &&
+          state.providers.some((provider) => provider.id === thread.provider);
+        if (canSwitch) {
+          state.provider = thread.provider;
+          $('provider').value = state.provider;
+          await loadModels().catch(() => {});
+        }
+        state.messages = thread.messages
+          .filter((message) => message && typeof message.content === 'string')
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+            usage:
+              message.usage && typeof message.usage === 'object'
+                ? {
+                    prompt_tokens: Number(message.usage.prompt_tokens) || 0,
+                    completion_tokens: Number(message.usage.completion_tokens) || 0,
+                  }
+                : null,
+            ...(message.role === 'user' &&
+            Array.isArray(message.images) &&
+            typeof message.images[0] === 'string' &&
+            /^data:image\/(png|jpeg|webp);base64,/.test(message.images[0])
+              ? { images: message.images.slice(0, 1) }
+              : {}),
+          }));
+        // Rebuild the tab's totals from the saved messages, so reopening a chat
+        // does not look like the tokens were never spent.
+        state.stats.tokensIn = state.messages.reduce(
+          (sum, message) => sum + (Number(message.usage?.prompt_tokens) || 0),
+          0,
+        );
+        state.stats.tokensOut = state.messages.reduce(
+          (sum, message) => sum + (Number(message.usage?.completion_tokens) || 0),
+          0,
+        );
+        state.threadId = thread.id;
+        const firstUser = thread.messages.find(
+          (message) => message.role === 'user' && typeof message.content === 'string',
+        );
+        const derived = (firstUser?.content || 'Untitled chat').replace(/\s+/g, ' ').trim().slice(0, 60);
+        titleOverride =
+          thread.title && thread.title !== derived ? { id: thread.id, title: thread.title } : { id: '', title: '' };
+        if (thread.model && state.models.some((model) => model.id === thread.model)) {
+          state.model = thread.model;
+          updateModelButton();
+        }
+        $('thread').innerHTML = '';
+        state.messages.forEach((message, index) => {
+          const node = addMessage(message.role, message.content, message.images || []);
+          if (message.role === 'assistant') addMeta(node.wrap, '', message.content);
+          addActions(node.wrap, index, message.role);
+        });
+        closeSidebar(true);
+        setHints();
+        scrollDown();
+        $('input').focus();
+      }
+
+      $('historyBtn').onclick = () => openSidebar();
+      // A search can also ask the account. Chats the server knows but this browser
+      // has not synced yet are merged in, so they open like any other.
+      let historySearchTimer = null;
+      $('threadSearch').addEventListener('input', () => {
+        renderHistory();
+        clearTimeout(historySearchTimer);
+        historySearchTimer = setTimeout(() => {
+          void searchRemoteThreads();
+        }, 250);
+      });
+
+      async function searchRemoteThreads() {
+        const query = ($('threadSearch')?.value || '').trim();
+        if (!query || !state.user) return;
+        try {
+          const res = await fetch(`/api/threads?q=${encodeURIComponent(query)}`, {
+            headers: { accept: 'application/json' },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          const remote = Array.isArray(data.threads) ? data.threads : [];
+          if (!remote.length) return;
+          const byId = new Map();
+          for (const thread of [...readThreads(), ...remote]) {
+            if (!thread || typeof thread.id !== 'string' || !Array.isArray(thread.messages)) continue;
+            const seen = byId.get(thread.id);
+            if (!seen || (thread.updatedAt || 0) > (seen.updatedAt || 0)) byId.set(thread.id, thread);
+          }
+          const merged = [...byId.values()]
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .slice(0, 200);
+          localStorage.setItem(THREADS_KEY, JSON.stringify(merged));
+          renderHistory();
+        } catch {
+          /* offline: the local search already ran */
+        }
+      }
+      // The chats panel is docked on wide windows and a drawer on narrow ones,
+      // the same rule and the same remembered preference as the desktop app.
+      const SIDEBAR_KEY = 'orc.sidebar';
+      const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
+
+      function applySidebarPreference() {
+        const stored = localStorage.getItem(SIDEBAR_KEY);
+        if (isNarrow()) {
+          const open = stored === 'open';
+          $('sidebar').classList.remove('hidden');
+          $('sidebar').classList.toggle('open', open);
+          $('sideBackdrop').classList.toggle('hidden', !open);
+          document.body.classList.remove('docked');
+          return;
+        }
+        const closed = stored === 'closed';
+        $('sidebar').classList.remove('open');
+        $('sidebar').classList.toggle('hidden', closed);
+        document.body.classList.toggle('docked', !closed);
+        $('sideBackdrop').classList.add('hidden');
+      }
+
+      function openSidebar() {
+        renderHistory();
+        $('sidebar').classList.remove('hidden');
+        if (isNarrow()) {
+          $('sidebar').classList.add('open');
+          $('sideBackdrop').classList.remove('hidden');
+        } else {
+          document.body.classList.add('docked');
+        }
+        localStorage.setItem(SIDEBAR_KEY, 'open');
+      }
+
+      // drawerOnly: after opening a chat the drawer gets out of the way, but a
+      // docked column stays where it is.
+      function closeSidebar(drawerOnly = false) {
+        if (isNarrow()) {
+          $('sidebar').classList.remove('open');
+          $('sideBackdrop').classList.add('hidden');
+          if (!drawerOnly) localStorage.setItem(SIDEBAR_KEY, 'closed');
+          return;
+        }
+        if (drawerOnly) return;
+        $('sidebar').classList.add('hidden');
+        document.body.classList.remove('docked');
+        localStorage.setItem(SIDEBAR_KEY, 'closed');
+      }
+
+      function toggleSidebar() {
+        const hiddenNow = isNarrow()
+          ? !$('sidebar').classList.contains('open')
+          : $('sidebar').classList.contains('hidden');
+        if (hiddenNow) openSidebar();
+        else closeSidebar();
+      }
+
+      $('sideBtn').onclick = () => toggleSidebar();
+      $('sideClose').onclick = () => closeSidebar();
+      $('sideBackdrop').onclick = () => closeSidebar();
+      $('sideNew').onclick = () => {
+        closeSidebar(true);
+        $('clearBtn').click();
+      };
+      window.addEventListener('resize', applySidebarPreference);
+
+      // ------------------------------------------------------------- picker
+      const PINS_KEY = 'orc.pins';
+      const RECENT_KEY = 'orc.recents';
+
+      function readIds(key) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) || '[]');
+          return Array.isArray(value) ? value.filter((id) => typeof id === 'string') : [];
+        } catch {
+          return [];
+        }
+      }
+      const pinnedIds = () => readIds(PINS_KEY);
+      const recentIds = () => readIds(RECENT_KEY);
+
+      function remember(id) {
+        const next = [id, ...recentIds().filter((each) => each !== id)].slice(0, 6);
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+        localStorage.setItem(`orc.model.${state.provider}`, id);
+        localStorage.setItem('orc.model', id);
+      }
+
+      function toggleModelPin(id) {
+        const pins = pinnedIds();
+        localStorage.setItem(
+          PINS_KEY,
+          JSON.stringify(pins.includes(id) ? pins.filter((each) => each !== id) : [id, ...pins]),
+        );
+        renderPicker();
+      }
+
+      function updateModelButton(label) {
+        $('modelBtn').textContent = label || state.model || 'Choose model';
+        $('modelBtn').title = state.model || '';
+      }
+
+      function visibleGroups() {
+        const query = $('modelSearch').value.trim().toLowerCase();
+        const matches = (model) =>
+          !query ||
+          model.id.toLowerCase().includes(query) ||
+          String(model.name || '').toLowerCase().includes(query);
+        const pool = state.models.filter(matches);
+        const pins = pinnedIds();
+        const recents = recentIds();
+        const pinned = pool.filter((model) => pins.includes(model.id));
+        const recent = pool
+          .filter((model) => !pins.includes(model.id) && recents.includes(model.id))
+          .sort((a, b) => recents.indexOf(a.id) - recents.indexOf(b.id));
+        const rest = pool.filter((model) => !pins.includes(model.id) && !recents.includes(model.id));
+        return [
+          { label: 'Pinned', rows: pinned },
+          { label: 'Recent', rows: recent },
+          { label: 'All free models', rows: rest },
+        ].filter((group) => group.rows.length);
+      }
+
+      function renderPicker() {
+        const list = $('modelList');
+        list.innerHTML = '';
+        const rows = [];
+        for (const group of visibleGroups()) {
+          list.append(el('div', 'groupLabel', group.label));
+          for (const model of group.rows) {
+            const row = el('div', 'modelRow' + (model.id === state.model ? ' current' : ''));
+            row.id = 'model-opt-' + rows.length;
+            row.setAttribute('role', 'option');
+            row.setAttribute('aria-selected', model.id === state.model ? 'true' : 'false');
+            row.dataset.id = model.id;
+
+            const name = el('span', 'modelName', model.name && model.name !== model.id ? model.name : model.id);
+            name.append(el('span', 'modelId', model.id));
+            row.append(name);
+            if (model.context) row.append(el('span', 'modelCtx', fmtContext(model.context)));
+            if (model.vision) row.append(el('span', 'modelCtx', 'vision'));
+
+            const pinned = pinnedIds().includes(model.id);
+            const star = el('button', 'star', pinned ? '★' : '☆');
+            star.type = 'button';
+            star.title = pinned ? 'Unpin' : 'Pin';
+            star.setAttribute('aria-label', star.title);
+            star.onclick = (event) => {
+              event.stopPropagation();
+              toggleModelPin(model.id);
+            };
+            row.append(star);
+
+            row.onclick = () => chooseModel(model.id);
+            rows.push(row);
+            list.append(row);
+          }
+        }
+        if (!rows.length) list.append(el('div', 'groupLabel', 'No model matches that search.'));
+        state.rows = rows;
+        state.active = Math.max(0, rows.findIndex((row) => row.dataset.id === state.model));
+        paintActive();
+      }
+
+      function paintActive() {
+        state.rows.forEach((row, index) => row.classList.toggle('active', index === state.active));
+        const row = state.rows[state.active];
+        if (!row) return;
+        row.scrollIntoView({ block: 'nearest' });
+        $('modelSearch').setAttribute('aria-activedescendant', row.id);
+      }
+
+      function openPicker() {
+        if (!state.models.length) {
+          banner('No models loaded yet — retry in a moment.', 'retry', loadModels);
+          return;
+        }
+        $('modelMenu').hidden = false;
+        $('modelBtn').setAttribute('aria-expanded', 'true');
+        $('modelSearch').value = '';
+        renderPicker();
+        $('modelSearch').focus();
+      }
+
+      function closePicker() {
+        $('modelMenu').hidden = true;
+        $('modelBtn').setAttribute('aria-expanded', 'false');
+      }
+
+      function chooseModel(id) {
+        state.model = id;
+        remember(id);
+        updateModelButton();
+        closePicker();
+        $('input').focus();
+      }
+
+      $('modelBtn').onclick = () => {
+        if (!state.models.length) return loadModels().catch(() => {});
+        return $('modelMenu').hidden ? openPicker() : closePicker();
+      };
+      $('modelSearch').addEventListener('input', renderPicker);
+      $('modelSearch').addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (!state.rows.length) return;
+          const step = event.key === 'ArrowDown' ? 1 : -1;
+          state.active = (state.active + step + state.rows.length) % state.rows.length;
+          paintActive();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          const row = state.rows[state.active];
+          if (row) chooseModel(row.dataset.id);
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          closePicker();
+          $('modelBtn').focus();
+        }
+      });
+      document.addEventListener('click', (event) => {
+        if (!$('modelPicker').contains(event.target)) closePicker();
+      });
+
+      // One switch path for the picker and the keyless first run: a thread is
+      // provider-specific, so both must reset it the same way.
+      function applyProvider(id) {
+        saveThread();
+        state.provider = id;
+        state.threadId = null;
+        localStorage.setItem('orc.provider', id);
+        // Conversations are provider-specific: a Groq model cannot continue an
+        // OpenRouter thread.
+        state.messages = [];
+        $('thread').innerHTML = '';
+        const hello = el('div', 'empty');
+        hello.id = 'hello';
+        hello.append(el('h1', '', 'New chat'));
+        hello.append(el('p', '', `Now talking to ${providerInfo().label}.`));
+        hello.append(suggestRow());
+        $('thread').append(hello);
+        setHints();
+        loadModels().catch(() => {});
+      }
+
+      $('provider').onchange = () => applyProvider($('provider').value);
+
+      /* Quick-start chips: fill the box, never send. The same four exist in the
+         desktop app so both editions teach the same first move. */
+      const SUGGESTIONS = [
+        ['Explain an error', 'Explain this error and how to fix it:\n'],
+        ['Summarise something', 'Summarise this in five short bullets:\n'],
+        ['Review code', 'Review this code for bugs and say what you would change:\n'],
+        ['Commit message', 'Write a clear commit message for this change:\n'],
+      ];
+
+      function suggestRow() {
+        const row = el('div', 'suggest');
+        for (const [label, fill] of SUGGESTIONS) {
+          const chip = el('button', '', label);
+          chip.type = 'button';
+          chip.dataset.fill = fill;
+          row.append(chip);
+        }
+        return row;
+      }
+
+      document.addEventListener('click', (event) => {
+        const chip = event.target.closest('button[data-fill]');
+        if (!chip) return;
+        const box = $('input');
+        const draft = box.value.trim();
+        box.value = draft ? chip.dataset.fill + draft : chip.dataset.fill;
+        box.focus();
+        box.setSelectionRange(box.value.length, box.value.length);
+        autoGrow();
+      });
+
+      $('quota').onclick = () => openKey('');
+      $('stop').onclick = () => {
+        state.stopRequested = true;
+        if (state.abort) state.abort.abort();
+      };
+      $('quitBtn').onclick = () => {
+        if (!confirm('Stop this tab? Reload to start again.')) return;
+        state.stopRequested = true;
+        if (state.abort) state.abort.abort();
+        state.busy = false;
+        state.messages = [];
+        $('thread').innerHTML = '';
+        const box = el('div', 'empty');
+        box.append(el('h1', '', 'Stopped'));
+        box.append(el('p', '', 'This tab is closed. Saved chats, prompts and files are still in this browser.'));
+        const again = el('button', 'primary', 'Start again');
+        again.type = 'button';
+        again.onclick = () => location.reload();
+        box.append(again);
+        $('thread').append(box);
+        $('send').disabled = true;
+        $('input').disabled = true;
+      };
+      // ------------------------------------------------------ command palette
+      // The cloud page has fewer buttons than the desktop app, so the palette
+      // lists what it does have and names the same commands for both editions.
+      const PALETTE_COMMANDS = [
+        { label: 'New chat', keys: 'Alt+N', run: () => $('clearBtn').click() },
+        { label: 'Choose a model…', keys: 'Ctrl+M', run: () => { if ($('modelMenu').hidden) openPicker(); } },
+        { label: 'Your chats', keys: 'Alt+H', run: () => openSidebar() },
+        { label: 'Settings…', keys: '', run: () => $('settingsBtn').click() },
+        { label: 'Provider key…', keys: '', run: () => openKey('') },
+        { label: 'Prompts…', keys: '', run: () => $('promptsBtn').click() },
+        { label: 'Export Markdown', keys: '', run: () => $('exportBtn').click() },
+        { label: 'Export all chats for the desktop app', keys: '', run: () => $('exportChatsBtn').click() },
+        { label: 'Pin or unpin this chat', keys: '', run: () => togglePin(state.threadId) },
+        { label: 'Rename this chat…', keys: '', run: () => renameCurrentThread() },
+        { label: 'Delete this chat…', keys: '', run: () => deleteCurrentThread() },
+        { label: 'Files panel', keys: '', run: () => paletteRail('files') },
+        { label: 'Secrets panel', keys: '', run: () => paletteRail('secrets') },
+        { label: 'GitHub panel', keys: '', run: () => paletteRail('github') },
+        { label: 'Preview panel', keys: '', run: () => paletteRail('preview') },
+        { label: 'Status and usage', keys: '', run: () => paletteRail('status') },
+        { label: 'Jump to the message box', keys: '', run: () => $('input').focus() },
+      ];
+
+      const palette = { items: [], active: 0 };
+
+      function paletteRail(tab) {
+        $('railBtn').dataset.tab = tab;
+        if ($('rail').hidden) $('railBtn').click();
+        else switchRail(tab);
+      }
+
+      function paletteCommands() {
+        const commands = PALETTE_COMMANDS.slice();
+        for (const provider of state.providers) {
+          commands.push({
+            label: 'Switch provider to ' + provider.label,
+            keys: provider.id === state.provider ? 'current' : '',
+            run: () => {
+              if (provider.id === state.provider) return;
+              $('provider').value = provider.id;
+              $('provider').dispatchEvent(new Event('change'));
+            },
+          });
+        }
+        // Quick switcher: every saved chat is one palette row, so Ctrl+K plus a
+        // few letters opens any of them without hunting through the panel.
+        for (const thread of readThreads().slice(0, 50)) {
+          commands.push({
+            label: 'Open chat: ' + thread.title,
+            keys: '',
+            run: () => {
+              closeSidebar(true);
+              loadThread(thread.id).catch(() => {});
+            },
+          });
+        }
+        return commands;
+      }
+
+      function paletteRender(resetActive = true) {
+        const needle = $('paletteInput').value.trim().toLowerCase();
+        palette.items = paletteCommands().filter((command) => command.label.toLowerCase().includes(needle));
+        if (resetActive) palette.active = 0;
+        palette.active = Math.min(palette.active, Math.max(0, palette.items.length - 1));
+        const list = $('paletteList');
+        list.innerHTML = '';
+        palette.items.forEach((command, index) => {
+          const item = el('button', 'palette-item' + (index === palette.active ? ' active' : ''));
+          item.type = 'button';
+          item.append(el('span', '', command.label));
+          if (command.keys) item.append(el('span', 'keys', command.keys));
+          item.addEventListener('click', () => paletteRun(command));
+          list.append(item);
+        });
+        if (!palette.items.length) list.append(el('p', 'fine', 'No command matches that.'));
+      }
+
+      function paletteRun(command) {
+        paletteClose();
+        try { command.run(); } catch {}
+      }
+
+      function paletteOpen() {
+        $('paletteInput').value = '';
+        paletteRender();
+        if (!$('paletteDialog').open) $('paletteDialog').showModal();
+        $('paletteInput').focus();
+      }
+
+      function paletteClose() {
+        if ($('paletteDialog').open) $('paletteDialog').close();
+      }
+
+      $('paletteInput').addEventListener('input', () => paletteRender());
+      $('paletteInput').addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (!palette.items.length) return;
+          const step = event.key === 'ArrowDown' ? 1 : -1;
+          palette.active = (palette.active + step + palette.items.length) % palette.items.length;
+          paletteRender(false);
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const command = palette.items[palette.active];
+          if (command) paletteRun(command);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          paletteOpen();
+        } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'm') {
+          event.preventDefault();
+          openPicker();
+        } else if (event.altKey && event.key.toLowerCase() === 'n') {
+          event.preventDefault();
+          $('clearBtn').click();
+        } else if (event.altKey && event.key.toLowerCase() === 'h') {
+          event.preventDefault();
+          toggleSidebar();
+        }
+      });
+
+      $('clearBtn').onclick = () => {
+        if (state.busy && state.abort) state.abort.abort();
+        clearAttachment();
+        saveThread();
+        state.threadId = null;
+        state.messages = [];
+        $('thread').innerHTML = '';
+        const hello = el('div', 'empty');
+        hello.id = 'hello';
+        hello.append(el('h1', '', 'New chat'));
+        hello.append(
+          el(
+            'p',
+            '',
+            state.user
+              ? 'Same free-only rule, fresh slate. Signed-in chats are saved to your account.'
+              : 'Same free-only rule, fresh slate. Nothing is stored server-side.',
+          ),
+        );
+        hello.append(suggestRow());
+        $('thread').append(hello);
+        banner('');
+        setHints();
+      };
+
+      $('imageFile').addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        await attachImage(file);
+      });
+      $('imageRemove').onclick = () => clearAttachment();
+      $('send').onclick = send;
+      $('input').addEventListener('input', autoGrow);
+      $('input').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          send();
+        }
+      });
+
+      // --------------------------------------------------------------- boot
+      (async function boot() {
+        try {
+          const res = await fetch('/api/config');
+          const cfg = await res.json();
+          state.version = cfg.version || '?';
+          state.providers = cfg.providers || [];
+          state.serverKeys = Array.isArray(cfg.serverKeys) ? cfg.serverKeys : [];
+          state.guard = cfg.guard || null;
+          state.budget = null;
+          state.accountFilesEnabled = cfg.accountFiles === true;
+          state.fileLimits = cfg.fileLimits || null;
+          state.provider = localStorage.getItem('orc.provider') || cfg.defaultProvider || 'openrouter';
+          if (!state.providers.some((provider) => provider.id === state.provider)) {
+            state.provider = 'openrouter';
+          }
+          $('ver').textContent = 'v' + state.version;
+          // Keep the prose in step with the build instead of hard-coding a version.
+          const desktopVersion = String(state.version).replace(/-cloud$/, '');
+          for (const node of document.querySelectorAll('.desktopVer')) {
+            node.textContent = desktopVersion;
+          }
+          const select = $('provider');
+          select.innerHTML = '';
+          for (const provider of state.providers) {
+            // Name the kind of free plan, not just "free": daily and monthly
+            // allowances behave very differently after a few turns.
+            select.append(
+              new Option(`${provider.label} — ${provider.planLabel ?? 'free'}`, provider.id),
+            );
+          }
+          select.value = state.provider;
+          if (cfg.catalogError) banner('OpenRouter catalog problem: ' + cfg.catalogError, 'retry', loadModels);
+        } catch {
+          $('ver').textContent = 'v?';
+        }
+        await initLocalFiles();
+        renderFiles();
+        await loadAccount();
+        await loadAccountFiles();
+        if (state.user) await syncThreads();
+        setHints();
+        await loadModels();
+        await refreshQuota();
+        await refreshBudget();
+        applySidebarPreference();
+        renderHistory();
+        if (!hasKey()) openKey('');
+        // Register after the page is usable so it never delays a first paint.
+        // updateViaCache: none makes the browser check sw.js on every load; the
+        // new worker is network-first, so a deploy replaces an old cached page.
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+          const hadController = Boolean(navigator.serviceWorker.controller);
+          navigator.serviceWorker
+            .register('/sw.js', { updateViaCache: 'none' })
+            .then((registration) => registration.update())
+            .catch(() => {});
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            // Do not reload on the first install; do reload when a new worker
+            // takes over an existing page so it receives the fresh HTML.
+            if (!hadController || refreshing) return;
+            refreshing = true;
+            location.reload();
+          });
+        }
+        $('input').focus();
+      })();
+    </script>
+  </body>
+</html>

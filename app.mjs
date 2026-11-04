@@ -1,39 +1,374 @@
 #!/usr/bin/env node
-// Local chat app for OpenRouter free models.
+// Local chat app for OpenRouter free models, with optional tool calling.
 // Binds to 127.0.0.1 only: the API key never leaves this process.
 
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { filterModels, buildChain, estimateTokens } from './lib/models.mjs';
+import { gzipSync } from 'node:zlib';
+import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, toUpstreamMessage } from './lib/models.mjs';
+import { compactMessages } from './lib/memory.mjs';
+import { TOOL_DEFINITIONS, runTool, parseTextToolCalls } from './lib/tools.mjs';
+import {
+  PROVIDERS,
+  getProvider,
+  keyFor,
+  accountFor,
+  keyTail,
+  baseUrlFor,
+  modelsUrl,
+  chatUrl,
+  headersFor,
+  isAllowedModel,
+  publicView,
+  toModelRow,
+} from './lib/providers.mjs';
+import { openStore } from './lib/store.mjs';
+import { scrubSecrets } from './lib/redact.mjs';
+import { createWorkspace } from './lib/workspace.mjs';
+import { openSecrets } from './lib/secrets.mjs';
+import { createGithub } from './lib/github.mjs';
+import { createCommandRunner, parseAllowlist } from './lib/commands.mjs';
+import { createStatusLog } from './lib/status.mjs';
 
-const HOST = '127.0.0.1';
-const PORT = Number(process.env.PORT || 3002);
+// import.meta.dirname and AbortSignal.any need Node 20.11. Without this check an
+// older Node fails later with a confusing error inside a request instead of a
+// sentence the user can act on.
+const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
+if (nodeMajor < 20 || (nodeMajor === 20 && nodeMinor < 11)) {
+  console.error(`Freeway needs Node.js 20.11 or newer — this is ${process.versions.node}.`);
+  console.error('Install the LTS version from https://nodejs.org/en/download and start it again.');
+  process.exit(1);
+}
+
+/* -------------------------------------------------------------------- cli */
+
+const DEFAULT_PORT = 3002;
+const DEFAULT_HOST = '127.0.0.1';
+
+function failCli(message) {
+  console.error(message);
+  console.error('Run with --help for usage.');
+  process.exit(2);
+}
+
+function isLoopback(host) {
+  return (
+    host === 'localhost' ||
+    host === '::1' ||
+    host === '0:0:0:0:0:0:0:1' ||
+    host.startsWith('127.')
+  );
+}
+
+function parseArgs(argv) {
+  const options = { help: false, version: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const eq = arg.indexOf('=');
+    const flag = eq === -1 ? arg : arg.slice(0, eq);
+    const inline = eq === -1 ? undefined : arg.slice(eq + 1);
+
+    const value = () => {
+      if (inline) return inline;
+      const next = argv[i + 1];
+      if (next === undefined || (next.startsWith('-') && !/^-?\d/.test(next))) {
+        failCli(`${flag} needs a value`);
+      }
+      i += 1;
+      return next;
+    };
+
+    if (flag === '--port' || flag === '-p') {
+      const input = value();
+      const port = Number(input);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        failCli(`Port must be a whole number from 1 to 65535, got "${input}".`);
+      }
+      options.port = port;
+    } else if (flag === '--host') {
+      const host = value().trim();
+      if (!/^[A-Za-z0-9._:[\]-]+$/.test(host)) {
+        failCli(`Host "${host}" is not an address (try 127.0.0.1 or 0.0.0.0).`);
+      }
+      options.host = host;
+    } else if (flag === '--config') {
+      options.config = value().trim();
+      if (!options.config) failCli('--config needs a path');
+    } else if (flag === '--doctor') {
+      options.doctor = true;
+    } else if (flag === '--help' || flag === '-h') {
+      options.help = true;
+    } else if (flag === '--version' || flag === '-v') {
+      options.version = true;
+    } else {
+      failCli(`Unknown option: ${arg}`);
+    }
+  }
+  return options;
+}
+
+/** $HOST is set to the machine name by some shells, so only accept addresses. */
+function envHost() {
+  const value = (process.env.HOST || '').trim();
+  return /^([A-Za-z0-9._:\[\]-]+)$/.test(value) ? value : undefined;
+}
+
+function envPort() {
+  const value = Number(process.env.PORT);
+  return Number.isInteger(value) && value >= 1 && value <= 65535 ? value : undefined;
+}
+
+function printHelp() {
+  console.log(`Freeway ${VERSION}
+
+Usage: node app.mjs [options]
+
+Options:
+  -p, --port <number>  Port to listen on (default ${DEFAULT_PORT}, or $PORT)
+      --host <address> Interface to bind (default ${DEFAULT_HOST}, or $HOST)
+      --config <path>  Folder (or .json file) for the key, settings and chats
+      --doctor         Check this install and exit (no server, no browser)
+  -h, --help           Show this help and exit
+  -v, --version        Print the version and exit
+
+Environment:
+  OPENROUTER_API_KEY   Key to use instead of the saved one
+  OPENROUTER_CONFIG    Config file location
+  NO_OPEN=1            Do not open a browser window`);
+}
+
+const cli = parseArgs(process.argv.slice(2));
+const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
+const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '1.0.0';
-const MAX_BODY_BYTES = 1_000_000;
+const VERSION = '2.3.4';
+const MAX_BODY_BYTES = 8_000_000;
+// Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
+// local backup import.
+const CHAT_BODY_LIMIT = 1_500_000;
 const MAX_INPUT_CHARS = 60_000;
-const MAX_OUTPUT_TOKENS = Math.min(Number(process.env.MAX_OUTPUT_TOKENS || 1200), 4000);
 const MAX_ATTEMPTS = 3;
+const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_CALLS = 4;
 const CATALOG_TTL_MS = 60 * 60 * 1000;
 const UPSTREAM_TIMEOUT_MS = 120_000;
+
+const configuredMaxTokens = Number(process.env.MAX_OUTPUT_TOKENS);
+const DEFAULT_MAX_TOKENS =
+  Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0
+    ? Math.min(Math.floor(configuredMaxTokens), 4000)
+    : 1200;
+
+const DEFAULT_SETTINGS = {
+  systemPrompt: '',
+  temperature: null,
+  maxTokens: DEFAULT_MAX_TOKENS,
+  tools: true,
+  showLog: true,
+  requestCap: 0,
+  // Running programs is the sharpest tool in the app, so it is off until the
+  // user turns it on and lists the programs by name.
+  allowCommands: false,
+  commandAllowlist: '',
+};
 
 let catalog = { models: [], fetchedAt: 0 };
 let htmlCache = null;
 
+/**
+ * Models that already failed in this session. Remembering them for the rest of
+ * the session stops every new turn from walking into the same 429 again. They
+ * are forgotten on New Chat, and if every model is cooling down the map is
+ * cleared rather than leaving the app with nothing to send.
+ */
+const cooling = new Map();
+
+function coolDown(model, reason, retryAfterMs = null) {
+  if (!model) return;
+  const now = Date.now();
+  const fallback = reason === 'rate-limit' ? 60_000 : 30_000;
+  const wait = Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : fallback;
+  cooling.set(model, { at: now, until: now + Math.min(wait, 15 * 60_000), reason });
+}
+
+function coolingIds() {
+  return [...cooling.keys()];
+}
+
+function resetCooling() {
+  cooling.clear();
+}
+
+// One bounded, in-memory record of what this run tried. The Status tab reads it;
+// nothing is persisted, so it can never leak usage history to disk.
+const statusLog = createStatusLog();
+
 /* ---------------------------------------------------------------- config */
 
-export function configPath() {
-  if (process.env.OPENROUTER_CONFIG) return process.env.OPENROUTER_CONFIG;
+function defaultConfigDir() {
   const base =
     process.platform === 'win32'
       ? process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
       : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  return path.join(base, 'OpenRouterChat', 'config.json');
+  const current = path.join(base, 'Freeway');
+  const legacy = path.join(base, 'OpenRouterChat');
+  // 1.x wrote under the old product name; carry that data forward once.
+  if (!fs.existsSync(current) && fs.existsSync(legacy)) {
+    try {
+      fs.cpSync(legacy, current, { recursive: true });
+    } catch {
+      return legacy;
+    }
+  }
+  return current;
+}
+
+/**
+ * Where the key, settings and chats live. A file path in --config is taken as
+ * the config file itself; a folder is taken as the place to put config.json.
+ */
+export function resolveConfigLocation(flagPath) {
+  const asFile = (value) => {
+    const file = path.resolve(value);
+    return { file, dir: path.dirname(file) };
+  };
+
+  if (flagPath) {
+    const resolved = path.resolve(flagPath);
+    let isFile = /\.json$/i.test(resolved);
+    try {
+      if (!isFile && fs.existsSync(resolved)) isFile = fs.statSync(resolved).isFile();
+    } catch {
+      /* treat it as a folder */
+    }
+    return isFile ? asFile(resolved) : { dir: resolved, file: path.join(resolved, 'config.json') };
+  }
+
+  const dirEnv = (process.env.OPENROUTER_LOCAL_CONFIG_DIR || '').trim();
+  if (dirEnv) {
+    const dir = path.resolve(dirEnv);
+    return { dir, file: path.join(dir, 'config.json') };
+  }
+
+  const fileEnv = (process.env.OPENROUTER_CONFIG || '').trim();
+  if (fileEnv) return asFile(fileEnv);
+
+  const dir = defaultConfigDir();
+  return { dir, file: path.join(dir, 'config.json') };
+}
+
+export function configLocation() {
+  return resolveConfigLocation(cli.config);
+}
+
+export function configPath() {
+  return configLocation().file;
+}
+
+let threadStore = null;
+
+function store() {
+  threadStore ??= openStore(path.join(configLocation().dir, 'threads.json'));
+  return threadStore;
+}
+
+let secretsStore = null;
+
+function secrets() {
+  secretsStore ??= openSecrets(path.join(configLocation().dir, 'secrets.json'));
+  return secretsStore;
+}
+
+function workspace() {
+  return createWorkspace(loadConfig().workspace ?? '');
+}
+
+// The GitHub token lives in the secrets store, never in the config file and
+// never in the page.
+function github() {
+  return createGithub(secrets().get('GITHUB_TOKEN') ?? '');
+}
+
+// Rebuilt per call so a settings change applies to the next command. With the
+// checkbox off the allowlist is empty, and an empty allowlist refuses everything.
+function commandRunner() {
+  const settings = loadSettings();
+  return createCommandRunner({
+    root: loadConfig().workspace ?? '',
+    allowlist: settings.allowCommands ? parseAllowlist(settings.commandAllowlist) : [],
+  });
+}
+
+// Model-initiated writes park here until the page says yes or no.
+const pendingConfirms = new Map();
+
+function requestConfirm(res, name, args, signal, extra = {}) {
+  return new Promise((resolve) => {
+    const id = randomUUID();
+    const settle = (allow) => {
+      const entry = pendingConfirms.get(id);
+      if (!entry) return;
+      pendingConfirms.delete(id);
+      clearTimeout(entry.timer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve(allow);
+    };
+    const onAbort = () => settle(false);
+    // A page that never answers is a no: silence must not mean consent.
+    const timer = setTimeout(() => settle(false), 180_000);
+    pendingConfirms.set(id, { settle, timer });
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (res.writableEnded) {
+      settle(false);
+      return;
+    }
+    sseSend(res, {
+      type: 'confirm',
+      id,
+      name,
+      arguments: typeof args === 'string' ? args : JSON.stringify(args),
+      ...extra,
+    });
+  });
+}
+
+async function runToolConfirmed(res, name, args, ctx, signal) {
+  if (name === 'apply_patch') {
+    // Build the real diff before asking, so the card shows exactly what will
+    // change. previewPatch validates every find and never writes anything.
+    let preview;
+    try {
+      if (!ctx.workspace?.isReady) {
+        return { ok: false, content: 'Error: No workspace folder is set. Ask the user to choose one in Settings.' };
+      }
+      preview = ctx.workspace.previewPatch(args);
+    } catch (error) {
+      return { ok: false, content: `Error: ${error?.message ?? error}` };
+    }
+    const allowed = await requestConfirm(res, name, args, signal, {
+      path: preview.path,
+      diff: preview.diff,
+    });
+    if (!allowed) {
+      return { ok: false, content: 'The user declined this patch. Do not retry it without asking first.' };
+    }
+  } else if (
+    name === 'write_file' ||
+    name === 'github_create_issue' ||
+    name === 'run_command' ||
+    name === 'run_tests'
+  ) {
+    const allowed = await requestConfirm(res, name, args, signal);
+    if (!allowed) {
+      return { ok: false, content: 'The user declined this write. Do not retry it without asking first.' };
+    }
+  }
+  return runTool(name, args, ctx);
 }
 
 function loadConfig() {
@@ -56,32 +391,202 @@ function apiKey() {
   return process.env.OPENROUTER_API_KEY || loadConfig().apiKey || '';
 }
 
+/** The provider saved in config, or OpenRouter for older installs. */
+function activeProvider() {
+  return getProvider(loadConfig().provider) ?? getProvider('openrouter');
+}
+
+function providerKey(provider) {
+  // A local daemon has no key; "local" keeps it usable without pretending a
+  // secret exists or showing the paste-a-key screen.
+  if (provider.local) return 'local';
+  // A public endpoint needs no secret either; the sentinel keeps it usable
+  // without pretending one exists.
+  if (provider.anonymous) return 'anonymous';
+  return keyFor(provider, loadConfig(), process.env);
+}
+
+/** Is the local daemon answering? A missing one must not look like a bad key. */
+const localProbes = new Map();
+async function localProviderUp(provider) {
+  const cached = localProbes.get(provider.id);
+  if (cached && Date.now() - cached.at < 5000) return cached.up;
+  let up = false;
+  try {
+    const response = await fetch(modelsUrl(provider), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(800),
+    });
+    up = response.ok;
+  } catch {
+    up = false;
+  }
+  localProbes.set(provider.id, { at: Date.now(), up });
+  return up;
+}
+
+/** One cached model list per provider, dropped when the key changes. */
+const providerCatalogs = new Map();
+
+async function fetchProviderIds(provider, key, config = loadConfig()) {
+  const response = await fetch(modelsUrl(provider, process.env, config), {
+    headers: headersFor(provider, key),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const ids = (Array.isArray(body?.data) ? body.data : [])
+      .map((model) => model?.id)
+      .filter((id) => typeof id === 'string' && id);
+    if (ids.length > 0) return ids;
+  }
+
+  // A rejected key is not "this provider hides its model list": the fallback
+  // list must not make a bad key look like a working provider.
+  if (response.status === 401 || response.status === 403) {
+    throw Object.assign(new Error(`${provider.label} rejected the saved key.`), {
+      status: 401,
+      responseStatus: response.status,
+    });
+  }
+
+  // Gemini's OpenAI compatibility layer does not always expose /models; its
+  // native endpoint does, and it also tells us which models can chat.
+  if (provider.nativeBase) {
+    const native = await fetch(`${provider.nativeBase}/models?key=${encodeURIComponent(key)}`, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (native.ok) {
+      const body = await native.json().catch(() => ({}));
+      return (Array.isArray(body?.models) ? body.models : [])
+        .filter((model) => (model?.supportedGenerationMethods ?? []).includes('generateContent'))
+        .map((model) => String(model?.name ?? '').replace(/^models\//, ''))
+        .filter(Boolean);
+    }
+  }
+
+  throw Object.assign(new Error(`${provider.label} model list unavailable (HTTP ${response.status})`), {
+    status: 502,
+    responseStatus: response.status,
+  });
+}
+
+/**
+ * Model rows for any provider. OpenRouter keeps its priced catalog; the others
+ * are filtered by the allow/deny rules that stand in for pricing.
+ */
+async function getProviderModels(provider, force = false, config = loadConfig()) {
+  if (provider.id === 'openrouter') return getCatalog(force);
+
+  const key = providerKey(provider);
+  const cached = providerCatalogs.get(provider.id);
+  const fresh = cached && cached.keyTail === keyTail(key) && Date.now() - cached.at < CATALOG_TTL_MS;
+  if (!force && fresh) return cached.rows;
+
+  let ids = [];
+  try {
+    ids = await fetchProviderIds(provider, key, config);
+  } catch (error) {
+    // A rejected key must surface as such, not as a fallback model list.
+    if (error.status === 401) throw error;
+    // Some compatibility layers do not expose /models (Cohere's, for one). A
+    // short known-good list keeps the provider usable instead of dead.
+    if (!provider.fallbackModels?.length) throw error;
+    ids = provider.fallbackModels;
+  }
+  if (ids.length === 0 && provider.fallbackModels?.length) ids = provider.fallbackModels;
+
+  const rows = ids
+    .filter((id) => isAllowedModel(provider, id))
+    .map((id) => toModelRow(provider, id))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  providerCatalogs.set(provider.id, { at: Date.now(), keyTail: keyTail(key), rows });
+  return rows;
+}
+
+/** Clamp anything the settings screen sends; never trust the browser blindly. */
+function sanitizeSettings(input = {}) {
+  const next = {};
+  if (typeof input.systemPrompt === 'string') next.systemPrompt = input.systemPrompt.slice(0, 4000);
+  if (input.temperature === null) next.temperature = null;
+  else if (typeof input.temperature === 'number' && Number.isFinite(input.temperature)) {
+    next.temperature = Math.min(Math.max(input.temperature, 0), 2);
+  }
+  if (typeof input.maxTokens === 'number' && Number.isFinite(input.maxTokens)) {
+    next.maxTokens = Math.min(Math.max(Math.round(input.maxTokens), 256), 4000);
+  }
+  if (typeof input.tools === 'boolean') next.tools = input.tools;
+  if (typeof input.showLog === 'boolean') next.showLog = input.showLog;
+  if (typeof input.allowCommands === 'boolean') next.allowCommands = input.allowCommands;
+  if (typeof input.commandAllowlist === 'string') {
+    next.commandAllowlist = input.commandAllowlist.slice(0, 300);
+  }
+  if (typeof input.requestCap === 'number' && Number.isFinite(input.requestCap)) {
+    next.requestCap = Math.min(Math.max(Math.round(input.requestCap), 0), 1000);
+  }
+  return next;
+}
+
+function loadSettings() {
+  return { ...DEFAULT_SETTINGS, ...sanitizeSettings(loadConfig().settings ?? {}) };
+}
+
 /* ------------------------------------------------------------ http utils */
 
+// No CDNs and no external scripts: the page only talks to itself. The single
+// exception is frame-src, because the preview panel loads a local dev server
+// inside an iframe. Nothing may frame *this* app (frame-ancestors 'none').
+const SECURITY_HEADERS = {
+  'content-security-policy':
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src http: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'no-referrer',
+  'x-frame-options': 'DENY',
+};
+
 function sendJson(res, status, body) {
-  const data = JSON.stringify(body);
+  let data = Buffer.from(JSON.stringify(body), 'utf8');
+  // The model catalog is ~80 KB of JSON. Over a slow tunnel that is ten seconds
+  // of "stuck at loading" while the page boots, so anything worth sending gets
+  // compressed when the client asked for it.
+  const compress = res.wantsGzip === true && data.length > 1024;
+  if (compress) data = gzipSync(data);
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
-    'content-length': Buffer.byteLength(data),
+    ...(compress ? { 'content-encoding': 'gzip', vary: 'accept-encoding' } : {}),
+    'content-length': data.length,
   });
   res.end(data);
 }
 
-function readJson(req) {
+function readJson(req, limit = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let settled = false;
+
     req.on('data', (chunk) => {
+      if (settled) return;
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(Object.assign(new Error('Request body too large'), { status: 413 }));
-        req.destroy();
+      if (size > limit) {
+        settled = true;
+        chunks.length = 0;
+        // Keep draining instead of destroying the socket, so the 413 can be
+        // delivered and the memory is released either way.
+        reject(
+          Object.assign(new Error(`Request body too large (limit ${limit} bytes)`), { status: 413 }),
+        );
         return;
       }
       chunks.push(chunk);
     });
+
     req.on('end', () => {
+      if (settled) return;
+      settled = true;
       if (chunks.length === 0) return resolve({});
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
@@ -89,7 +594,10 @@ function readJson(req) {
         reject(Object.assign(new Error('Invalid JSON body'), { status: 400 }));
       }
     });
-    req.on('error', reject);
+
+    req.on('error', (error) => {
+      if (!settled) reject(error);
+    });
   });
 }
 
@@ -108,7 +616,7 @@ async function pageHtml() {
   return htmlCache;
 }
 
-/* ---------------------------------------------------------- openrouter */
+/* ----------------------------------------------------------- openrouter */
 
 async function getCatalog(force = false) {
   const fresh = catalog.models.length > 0 && Date.now() - catalog.fetchedAt < CATALOG_TTL_MS;
@@ -172,8 +680,9 @@ function sanitizeMessages(input) {
     const role = raw?.role;
     const content = typeof raw?.content === 'string' ? raw.content : '';
     if (!['system', 'user', 'assistant'].includes(role) || content.length === 0) continue;
+    const images = role === 'user' ? cleanImages(raw?.images) : [];
     total += content.length;
-    messages.push({ role, content });
+    messages.push({ role, content, ...(images.length ? { images } : {}) });
   }
   if (messages.length === 0) {
     throw Object.assign(new Error('No usable messages were provided'), { status: 400 });
@@ -191,23 +700,46 @@ function sseSend(res, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function classifyFailure(status, body) {
+function classifyFailure(status, body, headers = null) {
   const metadata = body?.error?.metadata ?? {};
   const limitSource = metadata.limit_source ?? null;
   const message = body?.error?.message ?? `HTTP ${status}`;
+  const retryAfter = Number(headers?.get?.('retry-after'));
+  const retryAfterMs =
+    Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 15 * 60_000) : null;
   if (status === 402) {
-    return { retry: limitSource === 'openrouter_in_flight_budget', reason: 'credit', message, limitSource };
+    return { retry: limitSource === 'openrouter_in_flight_budget', reason: 'credit', message, limitSource, retryAfterMs };
   }
-  if (status === 429) {
-    return { retry: true, reason: 'rate-limit', message, limitSource };
-  }
-  if (status >= 500) {
-    return { retry: true, reason: 'upstream', message, limitSource };
-  }
-  return { retry: false, reason: 'request', message, limitSource };
+  if (status === 429) return { retry: true, reason: 'rate-limit', message, limitSource, retryAfterMs };
+  if (status >= 500) return { retry: true, reason: 'upstream', message, limitSource, retryAfterMs };
+  return { retry: false, reason: 'request', message, limitSource, retryAfterMs };
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function safeJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+/** Merge OpenAI-style streaming tool_calls, which arrive split across chunks. */
+function collectToolCalls(delta, state) {
+  if (!Array.isArray(delta?.tool_calls)) return;
+  for (const call of delta.tool_calls) {
+    const index = Number.isInteger(call?.index) ? call.index : state.toolCalls.length;
+    const slot = (state.toolCalls[index] ??= {
+      id: '',
+      type: 'function',
+      function: { name: '', arguments: '' },
+    });
+    if (call.id) slot.id = call.id;
+    if (call.function?.name) slot.function.name += call.function.name;
+    if (call.function?.arguments) slot.function.arguments += call.function.arguments;
+  }
+}
 
 async function forwardStream(upstream, res, state) {
   const decoder = new TextDecoder();
@@ -243,7 +775,11 @@ async function forwardStream(upstream, res, state) {
           state.model = event.model;
           sseSend(res, { type: 'model', model: state.model });
         }
-        const text = event?.choices?.[0]?.delta?.content;
+
+        const delta = event?.choices?.[0]?.delta;
+        collectToolCalls(delta, state);
+
+        const text = delta?.content;
         if (typeof text === 'string' && text.length > 0) {
           state.text += text;
           sseSend(res, { type: 'delta', text });
@@ -256,31 +792,132 @@ async function forwardStream(upstream, res, state) {
 }
 
 async function handleChat(req, res) {
-  const key = apiKey();
+  const body = await readJson(req, CHAT_BODY_LIMIT);
+  const config = loadConfig();
+  // An unknown provider used to fall back to OpenRouter silently, which sent a
+  // Groq/Gemini conversation to a different service than the page showed.
+  const requestedProvider =
+    typeof body.provider === 'string' && body.provider.trim()
+      ? body.provider.trim()
+      : loadConfig().provider;
+  // No provider at all (an older page, a script, a fresh install) means
+  // OpenRouter; a provider that is named but unknown is an error.
+  const provider = getProvider(requestedProvider || 'openrouter');
+  if (!provider) {
+    return sendJson(res, 400, {
+      error: `Unknown provider "${requestedProvider}".`,
+      provider: String(requestedProvider ?? ''),
+    });
+  }
+  const key = providerKey(provider);
   if (!key) {
-    return sendJson(res, 400, { error: 'No API key configured yet.' });
+    return sendJson(res, 400, {
+      error: `No ${provider.label} key saved yet. Choose that provider and paste a key.`,
+      provider: provider.id,
+    });
+  }
+  if (provider.requiresAccount && !accountFor(provider, config, process.env)) {
+    return sendJson(res, 400, {
+      error: `No ${provider.label} Account ID saved yet. Add it with the API token.`,
+      provider: provider.id,
+      needsAccount: true,
+    });
   }
 
-  const body = await readJson(req);
-  const messages = sanitizeMessages(body.messages);
+  let messages = sanitizeMessages(body.messages);
+  const pictures = messages.some((message) => cleanImages(message.images).length > 0);
+  if (pictures && provider.id !== 'openrouter') {
+    return sendJson(res, 400, {
+      error: 'Image attachments need an OpenRouter free vision model. Switch provider or remove the image.',
+      provider: provider.id,
+    });
+  }
+  // Older turns become one system note before the request leaves this process;
+  // the saved thread and the page still hold the full history.
+  const memory = compactMessages(messages);
+  messages = memory.messages;
+  // Where to keep a partial answer if this connection dies mid-stream.
+  const draftId =
+    typeof body.threadId === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(body.threadId) ? body.threadId : null;
+  const settings = loadSettings();
   const requested = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : null;
   const estimate = estimateTokens(messages);
 
   let models = [];
   try {
-    models = await getCatalog();
-  } catch {
-    models = [];
+    models = await getProviderModels(provider, false, config);
+  } catch (error) {
+    // A rejected key is the user's problem and has to surface as one.
+    if (error.status === 401) throw error;
+    // Keep whatever the last good fetch returned: a transient upstream failure
+    // must not turn an unchecked model id into an apparently safe one.
+    models = provider.id === 'openrouter' ? catalog.models : [];
   }
 
-  let chain = models.length
-    ? buildChain(models, { primary: requested, minContext: estimate + 256, limit: 4 })
-    : requested
-      ? [requested]
-      : [];
+  let chain = [];
+  if (provider.id === 'openrouter') {
+    if (models.length > 0) {
+      const avoid = coolingIds();
+      chain = buildChain(models, {
+        primary: requested,
+        minContext: estimate + 256,
+        // OpenRouter rejects a `models` array longer than three, so the chain
+        // itself never exceeds three candidates.
+        limit: 3,
+        exclude: avoid,
+        needVision: pictures,
+      });
+      // Everything is cooling down, so the memory is stale — forget it instead of
+      // refusing to answer.
+      if (chain.length === 0 && avoid.length > 0) {
+        resetCooling();
+        chain = buildChain(models, { primary: requested, minContext: estimate + 256, limit: 3, needVision: pictures });
+      }
+    } else {
+      // No catalog has ever loaded, so no id can be checked against live
+      // pricing. Refuse instead of sending a model that might bill the account.
+      return sendJson(res, 502, {
+        error:
+          'The OpenRouter model catalog is unavailable, so free-only pricing cannot be verified. Try again in a moment.',
+        provider: provider.id,
+      });
+    }
+  } else {
+    // These providers have no pricing catalog and no `models` fallback array:
+    // one model per turn, and it has to pass the provider's free-tier rule.
+    const listed = models.map((model) => model.id);
+    const pick = requested && isAllowedModel(provider, requested) ? requested : listed[0] ?? null;
+    chain = pick && isAllowedModel(provider, pick) ? [pick] : [];
+  }
 
   if (chain.length === 0) {
-    return sendJson(res, 400, { error: 'No suitable free model is available for this conversation.' });
+    return sendJson(res, 400, {
+      error: pictures
+        ? 'No free vision model can handle this image. Pick another image, or ask a text-only question without it.'
+        : provider.id === 'openrouter'
+          ? 'No suitable free model is available for this conversation.'
+          : `No ${provider.label} model passed its free-tier rule. Open the model list and pick one.`,
+      provider: provider.id,
+    });
+  }
+
+  // The selected provider is the whole provider decision. Retry another free
+  // model inside it if needed, but never move the turn to another service.
+  const steps = chain.map((id) => ({ provider, key, model: id }));
+
+  // Tools are attached only when the leading model supports them. The model
+  // chain stays complete, so a busy model still retries exactly as before.
+  const leading = models.find((model) => model.id === chain[0]);
+  // OpenRouter publishes per-model capabilities. The other providers do not, so
+  // tools are offered and the existing 400-without-tools retry covers a model
+  // that turns out not to support them.
+  const toolsSupported = provider.id === 'openrouter' ? Boolean(leading && supportsParam(leading, 'tools')) : true;
+  let tools = settings.tools && toolsSupported ? TOOL_DEFINITIONS : [];
+  // Do not advertise run_command unless it could actually work: a workspace
+  // folder, the checkbox, and at least one program on the allowlist.
+  const runner = commandRunner();
+  if (tools.length > 0 && !runner.isReady) {
+    tools = tools.filter((tool) => tool.function.name !== 'run_command');
   }
 
   res.writeHead(200, {
@@ -290,92 +927,364 @@ async function handleChat(req, res) {
     'x-accel-buffering': 'no',
   });
 
-  const state = { text: '', model: null, usage: null, error: null };
   const controller = new AbortController();
+  let clientGone = false;
   req.on('close', () => controller.abort());
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      clientGone = true;
+      controller.abort();
+    }
+  });
 
-  sseSend(res, { type: 'meta', chain, attempt: 0 });
+  const conversation = [];
+  if (settings.systemPrompt.trim()) conversation.push({ role: 'system', content: settings.systemPrompt.trim() });
+  conversation.push(...messages.map(toUpstreamMessage));
 
+  sseSend(res, {
+    type: 'meta',
+    provider: provider.id,
+    chain,
+    fallbacks: steps.filter((step) => step.provider.id !== provider.id).map((step) => step.provider.label),
+    skipped: coolingIds(),
+    tools: tools.map((tool) => tool.function.name),
+    rounds: MAX_TOOL_ROUNDS,
+    memory: memory.compacted
+      ? {
+          compacted: memory.compacted,
+          beforeTokens: memory.beforeTokens,
+          afterTokens: memory.afterTokens,
+        }
+      : null,
+  });
+
+  const post = (target, payload) =>
+    fetch(chatUrl(target.provider, process.env, config), {
+      method: 'POST',
+      headers: headersFor(target.provider, target.key),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
+    });
+
+  // A retry event only covers another model inside the selected provider.
+  const announceStep = (to, from, failure, status) =>
+    sseSend(res, {
+      type: 'retry',
+      attempt: steps.indexOf(from) + 1,
+      reason: failure.reason,
+      message: failure.message,
+      status,
+      from: from.model,
+      to: to.model,
+      fromProvider: from.provider.label,
+      toProvider: to.provider.label,
+    });
+
+  let accumulated = '';
+  let sawTools = false;
+  let answeredModel = null;
+  let lastUsage = null;
   let lastFailure = null;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const slice = chain.slice(attempt);
-    if (slice.length === 0) break;
 
-    const payload = {
-      model: slice[0],
-      messages,
-      stream: true,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      usage: { include: true },
-    };
-    if (slice.length > 1) payload.models = slice;
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+    let roundText = '';
+    let roundModel = null;
+    let roundUsage = null;
+    let roundTools = [];
+    let streamedError = null;
+    let failed = null;
 
-    let upstream;
-    try {
-      upstream = await fetch(`${BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${key}`,
-          'content-type': 'application/json',
-          'http-referer': 'http://127.0.0.1',
-          'x-title': 'OpenRouter Chat',
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
+    for (let attempt = 0; attempt < steps.length; attempt += 1) {
+      const step = steps[attempt];
+      if (!step) break;
+      const next = steps[attempt + 1] ?? null;
+
+      const payload = {
+        model: step.model,
+        messages: conversation,
+        stream: true,
+        max_tokens: settings.maxTokens,
+      };
+      // `usage` and the `models` fallback array are OpenRouter extensions; other
+      // providers reject unknown fields, so they only go where they belong.
+      if (step.provider.id === 'openrouter') {
+        payload.usage = { include: true };
+        // Belt and braces: never hand OpenRouter more than three ids, and never
+        // mix in a model that belongs to another service.
+        const rest = steps
+          .slice(attempt + 1)
+          .filter((later) => later.provider.id === 'openrouter')
+          .map((later) => later.model)
+          .slice(0, 2);
+        if (rest.length > 0) payload.models = [step.model, ...rest];
+      }
+      if (tools.length > 0) payload.tools = tools;
+      if (typeof settings.temperature === 'number') payload.temperature = settings.temperature;
+
+      const attemptStarted = Date.now();
+      let upstream;
+      let rejectedBody = null;
+      try {
+        upstream = await post(step, payload);
+        // A model can advertise tool support and still reject the parameter.
+        // Retry the same model once without tools instead of failing the turn.
+        if (upstream.status === 400 && Array.isArray(payload.tools)) {
+          await upstream.text().catch(() => '');
+          const plain = { ...payload };
+          delete plain.tools;
+          upstream = await post(step, plain);
+          tools = [];
+        }
+        // If an API revision ever objects to the fallback array, drop it and
+        // try the leading model rather than failing the whole turn. The body
+        // is kept, because reading it twice is not possible.
+        if (step.provider.id === 'openrouter' && upstream.status === 400 && Array.isArray(payload.models)) {
+          const complaint = await upstream.text().catch(() => '');
+          if (/models/i.test(complaint)) {
+            const plain = { ...payload };
+            delete plain.models;
+            upstream = await post(step, plain);
+          } else {
+            rejectedBody = complaint;
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) break;
+        failed = { retry: true, reason: 'network', message: String(error?.message ?? error) };
+        statusLog.record({
+          model: step.model,
+          status: 'network',
+          ms: Date.now() - attemptStarted,
+          attempt: attempt + 1,
+        });
+        if (next) {
+          announceStep(next, step, failed, null);
+          await sleep(350 * (attempt + 1));
+        }
+        continue;
+      }
+
+      if (upstream.ok) {
+        const local = { text: '', model: null, usage: null, error: null, toolCalls: [] };
+        let streamFailed = false;
+        try {
+          await forwardStream(upstream, res, local);
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            failed = { retry: false, reason: 'stream', message: String(error?.message ?? error) };
+            streamFailed = true;
+          }
+        }
+        statusLog.record({
+          model: local.model ?? step.model,
+          // A stream that broke off is not a success, and the page says so.
+          status: streamFailed || local.error ? 'stream' : 'ok',
+          ms: Date.now() - attemptStarted,
+          attempt: attempt + 1,
+        });
+        roundText = local.text;
+        roundModel = local.model;
+        roundUsage = local.usage;
+        roundTools = local.toolCalls.filter((call) => call && call.function?.name);
+        if (roundTools.length > 0) sawTools = true;
+        // Some free models write their tool call as text instead of using the
+        // protocol: "<tool_call><function=write_file><parameter=path>…". Nothing
+        // runs that, so the model appears to do nothing and the turn ends with
+        // no file written. Recover the call and send it down the same approval
+        // path as a real one.
+        if (roundTools.length === 0 && /<tool_call>/i.test(roundText)) {
+          const recovered = parseTextToolCalls(roundText);
+          if (recovered.calls.length > 0) {
+            roundText = recovered.text;
+            roundTools = recovered.calls.map((call, index) => ({
+              id: `text_${round}_${index}`,
+              type: 'function',
+              function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
+            }));
+            sawTools = true;
+          }
+        }
+        streamedError = local.error;
+        break;
+      }
+
+      const raw = rejectedBody ?? (await upstream.text().catch(() => ''));
+      let parsed = {};
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = { error: { message: raw.slice(0, 300) || `HTTP ${upstream.status}` } };
+      }
+      const failure = classifyFailure(upstream.status, parsed, upstream.headers);
+      failed = failure;
+      statusLog.record({
+        model: step.model,
+        status: failure.reason,
+        ms: Date.now() - attemptStarted,
+        attempt: attempt + 1,
       });
-    } catch (error) {
-      if (controller.signal.aborted) break;
-      lastFailure = { retry: true, reason: 'network', message: String(error?.message ?? error) };
-      await sleep(350 * (attempt + 1));
-      sseSend(res, { type: 'retry', attempt: attempt + 1, reason: lastFailure.reason });
-      continue;
+
+      if (failure.reason === 'rate-limit' || failure.reason === 'upstream') {
+        coolDown(step.model, failure.reason, failure.retryAfterMs);
+      }
+
+      // Nothing reached the page, so another provider may still answer. A 400
+      // that is not about tools or the model is a bad request every provider
+      // would refuse; it still costs one hop and then reports the last failure.
+      if (roundText.length > 0 || !next) break;
+      announceStep(next, step, failure, upstream.status);
+      if (failure.retry) await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 250));
     }
 
-    if (upstream.ok) {
-      try {
-        await forwardStream(upstream, res, state);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          lastFailure = { retry: false, reason: 'stream', message: String(error?.message ?? error) };
-        }
-      }
+    if (streamedError && roundText.length === 0) {
+      failed = {
+        reason: 'upstream',
+        message: streamedError?.message ?? 'Upstream error',
+        limitSource: streamedError?.metadata?.limit_source ?? null,
+      };
+    }
+
+    accumulated += roundText;
+    if (roundModel) answeredModel = roundModel;
+    if (roundUsage) lastUsage = roundUsage;
+    if (failed) lastFailure = failed;
+
+    if (controller.signal.aborted) break;
+    if (roundTools.length === 0) break;
+
+    if (round >= MAX_TOOL_ROUNDS) {
+      sseSend(res, { type: 'retry', reason: 'tool-limit', message: 'Stopped after the tool round limit.' });
       break;
     }
 
-    const raw = await upstream.text().catch(() => '');
-    let parsed = {};
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = { error: { message: raw.slice(0, 300) || `HTTP ${upstream.status}` } };
+    conversation.push({ role: 'assistant', content: roundText, tool_calls: roundTools });
+    for (const call of roundTools.slice(0, MAX_TOOL_CALLS)) {
+      const name = call.function.name;
+      const outcome = await runToolConfirmed(
+        res,
+        name,
+        safeJson(call.function.arguments),
+        {
+          getCatalog,
+          workspace: workspace(),
+          github: github(),
+          commands: runner,
+          // stdout/stderr reach the page while the process is still running.
+          onCommandOutput: (chunk) =>
+            sseSend(res, { type: 'command', chunk: chunk.text, stream: chunk.stream }),
+        },
+        controller.signal,
+      );
+      conversation.push({
+        role: 'tool',
+        tool_call_id: call.id || `call_${round}_${name}`,
+        content: outcome.content,
+      });
+      sseSend(res, {
+        type: 'tool',
+        name,
+        arguments: call.function.arguments,
+        ok: outcome.ok,
+        preview: outcome.content.slice(0, 300),
+      });
     }
-    const failure = classifyFailure(upstream.status, parsed);
-    lastFailure = failure;
-
-    if (!failure.retry || state.text.length > 0) break;
-    sseSend(res, { type: 'retry', attempt: attempt + 1, reason: failure.reason, message: failure.message });
-    await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 250));
   }
 
-  if (state.error && state.text.length === 0) {
-    lastFailure = {
-      reason: 'upstream',
-      message: state.error?.message ?? 'Upstream error',
-      limitSource: state.error?.metadata?.limit_source ?? null,
-    };
+  // Several free models call tools and then return an empty message: the API
+  // considers that turn finished, but the user asked a question and the tool
+  // results are sitting in the conversation. Ask once more with no tools
+  // attached, so the model has nothing to do but answer in words.
+  if (!controller.signal.aborted && accumulated.trim().length === 0 && sawTools) {
+    const nudgeStarted = Date.now();
+    try {
+      const upstream = await post({ provider, key }, {
+        model: answeredModel ?? chain[0],
+        messages: [
+          ...conversation,
+          {
+            role: 'system',
+            content:
+              'You already ran the tools above. Answer the user now in plain text, using what the tools returned. Do not call any more tools.',
+          },
+        ],
+        stream: true,
+        max_tokens: settings.maxTokens,
+        // `usage` is an OpenRouter extension; Groq and Gemini reject it, which
+        // made the post-tool answer silently disappear on those providers.
+        ...(provider.id === 'openrouter' ? { usage: { include: true } } : {}),
+      });
+      if (upstream.ok) {
+        const local = { text: '', model: null, usage: null, error: null, toolCalls: [] };
+        await forwardStream(upstream, res, local);
+        if (local.text.trim()) {
+          accumulated = local.text;
+          if (local.model) answeredModel = local.model;
+          if (local.usage) lastUsage = local.usage;
+          statusLog.record({
+            model: local.model ?? chain[0],
+            status: 'ok',
+            ms: Date.now() - nudgeStarted,
+            attempt: 1,
+          });
+        } else {
+          statusLog.record({
+            model: chain[0],
+            status: 'stream',
+            ms: Date.now() - nudgeStarted,
+            attempt: 1,
+          });
+        }
+      }
+    } catch {
+      /* the earlier rounds still decide the outcome */
+    }
   }
 
-  if (state.text.length > 0) {
+  // The tab closed, refreshed or lost the network before the answer finished:
+  // keep what arrived so opening the chat again can recover it.
+  if (draftId && accumulated.trim() && (clientGone || controller.signal.aborted)) {
+    try {
+      store().setDraft(draftId, { content: accumulated, model: answeredModel });
+    } catch {
+      /* the chat may have been deleted while the answer was streaming */
+    }
+
+    // A chat's *first* answer has no saved thread yet: the page creates it with
+    // its own first save, so a tab that dies before that save would lose the
+    // whole exchange. Create it here, and only when the client is already gone —
+    // a live tab's save still wins, so this can never cause a stale-write
+    // question for a turn that finished normally.
+    try {
+      if (!store().get(draftId)) {
+        store().put(draftId, {
+          messages: [
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+            { role: 'assistant', content: accumulated, model: answeredModel, usage: lastUsage },
+          ],
+          requests: 1,
+        });
+      }
+    } catch {
+      /* a failed rescue must never break a stream that already finished */
+    }
+  }
+
+  if (accumulated.trim().length > 0) {
     sseSend(res, {
       type: 'done',
-      model: state.model ?? chain[0],
-      usage: state.usage,
+      model: answeredModel ?? chain[0],
+      usage: lastUsage,
+      tools: [],
       stopped: controller.signal.aborted,
     });
   } else if (controller.signal.aborted) {
-    sseSend(res, { type: 'done', model: state.model ?? chain[0], stopped: true });
+    sseSend(res, { type: 'done', model: answeredModel ?? chain[0], stopped: true });
   } else {
-    let hint = lastFailure?.message ?? 'No model answered.';
+    let hint =
+      lastFailure?.message ??
+      (sawTools
+        ? 'The model used tools but never wrote an answer. Send the message again, or pick another free model.'
+        : 'No model answered.');
     if (lastFailure?.reason === 'rate-limit') {
       const info = await getKeyInfo();
       const free = info?.ok ? info.freeDaily : null;
@@ -388,7 +1297,7 @@ async function handleChat(req, res) {
     if (lastFailure?.reason === 'credit') {
       hint += ' Add credits at https://openrouter.ai/settings/credits, or use free models only.';
     }
-    sseSend(res, { type: 'error', reason: lastFailure?.reason ?? 'unknown', message: hint });
+    sseSend(res, { type: 'error', reason: lastFailure?.reason ?? 'unknown', message: scrubSecrets(hint) });
   }
 
   res.end();
@@ -405,28 +1314,130 @@ function requireToken(req, res) {
 }
 
 async function route(req, res) {
-  const url = new URL(req.url, `http://${HOST}:${PORT}`);
+  const url = new URL(req.url, 'http://localhost');
   const { pathname } = url;
+  // Decided once per request: both the page and every JSON body read this.
+  res.wantsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
 
   if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
     const html = (await pageHtml()).replace('__APP_TOKEN__', APP_TOKEN);
+    // The page is one large inline script. Over a slow tunnel gzip is the
+    // difference between a half-delivered page and a loaded one: 109 KB → 30 KB.
+    const wantsGzip = res.wantsGzip === true;
+    const body = wantsGzip ? gzipSync(html) : Buffer.from(html, 'utf8');
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-store',
-      'content-length': Buffer.byteLength(html),
+      ...(wantsGzip ? { 'content-encoding': 'gzip', vary: 'accept-encoding' } : {}),
+      'content-length': body.length,
     });
-    return res.end(html);
+    return res.end(body);
+  }
+
+  if (req.method === 'POST' && pathname === '/api/session/reset') {
+    if (!requireToken(req, res)) return;
+    resetCooling();
+    return sendJson(res, 200, { ok: true, skipped: [] });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/threads') {
+    if (!requireToken(req, res)) return;
+    return sendJson(res, 200, { threads: store().list(url.searchParams.get('q') ?? '') });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/threads') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req);
+    return sendJson(res, 200, { thread: store().put(null, body) });
+  }
+
+  if (pathname.startsWith('/api/threads/')) {
+    if (!requireToken(req, res)) return;
+    const id = decodeURIComponent(pathname.slice('/api/threads/'.length));
+    if (!id) return sendJson(res, 400, { error: 'Missing chat id.' });
+
+    if (req.method === 'GET') {
+      const thread = store().get(id);
+      return thread ? sendJson(res, 200, { thread }) : sendJson(res, 404, { error: 'No such chat.' });
+    }
+    if (req.method === 'PUT' || req.method === 'POST') {
+      const body = await readJson(req);
+      const ifRev = Number.isInteger(body?.ifRev) ? body.ifRev : undefined;
+      try {
+        return sendJson(res, 200, { thread: store().put(id, body, { ifRev }) });
+      } catch (error) {
+        if (error.status === 409) {
+          return sendJson(res, 409, { error: error.message, code: 'stale', thread: error.thread });
+        }
+        throw error;
+      }
+    }
+    if (req.method === 'DELETE') {
+      const removed = store().remove(id);
+      return sendJson(res, removed ? 200 : 404, { ok: removed });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/export') {
+    if (!requireToken(req, res)) return;
+    return sendJson(res, 200, {
+      app: 'freeway',
+      version: VERSION,
+      exportedAt: new Date().toISOString(),
+      model: loadConfig().model ?? null,
+      settings: loadSettings(),
+      threads: store().all(),
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/import') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req);
+
+    // A backup carries settings and the chosen model; restore them too.
+    if (body?.settings && typeof body.settings === 'object') {
+      saveConfig({ settings: { ...loadSettings(), ...sanitizeSettings(body.settings) } });
+    }
+    if (typeof body?.model === 'string' && body.model.trim()) saveConfig({ model: body.model.trim() });
+
+    return sendJson(res, 200, store().importAll(body, body?.mode === 'replace' ? 'replace' : 'merge'));
   }
 
   if (req.method === 'GET' && pathname === '/api/config') {
     const config = loadConfig();
+    const provider = getProvider(config.provider) ?? getProvider('openrouter');
     return sendJson(res, 200, {
-      hasKey: Boolean(apiKey()),
+      hasKey: Boolean(providerKey(provider)),
+      requiresAccount: Boolean(provider.requiresAccount),
+      hasAccount: Boolean(accountFor(provider, config, process.env)),
+      provider: provider.id,
       model: config.model ?? null,
-      freeOnly: config.freeOnly !== false,
+      workspace: config.workspace ?? '',
       version: VERSION,
       platform: process.platform,
+      settings: loadSettings(),
+      skipped: coolingIds(),
     });
+  }
+
+  // Kept separate from /api/config so the boot payload stays small enough to
+  // skip compression; the page fetches this once at start.
+  if (req.method === 'GET' && pathname === '/api/providers') {
+    const config = loadConfig();
+    const provider = getProvider(config.provider) ?? getProvider('openrouter');
+    const providers = await Promise.all(
+      PROVIDERS.map(async (entry) => ({
+        ...publicView(
+          entry,
+          Boolean(providerKey(entry)),
+          Boolean(accountFor(entry, config, process.env)),
+        ),
+        // Hosted providers are always "available"; only a local daemon can be off.
+        available: entry.local ? await localProviderUp(entry) : true,
+      })),
+    );
+    return sendJson(res, 200, { provider: provider.id, providers });
   }
 
   if (req.method === 'POST' && pathname === '/api/config') {
@@ -440,36 +1451,257 @@ async function route(req, res) {
       }
       patch.apiKey = key;
     }
-    if (typeof body.model === 'string') patch.model = body.model;
-    if (typeof body.freeOnly === 'boolean') patch.freeOnly = body.freeOnly;
+    if (typeof body.provider === 'string') {
+      const chosen = getProvider(body.provider.trim());
+      if (!chosen) return sendJson(res, 400, { error: `Unknown provider "${body.provider}".` });
+      patch.provider = chosen.id;
+    }
+    // Key updates arrive as { key: { id, value } }; an empty value clears it.
+    if (body.key && typeof body.key === 'object') {
+      const chosen = getProvider(String(body.key.id ?? '').trim());
+      if (!chosen) return sendJson(res, 400, { error: `Unknown provider "${body.key.id}".` });
+      const value = typeof body.key.value === 'string' ? body.key.value.trim() : '';
+      if (value && chosen.keyPrefix && !value.startsWith(chosen.keyPrefix)) {
+        // Groq and Grok get confused constantly; say which one this is.
+        const hint =
+          chosen.id === 'groq'
+            ? ' Groq (gsk_…) is not xAI’s Grok — Grok is paid and is not offered here.'
+            : '';
+        return sendJson(res, 400, {
+          error: `That does not look like a ${chosen.label} key (expected ${chosen.keyPrefix}...).${hint}`,
+        });
+      }
+      if (value && value.length > 400) {
+        return sendJson(res, 400, { error: 'That key is implausibly long.' });
+      }
+      const account = typeof body.key.account === 'string' ? body.key.account.trim() : '';
+      if (chosen.requiresAccount) {
+        if (account && !/^[a-f0-9]{32}$/i.test(account)) {
+          return sendJson(res, 400, {
+            error: `${chosen.label} Account IDs are 32 hexadecimal characters.`,
+          });
+        }
+        if (value && !account) {
+          return sendJson(res, 400, {
+            error: `${chosen.label} needs both an API token and the 32-character Account ID.`,
+          });
+        }
+        if (!value && account) {
+          return sendJson(res, 400, {
+            error: `Paste the ${chosen.label} API token as well, or clear both fields.`,
+          });
+        }
+      }
+      if (chosen.id === 'openrouter') {
+        patch.apiKey = value;
+      } else {
+        const keys = { ...(loadConfig().providerKeys ?? {}) };
+        if (value) keys[chosen.id] = value;
+        else delete keys[chosen.id];
+        patch.providerKeys = keys;
+        if (chosen.requiresAccount) {
+          const accounts = { ...(loadConfig().providerAccounts ?? {}) };
+          if (account) accounts[chosen.id] = account;
+          else delete accounts[chosen.id];
+          patch.providerAccounts = accounts;
+        }
+      }
+      // A new key means the cached model list may belong to another account.
+      providerCatalogs.delete(chosen.id);
+    }
+    if (typeof body.model === 'string' && body.model.trim()) patch.model = body.model.trim();
+    if (typeof body.workspace === 'string') patch.workspace = body.workspace.trim().slice(0, 500);
+    if (body.settings && typeof body.settings === 'object') {
+      patch.settings = { ...(loadConfig().settings ?? {}), ...sanitizeSettings(body.settings) };
+    }
     saveConfig(patch);
-    return sendJson(res, 200, { ok: true });
+    return sendJson(res, 200, { ok: true, settings: loadSettings() });
   }
 
   if (req.method === 'GET' && pathname === '/api/models') {
-    try {
-      const models = await getCatalog();
-      const rows = filterModels(models, {
-        q: url.searchParams.get('q') ?? '',
-        freeOnly: url.searchParams.get('free') === '1',
-        needTools: url.searchParams.get('tools') === '1',
-        needVision: url.searchParams.get('vision') === '1',
-        minContext: Number(url.searchParams.get('minContext') ?? 0) || 0,
+    const provider = getProvider(url.searchParams.get('provider') || activeProvider().id);
+    if (!provider) {
+      return sendJson(res, 400, { error: `Unknown provider "${url.searchParams.get('provider')}".` });
+    }
+    const config = loadConfig();
+    if (provider.id !== 'openrouter' && !provider.local && !providerKey(provider)) {
+      return sendJson(res, 400, {
+        error: `Add a ${provider.label} key first.`,
+        provider: provider.id,
+        needsKey: true,
       });
-      return sendJson(res, 200, { total: models.length, models: rows });
+    }
+    if (provider.requiresAccount && !accountFor(provider, config, process.env)) {
+      return sendJson(res, 400, {
+        error: `Add the ${provider.label} Account ID first.`,
+        provider: provider.id,
+        needsAccount: true,
+      });
+    }
+    try {
+      if (provider.id === 'openrouter') {
+        const models = await getCatalog();
+        const rows = filterModels(models, {
+          q: url.searchParams.get('q') ?? '',
+          freeOnly: url.searchParams.get('free') === '1',
+          needTools: url.searchParams.get('tools') === '1',
+          needVision: url.searchParams.get('vision') === '1',
+          minContext: Number(url.searchParams.get('minContext') ?? 0) || 0,
+        });
+        return sendJson(res, 200, { provider: provider.id, tier: 'verified', total: models.length, models: rows });
+      }
+
+      const query = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+      const minContext = Number(url.searchParams.get('minContext') ?? 0) || 0;
+      const all = await getProviderModels(provider, url.searchParams.get('refresh') === '1', config);
+      const rows = all.filter(
+        (model) =>
+          (!query || model.id.toLowerCase().includes(query)) &&
+          (model.context ?? 0) >= minContext,
+      );
+      return sendJson(res, 200, {
+        provider: provider.id,
+        tier: 'free-tier',
+        total: all.length,
+        models: rows,
+      });
     } catch (error) {
-      return sendJson(res, error.status ?? 502, { error: error.message });
+      return sendJson(res, error.status ?? 502, { error: error.message, provider: provider.id });
     }
   }
 
   if (req.method === 'GET' && pathname === '/api/key') {
+    const provider = activeProvider();
+    if (provider.id !== 'openrouter') {
+      return sendJson(res, 200, {
+        ok: false,
+        provider: provider.id,
+        message: `${provider.label} does not report quota here.`,
+      });
+    }
     const info = await getKeyInfo();
     return sendJson(res, info.ok ? 200 : 502, info);
+  }
+
+  // Read-only session telemetry for the Status tab. No key, no prompts, no
+  // history: only what this run already did.
+  if (req.method === 'GET' && pathname === '/api/status') {
+    return sendJson(res, 200, {
+      version: VERSION,
+      provider: activeProvider().id,
+      summary: statusLog.summary(),
+      cooling: coolingIds().map((id) => {
+        const item = cooling.get(id);
+        const at = item?.at ?? Date.now();
+        const until = item?.until ?? at + 60_000;
+        return {
+          model: id,
+          reason: item?.reason ?? null,
+          at: new Date(at).toISOString(),
+          until: new Date(until).toISOString(),
+          retryAfterMs: Math.max(0, until - Date.now()),
+        };
+      }),
+      recent: statusLog.list(),
+      catalog: {
+        models: catalog.models.length,
+        ageMs: catalog.fetchedAt ? Date.now() - catalog.fetchedAt : null,
+      },
+      limits: { attempts: MAX_ATTEMPTS, toolRounds: MAX_TOOL_ROUNDS, toolCalls: MAX_TOOL_CALLS },
+    });
   }
 
   if (req.method === 'POST' && pathname === '/api/chat') {
     if (!requireToken(req, res)) return;
     return handleChat(req, res);
+  }
+
+  if (pathname === '/api/github') {
+    if (!requireToken(req, res)) return;
+    const client = github();
+    if (!client.hasToken) {
+      return sendJson(res, 400, {
+        error: 'No GitHub token is saved. Add GITHUB_TOKEN in the Secrets panel.',
+      });
+    }
+    try {
+      const what = url.searchParams.get('what') ?? 'viewer';
+      const repo = url.searchParams.get('repo') ?? '';
+      const state = url.searchParams.get('state') ?? 'open';
+      if (what === 'viewer') return sendJson(res, 200, await client.viewer());
+      if (what === 'repos') return sendJson(res, 200, { items: await client.repos() });
+      if (what === 'issues') return sendJson(res, 200, { items: await client.issues(repo, state) });
+      if (what === 'pulls') return sendJson(res, 200, { items: await client.pulls(repo, state) });
+      if (what === 'commits') return sendJson(res, 200, { items: await client.commits(repo) });
+      return sendJson(res, 400, { error: `Unknown view "${what}".` });
+    } catch (error) {
+      return sendJson(res, error.status ?? 502, { error: scrubSecrets(String(error.message ?? error)) });
+    }
+  }
+
+  if (pathname === '/api/secrets') {
+    if (!requireToken(req, res)) return;
+    try {
+      if (req.method === 'GET') return sendJson(res, 200, { names: secrets().list() });
+      if (req.method === 'POST') {
+        const body = await readJson(req, 32 * 1024);
+        const saved = secrets().set(body?.name, body?.value);
+        return sendJson(res, 200, { ok: true, saved, names: secrets().list() });
+      }
+      if (req.method === 'DELETE') {
+        const removed = secrets().remove(url.searchParams.get('name') ?? '');
+        return sendJson(res, removed ? 200 : 404, { ok: removed, names: secrets().list() });
+      }
+      return sendJson(res, 405, { error: 'Method not allowed.' });
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, {
+        error: scrubSecrets(String(error.message ?? error)),
+      });
+    }
+  }
+
+  if (pathname === '/api/fs' || pathname.startsWith('/api/fs/')) {
+    if (!requireToken(req, res)) return;
+    const sandbox = workspace();
+    if (!sandbox.isReady) {
+      return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+    }
+    try {
+      if (req.method === 'GET' && pathname === '/api/fs') {
+        return sendJson(res, 200, sandbox.list(url.searchParams.get('path') ?? '.'));
+      }
+      if (req.method === 'GET' && pathname === '/api/fs/read') {
+        return sendJson(res, 200, sandbox.read(url.searchParams.get('path') ?? ''));
+      }
+      if (req.method === 'POST' && pathname === '/api/fs/write') {
+        const body = await readJson(req, 2 * 1024 * 1024);
+        return sendJson(res, 200, { ok: true, ...sandbox.write(body?.path, body?.content) });
+      }
+      return sendJson(res, 405, { error: 'Method not allowed.' });
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, { error: String(error.message ?? error) });
+    }
+  }
+
+  // The preview address belongs to one chat and is stored on its own, so saving
+  // it never fights with the debounced message save or its stale-rev guard.
+  if (req.method === 'POST' && pathname.startsWith('/api/preview/')) {
+    if (!requireToken(req, res)) return;
+    const id = decodeURIComponent(pathname.slice('/api/preview/'.length));
+    if (!id) return sendJson(res, 400, { error: 'Missing chat id.' });
+    const body = await readJson(req, 4096);
+    const thread = store().setPreview(id, body?.url);
+    if (!thread) return sendJson(res, 404, { error: 'No such chat.' });
+    return sendJson(res, 200, { thread: { id: thread.id, preview: thread.preview } });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/chat/confirm') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req, 4096);
+    const entry = pendingConfirms.get(String(body?.id ?? ''));
+    if (!entry) return sendJson(res, 404, { error: 'No action is waiting for an answer.' });
+    entry.settle(Boolean(body?.allow));
+    return sendJson(res, 200, { ok: true });
   }
 
   if (req.method === 'POST' && pathname === '/api/quit') {
@@ -488,42 +1720,198 @@ function openBrowser(target) {
   if (process.env.NO_OPEN === '1') return;
   try {
     if (process.platform === 'win32') {
+      // Edge gets a window without tabs; a PC without Edge exits non-zero, and
+      // 'error' never fires because cmd itself started fine. Both paths fall
+      // back to the default browser.
+      const fallback = () => {
+        spawn('cmd', ['/c', 'start', '', target], { stdio: 'ignore', windowsHide: true }).on(
+          'error',
+          () => {},
+        );
+      };
       const child = spawn('cmd', ['/c', 'start', '', 'msedge', `--app=${target}`], {
         stdio: 'ignore',
         windowsHide: true,
       });
-      child.on('error', () => spawn('cmd', ['/c', 'start', '', target], { stdio: 'ignore', windowsHide: true }));
+      child.on('error', fallback);
+      child.on('exit', (code) => {
+        if (code !== 0) fallback();
+      });
     } else if (process.platform === 'darwin') {
-      spawn('open', [target], { stdio: 'ignore' });
+      spawn('open', [target], { stdio: 'ignore' }).on('error', () => {});
     } else {
-      spawn('xdg-open', [target], { stdio: 'ignore' });
+      // No xdg-open (a server, WSL, a bare container) must not kill the app:
+      // spawn reports a missing program as an asynchronous 'error' event, and an
+      // unhandled one takes the whole process down a moment after it started.
+      // The URL is printed either way, so failing to open a browser is harmless.
+      spawn('xdg-open', [target], { stdio: 'ignore' }).on('error', () => {});
     }
   } catch {
     /* the URL is printed below either way */
   }
 }
 
+/* -------------------------------------------------------------- doctor */
+
+/** Is there already a Freeway answering on this address? */
+async function probeExistingApp(target) {
+  try {
+    const response = await fetch(`${target}/api/config`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!response.ok) return null;
+    const body = await response.json().catch(() => null);
+    return body && typeof body.version === 'string' && typeof body.platform === 'string' ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `start.cmd --doctor`: prove the install works without sending a single prompt. */
+async function runDoctor() {
+  const lines = [];
+  let failed = 0;
+  const mark = (ok, label, detail = '') => {
+    if (!ok) failed += 1;
+    lines.push(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` — ${detail}` : ''}`);
+  };
+
+  mark(true, `Node.js ${process.versions.node}`);
+
+  const location = configLocation();
+  try {
+    fs.mkdirSync(location.dir, { recursive: true });
+    const probe = path.join(location.dir, '.doctor-write-test');
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
+    mark(true, `Config folder ${location.dir}`, 'writable');
+  } catch (error) {
+    mark(false, `Config folder ${location.dir}`, String(error?.message ?? error));
+  }
+
+  const free = await new Promise((resolve) => {
+    const probe = http.createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen(PORT, HOST, () => probe.close(() => resolve(true)));
+  });
+  if (free) {
+    mark(true, `Port ${PORT} on ${HOST}`, 'available');
+  } else {
+    const running = await probeExistingApp(
+      `http://${HOST === '0.0.0.0' || HOST === '::' ? DEFAULT_HOST : HOST}:${PORT}`,
+    );
+    mark(
+      false,
+      `Port ${PORT} on ${HOST}`,
+      running
+        ? `Freeway ${running.version} is already running there`
+        : 'used by another program — start with --port 3003',
+    );
+  }
+
+  if (apiKey()) lines.push('  ok   OpenRouter key — saved');
+  else lines.push('  --   OpenRouter key — not set yet; the first screen asks for one');
+
+  try {
+    const response = await fetch(`${BASE_URL}/models?output_modalities=text`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    mark(response.ok, 'OpenRouter reachable', `HTTP ${response.status}`);
+  } catch (error) {
+    mark(false, 'OpenRouter reachable', String(error?.message ?? error));
+  }
+
+  console.log(`Freeway ${VERSION} — self-check`);
+  console.log(`  config file: ${location.file}`);
+  console.log(lines.join('\n'));
+  console.log(
+    failed === 0
+      ? '\nEverything needed to start is in place. Run it without --doctor.'
+      : `\n${failed} check(s) failed — see above.`,
+  );
+  return failed === 0 ? 0 : 1;
+}
+
 export function createServer() {
   return http.createServer((req, res) => {
     route(req, res).catch((error) => {
       const status = error?.status ?? 500;
-      if (!res.headersSent) sendJson(res, status, { error: error?.message ?? 'Unexpected error' });
-      else res.end();
+      if (status >= 500) {
+        console.error(scrubSecrets(error?.stack ?? error?.message ?? String(error)));
+      }
+      if (!res.headersSent) {
+        sendJson(res, status, { error: scrubSecrets(error?.message ?? 'Unexpected error') });
+      } else {
+        res.end();
+      }
     });
   });
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
+/**
+ * Windows hands out paths in whatever case the shell and the 8.3 aliases use,
+ * so a plain string compare can decide "this is not the main module" and the app
+ * exits silently without starting. Compare canonical, case-folded paths.
+ */
+function samePath(left, right) {
+  try {
+    const canonical = (value) => {
+      const real = fs.realpathSync.native ? fs.realpathSync.native(value) : fs.realpathSync(value);
+      return process.platform === 'win32' ? real.toLowerCase() : real;
+    };
+    return canonical(left) === canonical(right);
+  } catch {
+    return false;
+  }
+}
+
+// A single-executable build has no script path in argv, so ask Node itself.
+let seaBuild = false;
+try {
+  const sea = await import('node:sea');
+  seaBuild = typeof sea.isSea === 'function' && sea.isSea();
+} catch {
+  /* plain node checkout */
+}
+
+const binaryName = () => (seaBuild ? path.basename(process.execPath) : 'node app.mjs');
+let isMain = seaBuild || Boolean(process.argv[1] && samePath(process.argv[1], import.meta.filename));
 
 if (isMain) {
+  if (cli.help) {
+    printHelp();
+    process.exit(0);
+  }
+  if (cli.version) {
+    console.log(VERSION);
+    process.exit(0);
+  }
+  if (cli.doctor) {
+    process.exit(await runDoctor());
+  }
+
   const server = createServer();
-  const url = `http://${HOST}:${PORT}`;
+  // A wildcard bind is not something a browser can open, so link to loopback.
+  const openHost = HOST === '0.0.0.0' || HOST === '::' ? DEFAULT_HOST : HOST;
+  const url = `http://${openHost.includes(':') ? `[${openHost}]` : openHost}:${PORT}`;
 
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-      console.log(`Already running at ${url} — opening it.`);
-      openBrowser(url);
-      setTimeout(() => process.exit(0), 400);
+      // Only claim "already running" when this app really answers there; any
+      // other program on the port used to get its page opened and then us exit.
+      void probeExistingApp(url).then((existing) => {
+        if (existing) {
+          console.log(`Freeway ${existing.version} is already running at ${url} — opening it.`);
+          openBrowser(url);
+          setTimeout(() => process.exit(0), 400);
+          return;
+        }
+        console.error(`Port ${PORT} is already used by another program.`);
+        console.error('Start it on a free port instead, for example:');
+        console.error(`  ${binaryName()} --port ${PORT + 1}`);
+        process.exit(1);
+      });
       return;
     }
     console.error('Failed to start:', error.message);
@@ -531,9 +1919,13 @@ if (isMain) {
   });
 
   server.listen(PORT, HOST, () => {
-    console.log(`OpenRouter Chat ${VERSION}`);
+    console.log(`Freeway ${VERSION}`);
     console.log(`Running at ${url}`);
     console.log(`Config: ${configPath()}`);
+    if (!isLoopback(HOST)) {
+      console.log(`Listening on ${HOST}:${PORT} — reachable from other devices on your network.`);
+      console.log('There is no password: anyone who can reach this port can use your OpenRouter key.');
+    }
     console.log('Close this window to stop the app.');
     openBrowser(url);
   });

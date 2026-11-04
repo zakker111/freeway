@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Freeway">
+  <rect width="512" height="512" fill="#0f0f0f" />
+  <path d="M160 196h192a20 20 0 0 1 20 20v104a20 20 0 0 1-20 20H240l-60 46v-46h-20a20 20 0 0 1-20-20V216a20 20 0 0 1 20-20z" fill="#e8e8e8" />
+  <circle cx="212" cy="266" r="13" fill="#0f0f0f" />
+  <circle cx="256" cy="266" r="13" fill="#0f0f0f" />
+  <circle cx="300" cy="266" r="13" fill="#0f0f0f" />
+</svg>

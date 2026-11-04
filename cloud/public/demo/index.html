@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello World — workspace demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: clamp(22px, 5vw, 56px) clamp(16px, 5vw, 40px);
+        background: radial-gradient(1000px 480px at 50% -10%, #141414 0%, #000 68%);
+        color: #f3f3f3;
+        font: 15px/1.7 "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+      .wrap { max-width: 820px; margin: 0 auto; }
+      .tag {
+        display: inline-block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+        color: #6e6e6e; border: 1px solid #242424; border-radius: 999px; padding: 3px 10px;
+        font-family: "Cascadia Code", ui-monospace, Consolas, monospace; margin-bottom: 18px;
+      }
+      h1 { font-size: clamp(32px, 7vw, 56px); margin: 0 0 10px; color: #fff; letter-spacing: -.5px; }
+      p { color: #9a9a9a; margin: 0 0 14px; max-width: 62ch; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: #6e6e6e; margin: 34px 0 12px; font-weight: 600; }
+      .file { border: 1px solid #242424; background: #0b0b0b; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+      .file > .head {
+        display: flex; gap: 10px; align-items: baseline; padding: 9px 13px;
+        border-bottom: 1px solid #1b1b1b; font-family: "Cascadia Code", ui-monospace, Consolas, monospace; font-size: 12.5px;
+      }
+      .file .name { color: #f3f3f3; }
+      .file .size { color: #6e6e6e; font-size: 11.5px; }
+      pre { margin: 0; padding: 11px 13px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; color: #c9c9c9; }
+      a { color: #fff; }
+      .note { margin-top: 26px; font-size: 13.5px; color: #9a9a9a; }
+      .btns { display: flex; gap: 9px; flex-wrap: wrap; margin: 20px 0 0; }
+      .btns a {
+        text-decoration: none; border: 1px solid #343434; border-radius: 10px; padding: 8px 13px;
+        font-size: 13.5px; color: #f3f3f3; background: #121212;
+      }
+      .btns a.primary { background: #fff; color: #000; border-color: #fff; font-weight: 650; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <span class="tag">workspace · snapshot</span>
+      <h1>Hello World</h1>
+      <p>
+        This is a real page on disk, not a screenshot. Below it is a snapshot of the folder the
+        app's file tools read and write in this environment — the same folder the Files rail
+        shows.
+      </p>
+
+      <div class="btns">
+        <a class="primary" href="./hello.html">Open the Hello World page →</a>
+        <a href="/">The cloud chat</a>
+      </div>
+
+      <h2>Files the tools saw</h2>
+
+      <div class="file">
+        <div class="head"><span class="name">README.txt</span><span class="size">65 bytes</span></div>
+        <pre>Welcome to the workspace panel.
+Edit this file, then press Save.</pre>
+      </div>
+
+      <div class="file">
+        <div class="head"><span class="name">made/by-rail.txt</span><span class="size">10 bytes</span></div>
+        <pre>rail works</pre>
+      </div>
+
+      <div class="file">
+        <div class="head"><span class="name">src/demo.js</span><span class="size">41 bytes</span></div>
+        <pre>console.log("hello from the workspace");</pre>
+      </div>
+
+      <div class="file">
+        <div class="head"><span class="name">hello/index.html</span><span class="size">1592 bytes</span></div>
+        <pre>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+  &lt;head&gt;
+    &lt;title&gt;Hello World — made in the workspace&lt;/title&gt;
+    … styles …
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Hello World&lt;/h1&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre>
+      </div>
+
+      <p class="note">
+        Why nothing was written before: the model printed its call as text —
+        <code>&lt;tool_call&gt;&lt;function=read_file&gt;…</code> — so the app ran nothing.
+        1.13.2 parses that shape and sends it through the approval dialog, so the write
+        actually happens.
+      </p>
+    </div>
+  </body>
+</html>

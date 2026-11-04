@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Freeway">
+  <rect width="512" height="512" rx="96" fill="#0f0f0f" />
+  <rect x="44" y="44" width="424" height="424" rx="72" fill="#171717" stroke="#2c2c2c" stroke-width="6" />
+  <path d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" fill="#e8e8e8" />
+  <circle cx="196" cy="256" r="16" fill="#0f0f0f" />
+  <circle cx="256" cy="256" r="16" fill="#0f0f0f" />
+  <circle cx="316" cy="256" r="16" fill="#0f0f0f" />
+</svg>
