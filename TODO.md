@@ -551,6 +551,15 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.3.5 · Freeway project name
+
+- [x] Renamed the source tree from `openrouter-chat` to `freeway`
+- [x] Updated release, push, E2E and documentation paths
+- [x] Renamed the GitHub repository to `zakker111/freeway` and corrected its description
+- [x] Kept the OpenRouter provider name and legacy settings migration intact
+- [x] 2.3.5 on 3002; production and preview on 2.3.5-cloud
+- [x] Source, GitHub-source and Windows archives rebuilt; release links updated
+
 ## Done — 2.3.4 · strict provider choice
 
 - [x] Removed cross-provider attempts from the desktop app and the cloud Worker

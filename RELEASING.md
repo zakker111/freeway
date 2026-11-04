@@ -23,7 +23,7 @@ next real release collapses them back to `<version>-cloud`.
 ## Cut a release
 
 ```bash
-cd openrouter-chat
+cd freeway
 ./release.sh 1.14.3
 ```
 
@@ -47,7 +47,7 @@ Node SEA can be assembled for Windows from Linux, because only the `node.exe` ho
 platform-specific. The 1.25.7 build used:
 
 ```bash
-cd openrouter-chat
+cd freeway
 node build/bundle.mjs                       # freeway.cjs
 node --experimental-sea-config sea-config.json   # sea-prep.blob
 curl -o /tmp/node.exe https://nodejs.org/dist/v<node-version>/win-x64/node.exe

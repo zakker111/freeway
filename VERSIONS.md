@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.3.5 | 2026-11-04 | Project name and repository are Freeway everywhere |
 | 2.3.4 | 2026-11-04 | Provider choice is strict: no automatic provider fallback |
 | 2.3.3 | 2026-11-04 | Keyless demo stays on OVHcloud instead of falling back |
 | 2.3.2 | 2026-11-04 | Files sample page, cloud pin crash repair, network-first shell |
@@ -107,6 +108,19 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.3.5 — 2026-11-04
+
+**Freeway is the project name everywhere.**
+
+- The source tree is now `freeway/`; release, push, E2E and documentation paths follow it.
+- The GitHub repository is now `zakker111/freeway`, with its description updated to match
+  strict provider selection. The local folder, repository and product name agree.
+- The OpenRouter provider, its API endpoints and its environment variables keep their names;
+  they name a provider, not this project. Historical changelog entries and the pre-2.0
+  `OpenRouterChat` data-folder migration are retained so existing installs keep their settings.
+- 2.3.5 desktop; 2.3.5-cloud on production and preview; source, GitHub-source and Windows
+  archives rebuilt.
 
 ## 2.3.4 — 2026-11-04
 

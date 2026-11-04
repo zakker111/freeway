@@ -73,8 +73,8 @@ echo "== windows zip =="
 cd ..
 mkdir -p dist
 rm -f "dist/Freeway-$VERSION.zip"
-zip -r -q "dist/Freeway-$VERSION.zip" openrouter-chat \
-  -x 'openrouter-chat/cloud/*' 'openrouter-chat/node_modules/*' 'openrouter-chat/dist/*' '*/.DS_Store'
+zip -r -q "dist/Freeway-$VERSION.zip" freeway \
+  -x 'freeway/cloud/*' 'freeway/node_modules/*' 'freeway/dist/*' '*/.DS_Store'
 ls -l "dist/Freeway-$VERSION.zip"
 
 if [ -f CURRENT-LINK.txt ]; then

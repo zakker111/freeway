@@ -114,7 +114,7 @@ Every change gets a version bump and is shipped to **all** sites: the desktop ap
 and production lagging preview is a bug.
 
 ```bash
-cd openrouter-chat && ./release.sh <version>
+cd freeway && ./release.sh <version>
 ```
 
 That bumps `app.mjs`, `package.json` and `cloud/worker.mjs` (cloud = `<version>-cloud`),

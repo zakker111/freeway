@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Local chat app for OpenRouter free models, with optional tool calling.
+// Freeway — local chat app for free models across providers, with optional tool calling.
 // Binds to 127.0.0.1 only: the API key never leaves this process.
 
 import http from 'node:http';
@@ -146,7 +146,7 @@ const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.3.4';
+const VERSION = '2.3.5';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -216,6 +216,7 @@ function defaultConfigDir() {
       ? process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming')
       : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
   const current = path.join(base, 'Freeway');
+  // Pre-2.0 data folder; keep the old name for settings migration.
   const legacy = path.join(base, 'OpenRouterChat');
   // 1.x wrote under the old product name; carry that data forward once.
   if (!fs.existsSync(current) && fs.existsSync(legacy)) {

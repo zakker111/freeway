@@ -7,8 +7,7 @@ rate-limited, it retries the next free model on the same provider automatically 
 you which one answered. It never changes provider unless you do. The model can also use
 tools: read the clock, do exact arithmetic, and fetch public web pages.
 
-Freeway was previously called OpenRouter Chat. Existing settings and chats are
-carried forward automatically.
+Existing settings and chats from earlier versions are carried forward automatically.
 
 The first screen is not a key wall: press **Try OVHcloud — no key** and send a message
 straight away. OVHcloud publishes a public demo endpoint with no account, no card and a
@@ -41,7 +40,7 @@ into the workspace and opens the result in Preview.
 `Freeway.exe` is the whole app with Node inside it: one file, no dependencies, no
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
-workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; the 2.3.4
+workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; the 2.3.5
 download was cross-built from Linux with the exact same steps (see `RELEASING.md`).
 
 Get it:
@@ -51,7 +50,7 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.3.4 `.exe` was assembled outside Windows and could not be launched in the build
+The 2.3.5 `.exe` was assembled outside Windows and could not be launched in the build
 machine, so treat its first run as a smoke test. If it refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
@@ -63,7 +62,7 @@ machine, so treat its first run as a smoke test. If it refuses to start, use
    Run anyway**.
 5. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-Tagging a release (`git tag v2.3.4 && git push --tags`) attaches the same ZIP to the
+Tagging a release (`git tag v2.3.5 && git push --tags`) attaches the same ZIP to the
 GitHub release.
 
 ### Start it on your computer — exact steps
@@ -117,7 +116,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.3.4 — self-check
+Freeway 2.3.5 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable
@@ -379,7 +378,7 @@ npm run build:single # regenerate freeway.mjs
 - Key: `OPENROUTER_API_KEY` environment variable, or the first-run screen.
 - Config folder: `%APPDATA%\Freeway` on Windows, `~/.config/Freeway` elsewhere.
   `config.json` and `threads.json` live there, written with owner-only permissions.
-  The first 2.0 run copies an existing `OpenRouterChat` folder forward automatically;
+  The first 2.0 run copies an existing pre-Freeway config folder forward automatically;
   if that copy fails, the old folder stays in use rather than losing data. Move both
   with `--config <folder>` (or a `.json` file) or the `OPENROUTER_LOCAL_CONFIG_DIR`
   environment variable — handy for dotfiles or syncing.
