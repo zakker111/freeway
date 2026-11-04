@@ -1297,6 +1297,7 @@
           let answer = '';
           let answeredBy = '';
           let fallbackFrom = '';
+          let retriedFrom = '';
           let compacted = 0;
           for (let step = 0; step < 3; step += 1) {
             if (state.stopRequested) throw new DOMException('stopped', 'AbortError');
@@ -1316,6 +1317,7 @@
             if (!res.ok) throw requestError(res, data);
             answeredBy = data.provider || '';
             fallbackFrom = data.fallbackFrom || '';
+            retriedFrom = data.retriedFrom || '';
             compacted = Number(data.memory?.compacted || 0);
             if (data.usage) lastUsage = data.usage;
             if (data.text) {
@@ -1354,6 +1356,7 @@
               : '');
           meta.textContent += costNote(lastUsage);
           if (fallbackFrom && answeredBy) meta.textContent += ' · via ' + answeredBy;
+          if (retriedFrom) meta.textContent += ' · retried from ' + retriedFrom;
           if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
           addMeta(pending.wrap, '', answer);
           bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
@@ -1536,6 +1539,7 @@
           if (!res.body) throw new Error('This browser cannot read a streamed reply.');
           const answeredBy = res.headers.get('x-answer-provider') || '';
           const fallbackFrom = res.headers.get('x-fallback-from') || '';
+          const retriedFrom = res.headers.get('x-retried-from') || '';
           const compacted = Number(res.headers.get('x-memory-compacted') || 0);
 
           // The Worker sends `{"delta":…}` frames while the model talks, then
@@ -1600,6 +1604,7 @@
               : '');
           meta.textContent += costNote(info && info.usage);
           if (fallbackFrom && answeredBy) meta.textContent += ' · via ' + answeredBy;
+          if (retriedFrom) meta.textContent += ' · retried from ' + retriedFrom;
           if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
           addMeta(pending.wrap, '', answer);
           if (info && info.keySource === 'browser') meta.textContent += ' · your key';

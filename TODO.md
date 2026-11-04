@@ -551,6 +551,18 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.0 · cloud model retries and CI
+
+- [x] Same-provider model chain in the cloud Worker, capped at three models
+- [x] Retry only on network failures, 404, 429 and 5xx; never after streaming starts
+- [x] Image and tool turns stay on the selected model
+- [x] `retriedFrom` metadata and visible `retried from <model>` note
+- [x] Cloud tests for success, stream, key errors, exhausted retries and images
+- [x] Linux CI rebuilds both bundles and runs all five suites
+- [x] Live keyless smoke on local, production and preview; keyed paths skipped without keys
+- [x] Source, GitHub-source and Windows archives rebuilt; release links updated
+- [x] 2.4.0 on 3002; production and preview on 2.4.0-cloud
+
 ## Done — 2.3.5 · Freeway project name
 
 - [x] Renamed the source tree from `openrouter-chat` to `freeway`

@@ -24,10 +24,26 @@ const models = [
     architecture: { input_modalities: ['text'] },
   },
   {
+    id: 'mock/free-two',
+    name: 'Mock Free Two',
+    pricing: { prompt: '0', completion: '0' },
+    context_length: 64000,
+    supported_parameters: ['max_tokens'],
+    architecture: { input_modalities: ['text'] },
+  },
+  {
+    id: 'mock/free-three',
+    name: 'Mock Free Three',
+    pricing: { prompt: '0', completion: '0' },
+    context_length: 32000,
+    supported_parameters: ['max_tokens'],
+    architecture: { input_modalities: ['text'] },
+  },
+  {
     id: 'mock/free-vision',
     name: 'Mock Free Vision',
     pricing: { prompt: '0', completion: '0' },
-    context_length: 128000,
+    context_length: 16000,
     supported_parameters: ['max_tokens'],
     architecture: { input_modalities: ['text', 'image'] },
   },
@@ -36,6 +52,8 @@ const models = [
 let lastChatBody = null;
 let lastChatHeaders = null;
 let chatMode = 'ok';
+const chatCalls = [];
+const chatFailures = new Map();
 const mock = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   if (url.pathname === '/groq/v1/models') {
@@ -76,9 +94,34 @@ const mock = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     lastChatBody = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    chatCalls.push(lastChatBody);
+    const failed = chatFailures.get(lastChatBody.model);
+    if (failed) {
+      res.writeHead(failed.status, {
+        'content-type': 'application/json',
+        ...(failed.retryAfter ? { 'retry-after': failed.retryAfter } : {}),
+      });
+      res.end(JSON.stringify({ error: { message: `mock failure ${failed.status}` } }));
+      return;
+    }
     if (chatMode === 'rate') {
       res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '7' });
       res.end(JSON.stringify({ error: { message: 'free-model burst limit' } }));
+      return;
+    }
+    if (lastChatBody.stream) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const delta of ['hello ', 'from the stream']) {
+        res.write(`data: ${JSON.stringify({ model: lastChatBody.model, choices: [{ delta: { content: delta } }] })}\n\n`);
+      }
+      res.write(
+        `data: ${JSON.stringify({
+          model: lastChatBody.model,
+          choices: [{ delta: {}, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 5, completion_tokens: 4 },
+        })}\n\n`,
+      );
+      res.end('data: [DONE]\n\n');
       return;
     }
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -217,8 +260,68 @@ async function main() {
     assert.equal(JSON.stringify(body).includes(KEY), false, 'the key leaked into the answer');
   });
 
-  await check('an upstream 429 forwards its exact Retry-After delay', async () => {
-    chatMode = 'rate';
+  await check('a rate-limited free model is retried inside the same provider', async () => {
+    chatFailures.set('mock/free-one', { status: 429, retryAfter: '2' });
+    chatCalls.length = 0;
+    try {
+      const response = await request(envWith(), { body: chatBody });
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.text, 'hello from the mock');
+      assert.equal(body.model, 'mock/free-two');
+      assert.equal(body.retriedFrom, 'mock/free-one');
+      assert.deepEqual(
+        chatCalls.map((call) => call.model),
+        ['mock/free-one', 'mock/free-two'],
+        'the retry left the chosen provider or guessed the wrong order',
+      );
+    } finally {
+      chatFailures.clear();
+    }
+  });
+
+  await check('a streaming turn retries before the first byte', async () => {
+    chatFailures.set('mock/free-one', { status: 429, retryAfter: '2' });
+    chatCalls.length = 0;
+    try {
+      const response = await request(envWith(), { body: { ...chatBody, stream: true } });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('x-answer-provider'), 'openrouter');
+      assert.equal(response.headers.get('x-retried-from'), 'mock/free-one');
+      const text = await response.text();
+      assert.match(text, /hello /);
+      assert.match(text, /from the stream/);
+      assert.match(text, /"retriedFrom":"mock\/free-one"/);
+      assert.deepEqual(
+        chatCalls.map((call) => call.model),
+        ['mock/free-one', 'mock/free-two'],
+        'the stream retry changed provider or model order',
+      );
+    } finally {
+      chatFailures.clear();
+    }
+  });
+
+  await check('a key error is not retried', async () => {
+    chatFailures.set('mock/free-one', { status: 401 });
+    chatCalls.length = 0;
+    try {
+      const response = await request(envWith(), { body: chatBody });
+      assert.equal(response.status, 401);
+      const body = await response.json();
+      assert.equal(body.error, 'key_rejected');
+      assert.equal(body.model, 'mock/free-one');
+      assert.equal(chatCalls.length, 1, 'a rejected key was retried against more models');
+    } finally {
+      chatFailures.clear();
+    }
+  });
+
+  await check('all provider models failing returns the last retry delay', async () => {
+    for (const model of ['mock/free-one', 'mock/free-two', 'mock/free-three']) {
+      chatFailures.set(model, { status: 429, retryAfter: '7' });
+    }
+    chatCalls.length = 0;
     try {
       const response = await request(envWith(), { body: chatBody });
       assert.equal(response.status, 429);
@@ -226,9 +329,34 @@ async function main() {
       const body = await response.json();
       assert.equal(body.error, 'upstream_rate');
       assert.equal(body.retryAfterMs, 7000);
-      assert.equal(body.model, 'mock/free-one');
+      assert.equal(body.model, 'mock/free-three');
+      assert.deepEqual(
+        chatCalls.map((call) => call.model),
+        ['mock/free-one', 'mock/free-two', 'mock/free-three'],
+        'the retry budget was not exactly three models',
+      );
     } finally {
-      chatMode = 'ok';
+      chatFailures.clear();
+    }
+  });
+
+  await check('an image turn does not retry onto a text model', async () => {
+    const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB';
+    chatFailures.set('mock/free-vision', { status: 429, retryAfter: '2' });
+    chatCalls.length = 0;
+    try {
+      const response = await request(envWith(), {
+        body: {
+          ...chatBody,
+          model: 'mock/free-vision',
+          messages: [{ role: 'user', content: 'what is this?', images: [image] }],
+        },
+      });
+      assert.equal(response.status, 429);
+      assert.equal(chatCalls.length, 1, 'an image turn was retried onto another model');
+      assert.equal(chatCalls[0].model, 'mock/free-vision');
+    } finally {
+      chatFailures.clear();
     }
   });
 

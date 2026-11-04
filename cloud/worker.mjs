@@ -20,7 +20,7 @@ import { createFreebuffAuth, isSameOriginRequest } from '@freebuff/auth';
 import { compactMessages } from '../lib/memory.mjs';
 import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
 
-const VERSION = '2.3.5-cloud';
+const VERSION = '2.4.0-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -419,34 +419,62 @@ function isAllowed(provider, id) {
   return Boolean(provider.allow?.length) && provider.allow.some((pattern) => pattern.test(id));
 }
 
+// A turn may try at most three models, all from the same provider. This is a
+// small retry budget, not a provider fallback chain: the page's provider choice
+// is a decision, and a model that cannot answer is the only thing we replace.
+const RETRY_MODEL_LIMIT = 3;
+const RETRY_CATALOG_TTL_MS = 5 * 60_000;
+const retryCatalogCache = new Map();
+
+function retryableStatus(status) {
+  return status === 404 || status === 429 || status >= 500;
+}
+
+function keyTag(key) {
+  return String(key ?? '').slice(-8);
+}
+
 /**
- * A free model another provider can answer with when the chosen one cannot.
- * Server-held keys only: a key pasted in the page belongs to the provider it was
- * entered for, and handing it to a different service would be a surprise at
- * best and a leak at worst.
+ * Extra model ids the selected provider can offer. OpenRouter's live free
+ * catalog is authoritative. For allowlist providers, prefer the seeded list;
+ * only ask /models when there is no seeded list, so a normal turn does not add
+ * a second network request. The cache is keyed by a key suffix, never the key.
  */
-async function fallbackCandidate(provider, env) {
-  const key = String(env?.[provider.keyEnv] ?? '').trim();
-  if (!key) return null;
-  const account = String(env?.[provider.accountEnv] ?? '').trim();
-  if (provider.requiresAccount && !account) return null;
-  if (provider.policy === 'pricing') {
-    const free = await freeModels(env);
-    const pick = free[0]?.id;
-    return pick ? { provider, key, model: pick } : null;
-  }
-  let ids = [];
+async function fallbackIds(provider, key, env, account) {
+  if (provider.fallback?.length) return provider.fallback;
+  const cacheKey = `${provider.id}:${keyTag(key)}`;
+  const cached = retryCatalogCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < RETRY_CATALOG_TTL_MS) return cached.ids;
   try {
-    ids = (await remoteModels(provider, key, env, account)).map((model) => model.id);
+    const ids = (await remoteModels(provider, key, env, account)).map((model) => model.id);
+    if (retryCatalogCache.size >= 100) retryCatalogCache.clear();
+    retryCatalogCache.set(cacheKey, { at: Date.now(), ids });
+    return ids;
   } catch {
-    // A key this deployment cannot use is a reason to skip the provider, not to
-    // fail a turn another provider may still answer.
-    ids = [];
+    // A failed catalog request must not replace the actual chat error.
+    return [];
   }
-  const listed = ids.find((id) => isAllowed(provider, id));
-  if (listed) return { provider, key, account, model: listed };
-  const seeded = (provider.fallback ?? []).find((id) => isAllowed(provider, id));
-  return seeded ? { provider, key, account, model: seeded } : null;
+}
+
+async function sameProviderChain(provider, wanted, env, key, account, enabled) {
+  if (!enabled) return [wanted];
+  const chain = [wanted];
+  const add = (id) => {
+    if (chain.length >= RETRY_MODEL_LIMIT) return;
+    if (typeof id !== 'string' || !id || chain.includes(id)) return;
+    if (!isAllowed(provider, id)) return;
+    chain.push(id);
+  };
+  try {
+    if (provider.id === 'openrouter') {
+      for (const model of await freeModels(env)) add(model.id);
+    } else {
+      for (const id of await fallbackIds(provider, key, env, account)) add(id);
+    }
+  } catch {
+    // The requested model is still a valid single attempt if a catalog fails.
+  }
+  return chain;
 }
 
 /** The second credential: server env first, then the per-request header. */
@@ -927,7 +955,7 @@ function sseFrame(data) {
  * first byte cannot change the status any more, so they travel as an `error`
  * frame the page can render in place.
  */
-function streamAnswer(upstream, { model, started, source, provider, fallbackFrom, memory }) {
+function streamAnswer(upstream, { model, started, source, provider, fallbackFrom, retriedFrom, memory }) {
   let modelSeen = model;
   let usage = null;
   return new Response(
@@ -969,6 +997,7 @@ function streamAnswer(upstream, { model, started, source, provider, fallbackFrom
               keySource: source,
               provider,
               fallbackFrom,
+              retriedFrom,
             }),
           );
         } catch {
@@ -997,6 +1026,7 @@ function streamAnswer(upstream, { model, started, source, provider, fallbackFrom
         // The page picks a provider; a fallback answer says who actually replied.
         'x-answer-provider': provider ?? '',
         ...(fallbackFrom ? { 'x-fallback-from': fallbackFrom } : {}),
+        ...(retriedFrom ? { 'x-retried-from': retriedFrom } : {}),
         ...(memory?.compacted
           ? {
               'x-memory-compacted': String(memory.compacted),
@@ -1117,16 +1147,19 @@ async function handleChat(request, env) {
 
   const streamRequested = body.stream !== false;
   const started = Date.now();
-
+  // Images and tool calls depend on the selected model's capabilities, so a
+  // model retry is only safe for a plain text turn.
+  const canRetryModel = !parsed.hasImages && !(Array.isArray(body.tools) && body.tools.length);
+  const modelIds = await sameProviderChain(provider, wanted, env, key, account, canRetryModel);
   // The selected provider is the whole provider decision. Retry models inside
   // it, but never send the conversation to another service; only the user can
   // change provider.
-  const attempts = [{ provider, key, account, source, model: wanted }];
+  const attempts = modelIds.map((model) => ({ provider, key, account, source, model }));
 
   let upstream = null;
   let used = attempts[0];
   let failure = null;
-  for (const attempt of attempts) {
+  for (const [index, attempt] of attempts.entries()) {
     used = attempt;
     try {
       const headers = { 'content-type': 'application/json' };
@@ -1176,7 +1209,8 @@ async function handleChat(request, env) {
         `Could not reach ${attempt.provider.label}: ${String(error?.message ?? error).slice(0, 160)}`,
       );
       upstream = null;
-      continue;
+      if (index < attempts.length - 1) continue;
+      break;
     }
     if (upstream.ok) break;
 
@@ -1213,11 +1247,14 @@ async function handleChat(request, env) {
       ...(retryAfterMs ? { retryAfterMs } : {}),
     };
     failure = json(errorBody, upstream.status >= 500 ? 502 : upstream.status, retryHeader(retryAfterMs));
+    const canRetry = retryableStatus(upstream.status) && index < attempts.length - 1;
     upstream = null;
+    if (!canRetry) break;
   }
 
   if (!upstream) return failure ?? publicError(502, 'upstream_unreachable', 'No free provider answered.');
   const fallbackFrom = used.provider.id === provider.id ? null : provider.id;
+  const retriedFrom = used.model === wanted ? null : wanted;
 
   if (streamRequested) {
     return streamAnswer(upstream, {
@@ -1226,6 +1263,7 @@ async function handleChat(request, env) {
       source: used.source,
       provider: used.provider.id,
       fallbackFrom,
+      retriedFrom,
       memory,
     });
   }
@@ -1256,6 +1294,7 @@ async function handleChat(request, env) {
     model: payload?.model ?? used.model,
     provider: used.provider.id,
     fallbackFrom,
+    retriedFrom,
     usage: payload?.usage ?? null,
     ms: Date.now() - started,
     keySource: used.source,

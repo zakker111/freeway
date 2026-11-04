@@ -1,0 +1,59 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+
+      - name: Install cloud dependencies
+        working-directory: cloud
+        run: npm ci
+
+      - name: Rebuild the single file
+        run: node build/bundle.mjs
+
+      - name: Build the cloud Worker
+        working-directory: cloud
+        run: node build.mjs
+
+      - name: Unit tests
+        run: node --test lib
+
+      - name: CLI and HTTP tests
+        run: node test/cli.mjs
+
+      - name: Simulation
+        run: node test/simulate.mjs
+
+      - name: Single-file simulation
+        env:
+          APP_PATH: freeway.mjs
+        run: node test/simulate.mjs
+
+      - name: Cloud tests
+        # Node 22 still gates node:sqlite behind this flag; the test harness uses it.
+        env:
+          NODE_OPTIONS: --experimental-sqlite
+        run: node cloud/test.mjs

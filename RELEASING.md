@@ -62,6 +62,29 @@ ZIP. It is unsigned, so SmartScreen shows **More info → Run anyway**. The `.ex
 executed in the Linux VM; `.github/workflows/build-windows.yml` remains the authoritative,
 Windows-tested build (it only needs a push with Actions enabled).
 
+## Live smoke matrix
+
+Unit and cloud suites use mock upstreams. Run this matrix against real endpoints before
+publishing, and record each result in `CURRENT-LINK.txt`. **Skipped is not passed.** A
+configured key that is rate-limited is a skip with a reason, not a green result.
+
+| Path | Check | 2026-11-04 result |
+| --- | --- | --- |
+| Local keyless | Send one small `ovh` prompt from the local app. | Pass — `local smoke ok` |
+| Local OpenRouter | If `/api/providers` reports `hasKey`, send one free model. | Skipped — no local key |
+| Local Groq | Same check for Groq. | Skipped — no local key |
+| Cloud production keyless | Send one small `ovh` prompt to production. | Pass — `cloud smoke ok` |
+| Cloud preview keyless | Send one small `ovh` prompt to preview. | Pass — `preview smoke ok` |
+| Cloud keyed | If `/api/config` reports `hasKey: true`, send one free model. | Skipped — no server key in either cloud environment |
+| Cloud signed-in files | Sign in, upload, reload, download and delete a file. | Pending — no browser session in this run |
+| Cloud model retry | Covered by `cloud/test.mjs`; live only when a provider actually returns 404/429/5xx. | Pass in the mock suite; not forced live |
+| Windows | Run `Freeway.exe --version` and launch it once on Windows. | Pending — Linux VM; use Actions or a Windows machine |
+
+For the local keyless check, the app returns SSE even when the request asks for JSON; read the
+`delta` frames or use the page. Do not paste a provider key into a shell command: use the page
+or the configured secret. A cloud turn that returns `retryAfterMs` should be retried only after
+that delay, and the result recorded separately.
+
 ## Version bump semantics
 
 - **patch** (`1.14.1` → `1.14.2`): fixes, copy, provider lists, docs, tooling

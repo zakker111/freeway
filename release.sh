@@ -67,7 +67,7 @@ node --test lib 2>&1 | tail -6
 node test/cli.mjs
 node test/simulate.mjs
 APP_PATH=freeway.mjs node test/simulate.mjs
-node cloud/test.mjs
+NODE_OPTIONS=--experimental-sqlite node cloud/test.mjs
 
 echo "== windows zip =="
 cd ..

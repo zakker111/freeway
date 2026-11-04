@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.0 | 2026-11-04 | Cloud model retries stay inside the selected provider; Linux CI |
 | 2.3.5 | 2026-11-04 | Project name and repository are Freeway everywhere |
 | 2.3.4 | 2026-11-04 | Provider choice is strict: no automatic provider fallback |
 | 2.3.3 | 2026-11-04 | Keyless demo stays on OVHcloud instead of falling back |
@@ -108,6 +109,24 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.0 — 2026-11-04
+
+**Cloud turns retry another free model inside the selected provider.**
+
+- The Worker now builds a same-provider chain capped at three models. OpenRouter uses
+  its live free catalog; allowlist providers use their seeded fallbacks or `/models`.
+- Retries happen only before streaming starts and only for network errors, `404`, `429`
+  and `5xx`. `400`, `401`, `402` and `403` stop immediately. Image and tool turns stay
+  on the selected model.
+- A successful retry reports `retriedFrom`; the page shows `retried from <model>`.
+- Added `.github/workflows/test.yml`: all five suites on every push to `main` and pull
+  request, after rebuilding both bundles.
+- Live smoke: local, production and preview keyless OVHcloud passed. Keyed paths were
+  skipped because no keys were configured. Signed-in files remain pending, and the
+  Windows archive was rebuilt but could not be launched from the Linux VM.
+- 169 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
+- 2.4.0 desktop; 2.4.0-cloud on production and preview; URLs unchanged.
 
 ## 2.3.5 — 2026-11-04
 
