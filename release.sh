@@ -49,6 +49,9 @@ for (const file of ['cloud/package.json', 'cloud/package-lock.json']) {
 console.log(`app.mjs ${version} · cloud/worker.mjs ${version}-cloud · both package.json + lockfile ${version}`);
 NODE
 
+echo "== syncing the shared preview core =="
+node build/sync-preview.mjs
+
 echo "== rebuilding the single-file bundle =="
 node build/bundle.mjs
 

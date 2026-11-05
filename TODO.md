@@ -553,6 +553,15 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.5.0 · Phase 1 shared preview core
+
+- [x] One `shared/preview.js` core used by desktop and cloud, synced into both pages
+- [x] Linked CSS, nested @import, classic JS and SVG assets bundle into the sandboxed preview
+- [x] Relative paths are contained; 200-file / 2 MB limits; module graphs ask for a server
+- [x] Capability-aware error cards for Python/PHP/Go/CSS/TS/etc. in both editions
+- [x] Auto-preview, Save and Upload use the bundler; CSS/JS writes refresh the open page
+- [x] 179 units, 24 CLI, 21+21 simulation and 24 cloud checks pass
+
 ## Done — 2.4.6 · previews follow the write
 
 - [x] Desktop tool events carry the written path; HTML/SVG writes open the preview at once

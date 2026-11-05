@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.5.0 | 2026-11-05 | Shared preview core bundles linked CSS/JS/SVG in both editions |
 | 2.4.6 | 2026-11-05 | HTML writes open the preview automatically |
 | 2.4.5 | 2026-11-05 | Keyless button names OVHcloud and says it switches provider |
 | 2.4.4 | 2026-11-05 | Windows executable launched and served in CI; redirect-hop regression test |
@@ -115,6 +116,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.5.0 — 2026-11-05
+
+- One shared preview core (`shared/preview.js`) now drives desktop and cloud. It is inlined
+  into both pages by `build/sync-preview.mjs`; the pages do not carry separate implementations.
+- Static preview resolves relative paths and inlines linked stylesheets (including nested
+  `@import`), classic scripts and SVG assets into one sandboxed document. Raster images and
+  fonts are reported as external instead of silently breaking the page.
+- Unsupported files now produce capability-aware errors instead of a blank frame: cloud says
+  it cannot run Python/PHP/Go/etc., while desktop says the language needs a running server.
+  CSS/JS without an HTML entry explain that a page is required; TypeScript/JSX explain that a
+  compile step or dev server is needed.
+- Auto-preview, Save and Upload use the same bundler. Writing a CSS/JS asset after the HTML
+  refreshes the open preview, so a generated multi-file page appears assembled.
+- Limits: 200 files and 2 MB per preview; relative ES-module graphs are rejected with a
+  clear "needs a local server" error instead of rendering a broken page.
+- 179 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.4.6 — 2026-11-05
 

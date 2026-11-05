@@ -4,6 +4,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+// The cloud page carries the same preview core as the desktop page.
+import '../build/sync-preview.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const outfile = path.join(here, 'dist', 'worker.mjs');

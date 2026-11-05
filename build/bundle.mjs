@@ -8,6 +8,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+// Keep both pages on the one shared preview core before inlining the desktop page.
+import './sync-preview.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 // Git checkouts on Windows can be CRLF. Normalize once so import stripping and
