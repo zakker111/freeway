@@ -20,7 +20,7 @@ import { createFreebuffAuth, isSameOriginRequest } from '@freebuff/auth';
 import { compactMessages } from '../lib/memory.mjs';
 import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
 
-const VERSION = '2.4.4-cloud';
+const VERSION = '2.4.5-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;

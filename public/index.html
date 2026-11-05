@@ -796,9 +796,10 @@
             <span class="help" id="keyAccountHelp"></span>
           </div>
           <div class="error-text" id="keyError"></div>
+          <p class="help" id="keyTryHelp" hidden></p>
         </div>
         <div class="foot">
-          <button id="keyTry" class="ghost" hidden>Try it now — no key</button>
+          <button id="keyTry" class="ghost" hidden>Use OVHcloud instead — no key</button>
           <button id="keyCancel" class="ghost">Cancel</button>
           <button id="keySave" class="primary">Save and start</button>
         </div>
@@ -2579,10 +2580,17 @@
         $("keyError").textContent = message || "";
         $("keyInput").value = "";
         const free = providers.find((provider) => provider.anonymous);
-        $("keyTry").hidden = !free || Boolean(info.anonymous);
-        $("keyTry").textContent = free
-          ? `Try ${free.label.replace(" (no key)", "")} — no key`
-          : "Try it now — no key";
+        const canTry = Boolean(free) && !info.anonymous;
+        const freeName = free ? free.label.replace(" (no key)", "") : "OVHcloud";
+        $("keyTry").hidden = !canTry;
+        $("keyTry").textContent = `Use ${freeName} instead — no key`;
+        $("keyTry").title = canTry
+          ? `Switches the provider from ${info.label} to ${freeName}`
+          : "";
+        $("keyTryHelp").hidden = !canTry;
+        $("keyTryHelp").textContent = canTry
+          ? `${info.label} needs a key. This button switches to ${freeName}, the only keyless demo; Cancel keeps ${info.label} selected.`
+          : "";
         $("keyTry").disabled = false;
         $("keyOverlay").classList.remove("hidden");
         $("keyInput").focus();
@@ -2609,7 +2617,7 @@
           $("keyError").textContent = error.message;
         } finally {
           button.disabled = false;
-          button.textContent = `Try ${free.label.replace(" (no key)", "")} — no key`;
+          button.textContent = `Use ${free.label.replace(" (no key)", "")} instead — no key`;
         }
       }
 

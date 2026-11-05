@@ -553,6 +553,14 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.5 · keyless button says what it does
+
+- [x] Both key dialogs say "Use OVHcloud instead — no key" instead of "Try it now — no key"
+- [x] A visible note names the selected provider, says it needs a key, and says Cancel keeps it
+- [x] The label is computed from the anonymous provider, not hard-coded
+- [x] Page test rejects the vague label and requires the switch explanation
+- [x] 171 units, 24 CLI, 21+21 simulation and 24 cloud checks pass
+
 ## Done — 2.4.4 · Windows launch test and redirect regression
 
 - [x] `fetchAsText` accepts an injected fetch for tests; the production call path is unchanged

@@ -734,7 +734,7 @@
       </div>
       <div class="row">
         <button class="ghost" id="keyClear">Clear</button>
-        <button class="ghost" id="keyTry" type="button">Try it now — no key</button>
+        <button class="ghost" id="keyTry" type="button">Use OVHcloud instead — no key</button>
         <button class="ghost" id="keyCancel">Cancel</button>
         <button class="primary" id="keySave">Save</button>
       </div>
@@ -2549,8 +2549,15 @@
           link.textContent = `get a ${info.label} key ↗`;
         }
         const free = state.providers.find((provider) => provider.anonymous);
-        $('keyTry').hidden = !free || Boolean(info.anonymous);
-        $('keyTryNote').hidden = $('keyTry').hidden;
+        const canTry = Boolean(free) && !info.anonymous;
+        const freeName = free ? free.label.replace(' (no key)', '') : 'OVHcloud';
+        $('keyTry').hidden = !canTry;
+        $('keyTryNote').hidden = !canTry;
+        if (canTry) {
+          $('keyTry').textContent = `Use ${freeName} instead — no key`;
+          $('keyTry').title = `Switches the provider from ${info.label} to ${freeName}`;
+          $('keyTryNote').textContent = `${info.label} needs a key. This button switches to ${freeName}, the only keyless demo; Cancel keeps ${info.label} selected.`;
+        }
         $('keyDialog').showModal();
         setTimeout(() => $('keyInput').focus(), 30);
       }

@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.5 | 2026-11-05 | Keyless button names OVHcloud and says it switches provider |
 | 2.4.4 | 2026-11-05 | Windows executable launched and served in CI; redirect-hop regression test |
 | 2.4.3 | 2026-11-05 | Security and reliability audit: safe fetches, paired tool results, durable chat cache, private config |
 | 2.4.2 | 2026-11-05 | Windows CI bundling and tests fixed; executable built and smoke-tested on Windows |
@@ -113,6 +114,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.5 — 2026-11-05
+
+- The key dialog's keyless button now reads "Use OVHcloud instead — no key". A note says the
+  selected provider needs a key, the button switches to OVHcloud, and Cancel keeps the
+  provider selected. The cloud page previously said "Try it now — no key", which looked like
+  a keyless mode for Z.AI and other keyed providers.
+- Both editions build the label and note from the anonymous provider, so a future keyless
+  provider is named correctly instead of a hard-coded one.
+- The page test rejects the vague label and requires the switch explanation.
+- 171 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.4.4 — 2026-11-05
 

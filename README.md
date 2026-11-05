@@ -9,7 +9,7 @@ tools: read the clock, do exact arithmetic, and fetch public web pages.
 
 Existing settings and chats from earlier versions are carried forward automatically.
 
-The first screen is not a key wall: press **Try OVHcloud — no key** and send a message
+The first screen is not a key wall: press **Use OVHcloud instead — no key** and send a message
 straight away. OVHcloud publishes a public demo endpoint with no account, no card and a
 2-requests-a-minute-per-model budget, so you can judge the app before signing up anywhere.
 At that demo limit the app reports the limit and keeps OVHcloud selected; it does not silently
@@ -78,7 +78,7 @@ GitHub release.
 4. The console prints the version and the config path, and the browser opens
    <http://127.0.0.1:3002>.
 5. Paste a key — OpenRouter `sk-or-…`, or switch to Groq/Gemini and paste theirs — then press
-   **Save**. No key yet? Press **Try OVHcloud — no key** and type immediately; you can add a
+   **Save**. No key yet? Press **Use OVHcloud instead — no key** and type immediately; you can add a
    key later from the quota pill or Settings.
 6. Choose a model with the model button (or **Ctrl+M**), type a message, press **Enter**.
    **Ctrl+K** is the command palette: every saved chat, plus **Rename this chat…** and
@@ -102,7 +102,7 @@ the port and OpenRouter reachability without starting the app.
    address and where the config file lives; your browser opens at
    <http://127.0.0.1:3002>.
 4. Paste your OpenRouter key (`sk-or-…`) into the first screen and press **Save** — or press
-   **Try OVHcloud — no key** to send a message with no account at all.
+   **Use OVHcloud instead — no key** to send a message with no account at all.
 5. Type `hello` and press Enter. An answer appears with `answered by <model>` under it.
 
 Close the console window to stop the app. Nothing is installed, no service is left
@@ -475,7 +475,7 @@ Worker serves the page, lists free models and proxies a single turn to OpenRoute
 
 - **No key on the deployment?** The page asks for one, keeps it in that tab
   (`sessionStorage`) and sends it per request. The Worker never stores or echoes it. The
-  same dialog offers **Try OVHcloud — no key**, which selects the keyless provider and
+  same dialog offers **Use OVHcloud instead — no key**, which selects the keyless provider and
   starts a chat without an account.
 - **Key on the deployment?** Add `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`,
   `MISTRAL_API_KEY`, `COHERE_API_KEY` or `SAMBANOVA_API_KEY` under **Sites → Secrets** and
