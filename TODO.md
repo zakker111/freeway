@@ -554,7 +554,7 @@ answers only when a visitor pastes their own.
 ## Done — 2.4.1 · Node 22 CI discovery
 
 - [x] Unit tests run under Node 22 when the 14 files are passed explicitly
-- [x] `test.yml`, `build-windows.yml`, `release.sh`, `npm test` and `AGENTS.md` use `lib/*.test.mjs`
+- [x] `test.yml`, `release.sh`, `npm test` and `AGENTS.md` use `lib/*.test.mjs`; the Windows workflow discovers the files in PowerShell
 - [x] All five suites pass on Node 22
 - [x] 2.4.1 on 3002; production and preview on 2.4.1-cloud
 - [x] Source, GitHub-source and Windows archives rebuilt; release links updated

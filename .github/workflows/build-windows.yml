@@ -25,8 +25,8 @@ jobs:
         run: node build/bundle.mjs
 
       - name: Unit tests
-        # A directory, not a glob: PowerShell does not expand lib/*.test.mjs.
-        run: node --test lib/*.test.mjs
+        # PowerShell does not expand lib/*.test.mjs; pass the discovered files.
+        run: node --test (Get-ChildItem lib -Filter *.test.mjs).FullName
 
       - name: CLI and single-file tests
         run: node test/cli.mjs
