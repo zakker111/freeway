@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.3 | 2026-11-05 | Security and reliability audit: safe fetches, paired tool results, durable chat cache, private config |
 | 2.4.2 | 2026-11-05 | Windows CI bundling and tests fixed; executable built and smoke-tested on Windows |
 | 2.4.1 | 2026-11-04 | Node 22 CI test discovery fixed; retry behavior unchanged |
 | 2.4.0 | 2026-11-04 | Cloud model retries stay inside the selected provider; Linux CI |
@@ -111,6 +112,21 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.3 — 2026-11-05
+
+- `fetch_url` follows redirects manually, checks every hop, rejects private/loopback,
+  IPv4-mapped and DNS-private destinations, and caps the response body before decoding.
+- Tool calls are capped before the assistant message is stored; every stored call has a
+  matching tool result, including calls recovered from text.
+- `threads.json` updates clone the changed thread and only replace the cache after the
+  atomic rename succeeds; a failed save no longer appears successful in memory.
+- Creating a chat with an existing id is refused instead of producing duplicate ids.
+- Saving a config now chmods an existing file to 0600, not only a newly created one.
+- The source ZIP excludes `.env*`, `config.json`, `threads.json`, `secrets.json` and
+  temporary/log files; the Windows launcher propagates a non-zero exit.
+- Removed an unused cloud Worker cache variable and a redundant Windows packaging copy.
+- 170 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.4.2 — 2026-11-05
 

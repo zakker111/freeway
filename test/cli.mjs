@@ -373,6 +373,9 @@ async function main() {
 
   await check('--config keeps the key, settings and chats in one folder', async () => {
     const custom = fs.mkdtempSync(path.join(os.tmpdir(), 'openrouter-config-'));
+    // Simulate a config created by an older build with a permissive mode.
+    fs.writeFileSync(path.join(custom, 'config.json'), JSON.stringify({ apiKey: 'old' }));
+    fs.chmodSync(path.join(custom, 'config.json'), 0o644);
     const app = await startApp({ args: ['--config', custom] });
     const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
     try {
@@ -396,6 +399,10 @@ async function main() {
         fs.existsSync(path.join(custom, 'config.json')),
         'config.json did not land in the --config folder',
       );
+      if (process.platform !== 'win32') {
+        const mode = fs.statSync(path.join(custom, 'config.json')).mode & 0o777;
+        assert.equal(mode, 0o600, `config.json should be private, got ${mode.toString(8)}`);
+      }
     } finally {
       await stopApp(app);
     }

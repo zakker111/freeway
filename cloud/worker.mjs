@@ -20,7 +20,7 @@ import { createFreebuffAuth, isSameOriginRequest } from '@freebuff/auth';
 import { compactMessages } from '../lib/memory.mjs';
 import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
 
-const VERSION = '2.4.2-cloud';
+const VERSION = '2.4.3-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -543,7 +543,6 @@ function publicError(status, code, message, extra = {}) {
 // `wrap` both serves /auth/freebuff/* and keeps the session cookie fresh. With
 // no client id configured (the local harness, an old deployment) the page still
 // works exactly as before: signed out, browser-local chats.
-let cachedApp = null;
 const appCache = new WeakMap();
 
 function appFor(env) {
@@ -567,7 +566,6 @@ function appFor(env) {
     entry = { key, auth, handler: auth.wrap((request) => handle(request, env)) };
   }
   if (env && typeof env === 'object') appCache.set(env, entry);
-  cachedApp = entry;
   return entry;
 }
 

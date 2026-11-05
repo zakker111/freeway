@@ -27,7 +27,7 @@ Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The
 
 - **`Freeway-<version>.zip`** — the normal download. Unzip it and double-click
   `start.cmd` on Windows (or `start.sh` on macOS/Linux). This is the one to try first.
-- **`Freeway-<version>-windows-x64.zip`** — the same app as one `Freeway.exe`,
+- **`Freeway-<version>-windows.zip`** — the same app as one `Freeway.exe`,
   with Node inside. Use it if you do not want to install Node.
 - **`Freeway-<version>-github.zip`** — the source tree for uploading to GitHub; it has
   no build output and no keys.
@@ -47,7 +47,7 @@ download was cross-built from Linux with the same steps (see `RELEASING.md`).
 
 Get it:
 
-1. Unzip `Freeway-<version>-windows-x64.zip` anywhere.
+1. Unzip `Freeway-<version>-windows.zip` anywhere.
 2. Double-click **`Freeway.exe`**. SmartScreen may warn because it is unsigned:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.

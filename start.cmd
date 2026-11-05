@@ -6,14 +6,20 @@ rem The Windows ZIP ships Freeway.exe; a source checkout has app.mjs.
 rem One launcher has to work for both, so it prefers the executable.
 if exist "Freeway.exe" (
   "Freeway.exe" %*
-  if errorlevel 1 pause
+  if errorlevel 1 (
+    pause
+    exit /b 1
+  )
   exit /b 0
 )
 
 where node >nul 2>nul
 if errorlevel 1 goto missing
 node app.mjs %*
-if errorlevel 1 pause
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
 exit /b 0
 
 :missing

@@ -146,7 +146,7 @@ const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.4.2';
+const VERSION = '2.4.3';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -324,7 +324,7 @@ function requestConfirm(res, name, args, signal, extra = {}) {
     const timer = setTimeout(() => settle(false), 180_000);
     pendingConfirms.set(id, { settle, timer });
     signal?.addEventListener('abort', onAbort, { once: true });
-    if (res.writableEnded) {
+    if (signal?.aborted || res.writableEnded) {
       settle(false);
       return;
     }
@@ -385,6 +385,14 @@ function saveConfig(patch) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const next = { ...loadConfig(), ...patch };
   fs.writeFileSync(target, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  // `mode` only applies when the file is created. An older config may already
+  // be 0644, so tighten it on every save without failing on platforms that
+  // cannot represent Unix modes.
+  try {
+    fs.chmodSync(target, 0o600);
+  } catch {
+    /* Windows and restricted filesystems may ignore the mode */
+  }
   return next;
 }
 
@@ -1086,7 +1094,14 @@ async function handleChat(req, res) {
         roundText = local.text;
         roundModel = local.model;
         roundUsage = local.usage;
-        roundTools = local.toolCalls.filter((call) => call && call.function?.name);
+        // Every tool call in the assistant message needs a matching tool
+        // result, so cap the list before it is stored and execute exactly that
+        // list. Giving the model a generated id also keeps the assistant call
+        // and its result paired when a provider omits the id.
+        roundTools = local.toolCalls
+          .filter((call) => call && call.function?.name)
+          .slice(0, MAX_TOOL_CALLS)
+          .map((call, index) => ({ ...call, id: call.id || `call_${round}_${index}` }));
         if (roundTools.length > 0) sawTools = true;
         // Some free models write their tool call as text instead of using the
         // protocol: "<tool_call><function=write_file><parameter=path>…". Nothing
@@ -1105,6 +1120,9 @@ async function handleChat(req, res) {
             sawTools = true;
           }
         }
+        // Text-parsed calls can be more numerous than protocol calls; both
+        // paths must send no more calls than they receive results for.
+        if (roundTools.length > MAX_TOOL_CALLS) roundTools = roundTools.slice(0, MAX_TOOL_CALLS);
         streamedError = local.error;
         break;
       }
@@ -1159,7 +1177,7 @@ async function handleChat(req, res) {
     }
 
     conversation.push({ role: 'assistant', content: roundText, tool_calls: roundTools });
-    for (const call of roundTools.slice(0, MAX_TOOL_CALLS)) {
+    for (const call of roundTools) {
       const name = call.function.name;
       const outcome = await runToolConfirmed(
         res,

@@ -74,7 +74,9 @@ cd ..
 mkdir -p dist
 rm -f "dist/Freeway-$VERSION.zip"
 zip -r -q "dist/Freeway-$VERSION.zip" freeway \
-  -x 'freeway/cloud/*' 'freeway/node_modules/*' 'freeway/dist/*' '*/.DS_Store'
+  -x 'freeway/cloud/*' 'freeway/node_modules/*' 'freeway/dist/*' '*/.DS_Store' \
+     'freeway/.env*' 'freeway/config.json' 'freeway/threads.json' 'freeway/secrets.json' \
+     'freeway/*.tmp' 'freeway/*.log'
 ls -l "dist/Freeway-$VERSION.zip"
 
 if [ -f CURRENT-LINK.txt ]; then

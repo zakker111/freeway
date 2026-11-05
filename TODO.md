@@ -553,6 +553,16 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.3 · security and reliability audit
+
+- [x] Manual redirect handling and DNS/IP checks for `fetch_url`; response body capped
+- [x] Tool calls capped to four before storage, with generated ids where providers omit one
+- [x] Chat cache only replaced after a successful atomic write; duplicate ids refused
+- [x] Existing `config.json` tightened to 0600 on every save
+- [x] Source ZIP secret exclusions; Windows launcher exit status and packaging cleanup
+- [x] 170 units, 24 CLI, 21+21 simulation and 24 cloud checks pass
+- [x] Rebuild bundles, archives and deploy all three sites
+
 ## Done — 2.4.2 · Windows CI
 
 - [x] Bundler normalizes CRLF before import stripping and the `pageHtml()` terminator search
