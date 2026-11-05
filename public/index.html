@@ -1971,6 +1971,22 @@
         }
       }
 
+      // A generated page should be visible the moment it lands. The tool event
+      // carries its path, so no extra "make a preview" turn is needed.
+      async function previewWorkspaceFile(filePath) {
+        if (!/\.(html?|svg)$/i.test(filePath)) return;
+        try {
+          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+          state.fsFile = file.path;
+          $("fsFileName").textContent = `/${file.path}`;
+          $("fsContent").value = file.content;
+          $("fsEditor").classList.remove("hidden");
+          showLocalPreview(file.content, file.path);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
       async function saveFile() {
         if (!state.fsFile) return;
         try {
@@ -1980,6 +1996,9 @@
           });
           setStatus(`saved /${result.path}`);
           refreshFiles();
+          if (/\.(html?|svg)$/i.test(result.path)) {
+            showLocalPreview($("fsContent").value, result.path);
+          }
         } catch (error) {
           setStatus(error.message);
         }
@@ -2258,6 +2277,8 @@
         frame.srcdoc = String(html);
         $("pvUrl").value = "";
         previewNote(`Previewing ${label} from the workspace. Inline CSS and JS run sandboxed; external files are not loaded.`);
+        // The write may have happened while the rail was closed; make the result visible.
+        railOpen(true);
         showRailTab("preview");
       }
 
@@ -3121,6 +3142,7 @@
                   }
                   if (!toolRow.isConnected) node.insertBefore(toolRow, bubble);
                   setStatus(`ran ${event.name}`);
+                  if (event.ok !== false && event.path) previewWorkspaceFile(event.path);
                 } else if (event.type === "command") {
                   // stdout from run_command, appended while the process is still
                   // running rather than only when it exits.

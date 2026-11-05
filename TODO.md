@@ -553,6 +553,14 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.6 · previews follow the write
+
+- [x] Desktop tool events carry the written path; HTML/SVG writes open the preview at once
+- [x] Desktop Save previews HTML and opens the rail if it was hidden
+- [x] Cloud Save and Upload preview HTML/SVG immediately
+- [x] Guard test covers the desktop path event and the cloud upload preview
+- [x] 172 units, 24 CLI, 21+21 simulation and 24 cloud checks pass
+
 ## Done — 2.4.5 · keyless button says what it does
 
 - [x] Both key dialogs say "Use OVHcloud instead — no key" instead of "Try it now — no key"

@@ -146,7 +146,7 @@ const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.4.5';
+const VERSION = '2.4.6';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -1179,10 +1179,11 @@ async function handleChat(req, res) {
     conversation.push({ role: 'assistant', content: roundText, tool_calls: roundTools });
     for (const call of roundTools) {
       const name = call.function.name;
+      const input = safeJson(call.function.arguments);
       const outcome = await runToolConfirmed(
         res,
         name,
-        safeJson(call.function.arguments),
+        input,
         {
           getCatalog,
           workspace: workspace(),
@@ -1205,6 +1206,12 @@ async function handleChat(req, res) {
         arguments: call.function.arguments,
         ok: outcome.ok,
         preview: outcome.content.slice(0, 300),
+        // Let the page open an HTML/SVG file the model just wrote without the
+        // user having to ask for a preview as a separate turn.
+        path:
+          (name === 'write_file' || name === 'apply_patch') && typeof input.path === 'string'
+            ? input.path
+            : undefined,
       });
     }
   }

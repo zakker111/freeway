@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.6 | 2026-11-05 | HTML writes open the preview automatically |
 | 2.4.5 | 2026-11-05 | Keyless button names OVHcloud and says it switches provider |
 | 2.4.4 | 2026-11-05 | Windows executable launched and served in CI; redirect-hop regression test |
 | 2.4.3 | 2026-11-05 | Security and reliability audit: safe fetches, paired tool results, durable chat cache, private config |
@@ -114,6 +115,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.6 — 2026-11-05
+
+- A model that writes or patches an `.html`, `.htm` or `.svg` file now opens its sandboxed
+  preview immediately. The streamed tool event carries the written path, the page reads that
+  file from the workspace and switches the rail to Preview, so no extra "make a preview"
+  message is needed.
+- Saving an HTML file from the desktop editor previews it too, and opens the rail if hidden.
+- The cloud Files panel previews HTML/SVG on Save and on Upload; the sample page already did.
+- New guard test requires the desktop path event and the cloud upload preview.
+- 172 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.4.5 — 2026-11-05
 
