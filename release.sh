@@ -63,7 +63,7 @@ else
 fi
 
 echo "== tests =="
-node --test lib 2>&1 | tail -6
+node --test lib/*.test.mjs 2>&1 | tail -6
 node test/cli.mjs
 node test/simulate.mjs
 APP_PATH=freeway.mjs node test/simulate.mjs

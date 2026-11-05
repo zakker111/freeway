@@ -551,6 +551,14 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.1 · Node 22 CI discovery
+
+- [x] Unit tests run under Node 22 when the 14 files are passed explicitly
+- [x] `test.yml`, `build-windows.yml`, `release.sh`, `npm test` and `AGENTS.md` use `lib/*.test.mjs`
+- [x] All five suites pass on Node 22
+- [x] 2.4.1 on 3002; production and preview on 2.4.1-cloud
+- [x] Source, GitHub-source and Windows archives rebuilt; release links updated
+
 ## Done — 2.4.0 · cloud model retries and CI
 
 - [x] Same-provider model chain in the cloud Worker, capped at three models
@@ -558,7 +566,7 @@ answers only when a visitor pastes their own.
 - [x] Image and tool turns stay on the selected model
 - [x] `retriedFrom` metadata and visible `retried from <model>` note
 - [x] Cloud tests for success, stream, key errors, exhausted retries and images
-- [x] Linux CI rebuilds both bundles and runs all five suites
+- [x] Linux CI workflow added; its 2.4.0 run exposed Node 22 test discovery, fixed in 2.4.1
 - [x] Live keyless smoke on local, production and preview; keyed paths skipped without keys
 - [x] Source, GitHub-source and Windows archives rebuilt; release links updated
 - [x] 2.4.0 on 3002; production and preview on 2.4.0-cloud

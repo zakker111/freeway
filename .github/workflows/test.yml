@@ -39,7 +39,7 @@ jobs:
         run: node build.mjs
 
       - name: Unit tests
-        run: node --test lib
+        run: node --test lib/*.test.mjs
 
       - name: CLI and HTTP tests
         run: node test/cli.mjs

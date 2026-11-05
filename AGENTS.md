@@ -7,7 +7,7 @@ proxies the model calls. No framework, no bundler, no dependencies, no user buil
 
 | What | Command |
 |---|---|
-| Unit tests | `node --test lib` (or `npm test`) |
+| Unit tests | `node --test lib/*.test.mjs` (or `npm test`) |
 | CLI + HTTP suite | `node test/cli.mjs` |
 | End-to-end simulation | `node test/simulate.mjs` |
 | Simulation against the single file | `APP_PATH=freeway.mjs node test/simulate.mjs` |

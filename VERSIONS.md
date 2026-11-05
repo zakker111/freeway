@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.1 | 2026-11-04 | Node 22 CI test discovery fixed; retry behavior unchanged |
 | 2.4.0 | 2026-11-04 | Cloud model retries stay inside the selected provider; Linux CI |
 | 2.3.5 | 2026-11-04 | Project name and repository are Freeway everywhere |
 | 2.3.4 | 2026-11-04 | Provider choice is strict: no automatic provider fallback |
@@ -109,6 +110,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.1 — 2026-11-04
+
+**Node 22 CI now finds the unit tests.**
+
+- Node 22 treats `node --test lib` as a missing module, so the first 2.4.0 Linux CI
+  run failed before any test ran. Every unit invocation now passes `lib/*.test.mjs`
+  explicitly: `test.yml`, `build-windows.yml`, `release.sh`, `npm test` and `AGENTS.md`.
+- No runtime behavior changes: 2.4.1 carries the same same-provider retries as 2.4.0.
+- 169 units, 24 CLI, 21+21 simulation and 24 cloud checks pass on Node 22; the release
+  script also passes them on Node 26.
+- 2.4.1 desktop; 2.4.1-cloud on production and preview; URLs unchanged.
 
 ## 2.4.0 — 2026-11-04
 
