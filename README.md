@@ -371,6 +371,7 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `freeway.mjs` | generated: the entire app in one file |
 | `build/bundle.mjs` | builds that single file |
 | `test/cli.mjs` | tests the flags and the single-file build |
+| `test/ui-preview.mjs` | real Chromium check for preview cards and frame visibility |
 
 ## Commands
 
@@ -380,6 +381,7 @@ node app.mjs --doctor  # check the install, then exit
 npm test             # unit tests for selection and tools
 npm run simulate     # mock upstream + real app: retries, tools, errors
 npm run test:cli     # flags, flag precedence, the single-file build
+npm run test:ui      # real browser check; set CHROME_BIN
 npm run build:single # regenerate freeway.mjs
 ```
 

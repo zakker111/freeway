@@ -553,6 +553,13 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.7.2 · browser preview regression coverage
+
+- [x] `test/ui-preview.mjs` drives a temporary app and workspace through Chrome CDP
+- [x] Asserts SCSS hides the frame, Markdown restores it, and URL preview clears the card
+- [x] `npm run test:ui` documented; Chrome is the only external requirement
+- [x] 192 units, 25 CLI, 21+21 simulation, 24 cloud and the browser check pass
+
 ## Done — 2.7.1 · preview frame cleanup
 
 - [x] Hide the preview iframe for `BUILD_REQUIRED` cards and until a preview exists

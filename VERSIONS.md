@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.7.2 | 2026-11-05 | Dependency-free browser regression test for preview cards |
 | 2.7.1 | 2026-11-05 | Preview build cards hide the blank iframe; browser verification passed |
 | 2.7.0 | 2026-11-05 | Markdown previews and build-aware TypeScript/JSX/SCSS adapters |
 | 2.6.0 | 2026-11-05 | Desktop previews use a tokenised loopback server for modules and fetch |
@@ -119,6 +120,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.7.2 — 2026-11-05
+
+- Added `npm run test:ui`, a dependency-free Chrome DevTools Protocol test that starts a
+  temporary Freeway instance and temporary workspace, then uses the real Files panel.
+- It verifies that SCSS shows `BUILD_REQUIRED` with no visible empty frame, that Markdown
+  restores the frame and renders a heading/table, and that a URL preview clears the stale
+  build card. `CHROME_BIN` is the only requirement; a missing browser prints a clear skip.
+- The test is separate from `npm test`; the normal unit and simulation suites keep their
+  existing requirements. 192 units, 25 CLI, 21+21 simulation, 24 cloud and the browser
+  check pass.
 
 ## 2.7.1 — 2026-11-05
 
