@@ -10,7 +10,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
-const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+// Git checkouts on Windows can be CRLF. Normalize once so import stripping and
+// the pageHtml() terminator search do not depend on the checkout's line endings.
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8').replace(/\r\n/g, '\n');
 const version = JSON.parse(read('package.json')).version;
 
 /** Drop ESM syntax so the modules can be concatenated into one scope. */
