@@ -12,6 +12,7 @@ import { gzipSync } from 'node:zlib';
 import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, toUpstreamMessage } from './lib/models.mjs';
 import { compactMessages } from './lib/memory.mjs';
 import { TOOL_DEFINITIONS, runTool, parseTextToolCalls } from './lib/tools.mjs';
+import { withToolInstruction } from './lib/tool-prompt.mjs';
 import {
   PROVIDERS,
   getProvider,
@@ -147,7 +148,7 @@ const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.8.0';
+const VERSION = '2.8.4';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -1018,7 +1019,9 @@ async function handleChat(req, res) {
 
       const payload = {
         model: step.model,
-        messages: conversation,
+        // The instruction is added to the outgoing payload, not the saved
+        // conversation, so a tool-less retry cannot still claim tools are on.
+        messages: withToolInstruction(conversation, tools),
         stream: true,
         max_tokens: settings.maxTokens,
       };
@@ -1047,7 +1050,7 @@ async function handleChat(req, res) {
         // Retry the same model once without tools instead of failing the turn.
         if (upstream.status === 400 && Array.isArray(payload.tools)) {
           await upstream.text().catch(() => '');
-          const plain = { ...payload };
+          const plain = { ...payload, messages: conversation };
           delete plain.tools;
           upstream = await post(step, plain);
           tools = [];
@@ -1339,6 +1342,15 @@ async function handleChat(req, res) {
 
 /* -------------------------------------------------------------- routing */
 
+/** Route ids come from the URL: a malformed % escape is a bad request, not a crash. */
+function decodeId(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 function requireToken(req, res) {
   if (req.headers['x-app-token'] !== APP_TOKEN) {
     sendJson(res, 403, { error: 'Missing or invalid app token.' });
@@ -1353,7 +1365,9 @@ async function route(req, res) {
   // Decided once per request: both the page and every JSON body read this.
   res.wantsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
 
-  if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+  // HEAD is how a monitor, a proxy or `curl -I` checks the page is alive. Node
+  // drops the body for a HEAD response, so the same handler serves both.
+  if ((req.method === 'GET' || req.method === 'HEAD') && (pathname === '/' || pathname === '/index.html')) {
     const html = (await pageHtml()).replace('__APP_TOKEN__', APP_TOKEN);
     // The page is one large inline script. Over a slow tunnel gzip is the
     // difference between a half-delivered page and a loaded one: 109 KB → 30 KB.
@@ -1388,8 +1402,8 @@ async function route(req, res) {
 
   if (pathname.startsWith('/api/threads/')) {
     if (!requireToken(req, res)) return;
-    const id = decodeURIComponent(pathname.slice('/api/threads/'.length));
-    if (!id) return sendJson(res, 400, { error: 'Missing chat id.' });
+    const id = decodeId(pathname.slice('/api/threads/'.length));
+    if (!id) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
 
     if (req.method === 'GET') {
       const thread = store().get(id);
@@ -1747,8 +1761,8 @@ async function route(req, res) {
   // it never fights with the debounced message save or its stale-rev guard.
   if (req.method === 'POST' && pathname.startsWith('/api/preview/')) {
     if (!requireToken(req, res)) return;
-    const id = decodeURIComponent(pathname.slice('/api/preview/'.length));
-    if (!id) return sendJson(res, 400, { error: 'Missing chat id.' });
+    const id = decodeId(pathname.slice('/api/preview/'.length));
+    if (!id) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
     const body = await readJson(req, 4096);
     const thread = store().setPreview(id, body?.url);
     if (!thread) return sendJson(res, 404, { error: 'No such chat.' });

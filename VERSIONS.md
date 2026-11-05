@@ -5,6 +5,10 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.8.4 | 2026-11-05 | Cloud answers the page from cache and warms the catalog in the background |
+| 2.8.3 | 2026-11-05 | Cloud requests are time-bounded so a cold deploy cannot answer 502 |
+| 2.8.2 | 2026-11-05 | Audit fixes: malformed route ids are 400s, HEAD serves the page, healthz is read-only |
+| 2.8.1 | 2026-11-05 | Tool turns follow the Settings switch and tell the model to use the offered tools |
 | 2.8.0 | 2026-11-05 | Preview runtime diagnostics for script errors, failed assets and rejections |
 | 2.7.2 | 2026-11-05 | Dependency-free browser regression test for preview cards |
 | 2.7.1 | 2026-11-05 | Preview build cards hide the blank iframe; browser verification passed |
@@ -121,6 +125,62 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.8.4 — 2026-11-05
+
+- **The shell never waits for the catalog.** 2.8.3 bounded the catalog fetch, but a cold
+  production isolate still added that wait to its own startup and met the edge's ~5 s
+  limit (5.1 s → 502, twice in a row, then 100 ms). `/api/config` now answers from the
+  in-memory catalog — the page never reads the count it returns — warms the catalog with
+  `ctx.waitUntil`, and lets `/api/models` deliver the real list. Preview's first request
+  after deploy fell from 3.9 s to 1.6 s.
+- **A regression check pins it.** The cloud suite points the catalog at a 3-second endpoint
+  and asserts `/api/config` answers in under a second; the old code waited 2.5 s.
+- 198 units, 27 CLI, 21 + 21 simulation, 28 cloud checks and the browser preview check pass.
+
+## 2.8.3 — 2026-11-05
+
+- **A cold deployment answers.** `/api/config` fetches the live OpenRouter catalog before
+  replying, and that fetch had no deadline. On a cold isolate a slow catalog ran past
+  Cloudflare's roughly 5 s edge limit, so the first visitor got `502 Site unavailable`
+  (reproduced on the preview deployment: 5.07 s, then 200 in 0.16 s). The catalog fetch is
+  now bounded at 2.5 s and falls back to the cached list with `catalogError` instead of
+  failing the request.
+- **Every outbound call is bounded.** Model-list calls, the Gemini native fallback, the
+  quota lookup and the chat request now carry timeouts (15 s / 120 s), matching the
+  desktop app, so a silent provider cannot hold a Worker open.
+- 198 units, 27 CLI, 21 + 21 simulation, 27 cloud checks and the browser preview check pass.
+
+## 2.8.2 — 2026-11-05
+
+- **A bad URL is a client error, not a crash.** `GET /api/threads/%` and
+  `POST /api/preview/%` used to throw `URIError: URI malformed` out of
+  `decodeURIComponent` and answer 500. A shared `decodeId()` now answers 400 with a clear
+  message; the cloud Worker has the same guard on `/api/threads/:id`.
+- **HEAD works.** `HEAD /` answers 200 with the page headers instead of 404, so a monitor,
+  a proxy or `curl -I` can check the app without downloading 222 KB. Node still sends no
+  body for a HEAD response.
+- **`/healthz` is read-only.** The cloud Worker answers 405 to a POST instead of 200, so a
+  health check cannot double as a write probe.
+- 198 units, 27 CLI, 21 + 21 simulation, 27 cloud checks and the browser preview check pass.
+
+## 2.8.1 — 2026-11-05
+
+- **The switch controls the prompt too.** Desktop and cloud now use the same
+  instruction whenever tools are actually offered: use the available tools when they are
+  more reliable than guessing, inspect files before describing or editing them, and never
+  claim a call ran without its result. The prompt names the tools in that request.
+- **No stale claim after a refusal.** The instruction is added to the outgoing payload, not
+  the saved conversation. If a model rejects the tool parameter and the app retries once
+  without tools, that retry carries no tool prompt either.
+- **Cloud parity.** The cloud Worker adds the instruction only on the non-streaming path
+  that can report tool calls; a normal streaming turn and a tools-off turn are unchanged.
+  The page already routes a tools-on message through the tool loop and a tools-off message
+  through streaming, and that split now has a page regression guard.
+- **Settings say what happens.** Desktop lists the workspace/GitHub tools it can offer, and
+  both editions state that the model is told to use them when the toggle is on. Cloud keeps
+  its write approval unchanged.
+- 198 units, 25 CLI, 21 + 21 simulation, 26 cloud checks and the browser preview check pass.
 
 ## 2.8.0 — 2026-11-05
 

@@ -1771,7 +1771,7 @@
             <button type="button" data-fill="Review this code for bugs and say what you would change:\n">Review code</button>
             <button type="button" data-fill="Write a clear commit message for this change:\n">Commit message</button>
           </div>
-          <p class="fine">In the tab the model can use workspace tools on browser files; the desktop app (v<span class="desktopVer">…</span>) reads real files and runs commands. Your key stays in this tab.</p>
+          <p class="fine">When workspace tools are enabled in Settings, the model is told to use them on browser files; writes still ask first. The desktop app (v<span class="desktopVer">…</span>) reads real files and runs commands. Your key stays in this tab.</p>
         </div>
       </div>
       <div id="bannerSlot"></div>
@@ -1860,6 +1860,7 @@
         <input id="settingTools" type="checkbox" style="width:auto" />
         Workspace tools (testing): let the model list, read and write browser files
       </label>
+      <div class="fine" style="margin-top:4px">Off by default. When on, the model is told to use these tools; write_file still asks you first.</div>
       <div class="row" style="justify-content:flex-start; flex-wrap:wrap; margin-top:14px">
         <button class="ghost mini" id="historyBtn" type="button">Saved chats</button>
         <button class="ghost mini" id="promptsBtn" type="button">Prompts</button>

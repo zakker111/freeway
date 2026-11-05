@@ -61,6 +61,7 @@ generated, never edited by hand.
 | `app.mjs` | CLI, config, HTTP routes, SSE chat loop, tool wiring |
 | `lib/models.mjs` | catalog filtering, free-model chain, token estimate |
 | `lib/tools.mjs` | tool definitions and implementations (no I/O except `fetch`) |
+| `lib/tool-prompt.mjs` | shared system instruction for turns that actually offer tools |
 | `lib/store.mjs` | `threads.json`: threads, drafts, `rev` for conflict detection |
 | `lib/redact.mjs` | strips `sk-…` secrets from logs, SSE errors and 5xx bodies |
 | `lib/memory.mjs` | deterministic long-chat compaction (no model call, no history loss) |

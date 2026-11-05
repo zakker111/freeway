@@ -286,9 +286,10 @@ between machines.
   written to disk.
 - **Request budget.** Set a soft cap on free requests per conversation; the footer counts
   up and warns as you approach it. It warns, it never blocks.
-- **Tools.** Clock, exact calculator, and public web fetch (see below). Only offered to
-  models whose catalog entry supports tool calling; if a model rejects the parameter the
-  app retries once without tools.
+- **Tools.** Clock, exact calculator, public web fetch, workspace file tools, GitHub helpers
+  and allowlisted commands (see below). Only offered to models whose catalog entry supports
+  tool calling; when they are on, the server tells the model to use them instead of guessing.
+  If a model rejects the parameter the app retries once without tools.
 - **Real chat controls.** Copy, regenerate, edit a prompt, new chat, stop mid-stream, and
   the thread survives a reload (kept in `localStorage`).
 - **Nothing lost to a refresh.** If an answer is cut off — tab closed, page reloaded,
@@ -334,7 +335,10 @@ between machines.
 | `run_command` | Runs one allowlisted program in the workspace | **approved per call**, `shell: false`, filtered env, 60s, 64 KB, streamed output |
 
 Tool loops are bounded: at most 3 rounds and 4 calls per round, so a confused model cannot
-spin forever. Turn tools off entirely in Settings. Anything that writes or executes —
+spin forever. Turn tools off entirely in Settings. Whenever tools are actually offered, both
+editions prepend a short system instruction (`lib/tool-prompt.mjs`) telling the model to use
+them and not to claim a call ran without a result. It is omitted when tools are off, or after
+a model rejects the parameter. Anything that writes or executes —
 `write_file`, `apply_patch`, `github_create_issue`, `run_command` — stops at an Allow / Deny card first,
 and a dropped connection or a three-minute wait counts as Deny.
 
@@ -351,6 +355,7 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | --- | --- |
 | `app.mjs` | HTTP server, OpenRouter proxy, SSE streaming, tool loop, config |
 | `lib/models.mjs` | pure catalog filtering and chain building |
+| `lib/tool-prompt.mjs` | one tool-use instruction shared by both editions |
 | `lib/providers.mjs` | the provider table: base URLs, key rules, free-plan checks |
 | `lib/memory.mjs` | long-chat compaction into one memory note |
 | `lib/tools.mjs` | tool schemas, calculator, URL guard, HTML-to-text |

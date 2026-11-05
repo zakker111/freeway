@@ -73,6 +73,13 @@ const mock = http.createServer(async (req, res) => {
     );
     return;
   }
+  if (url.pathname.endsWith('/slow/models')) {
+    // Used by the cold-start check: a catalog that outlives the edge's budget.
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: models }));
+    return;
+  }
   if (url.pathname.endsWith('/models')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ data: models }));
@@ -232,6 +239,20 @@ async function main() {
   await once(mock, 'listening');
   upstream = `http://127.0.0.1:${mock.address().port}/api/v1`;
 
+  await check('config answers before a slow catalog does', async () => {
+    const started = Date.now();
+    const response = await request(envWith({ OPENROUTER_BASE_URL: `${upstream}/slow` }), {
+      path: '/api/config',
+      method: 'GET',
+      origin: null,
+      ip: null,
+    });
+    const elapsed = Date.now() - started;
+    assert.equal(response.status, 200);
+    // The empty module cache means the old code waited for the 2.5s timeout.
+    assert.ok(elapsed < 1000, `config waited ${elapsed}ms for the catalog`);
+  });
+
   await check('config reports the guard a shared key is under', async () => {
     const response = await request(envWith(), { path: '/api/config', method: 'GET', origin: null, ip: null });
     assert.equal(response.status, 200);
@@ -242,6 +263,14 @@ async function main() {
     assert.ok(config.guard.perVisitorPerDay >= 1);
     assert.equal(config.guard.originFence, true);
     assert.equal(JSON.stringify(config).includes(KEY), false, 'the key leaked into /api/config');
+  });
+
+  await check('healthz is a read-only check', async () => {
+    const get = await request(envWith(), { path: '/healthz', method: 'GET', origin: null, ip: null });
+    assert.equal(get.status, 200);
+    assert.equal(await get.text(), 'ok');
+    const post = await request(envWith(), { path: '/healthz', method: 'POST', origin: null, ip: null });
+    assert.equal(post.status, 405);
   });
 
   await check('a shared-key turn from another origin is refused', async () => {
@@ -468,6 +497,38 @@ async function main() {
     assert.equal((await response.json()).text, 'hello from the mock');
     assert.equal(lastChatBody.model, 'gpt-oss-120b');
     assert.equal(lastChatHeaders.authorization, undefined, 'a keyless provider was sent a bearer token');
+  });
+
+  await check('a tool turn tells the model to use the offered tools', async () => {
+    lastChatBody = null;
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'list_files',
+          description: 'List browser workspace files.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+    ];
+    const response = await request(envWith(), { body: { ...chatBody, tools } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(lastChatBody.tools.map((tool) => tool.function.name), ['list_files']);
+    const system = lastChatBody.messages.find((message) => message.role === 'system');
+    assert.ok(system, 'the tool turn had no system instruction');
+    assert.match(system.content, /Tool use is enabled in Settings/);
+    assert.match(system.content, /Available tools: list_files/);
+  });
+
+  await check('a plain turn does not claim tools are enabled', async () => {
+    lastChatBody = null;
+    const response = await request(envWith(), { body: chatBody });
+    assert.equal(response.status, 200);
+    assert.equal(lastChatBody.tools, undefined);
+    assert.equal(
+      lastChatBody.messages.some((message) => /Tool use is enabled in Settings/.test(message.content)),
+      false,
+    );
   });
 
   await check('OVHcloud is not used as a silent fallback', async () => {

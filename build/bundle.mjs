@@ -56,6 +56,7 @@ const page = read('public/index.html');
 const models = stripModule(read('lib/models.mjs'), 'lib/models.mjs');
 const memory = stripModule(read('lib/memory.mjs'), 'lib/memory.mjs');
 const tools = stripModule(read('lib/tools.mjs'), 'lib/tools.mjs');
+const toolPrompt = stripModule(read('lib/tool-prompt.mjs'), 'lib/tool-prompt.mjs');
 const chatStore = stripModule(read('lib/store.mjs'), 'lib/store.mjs');
 const redact = stripModule(read('lib/redact.mjs'), 'lib/redact.mjs');
 const workspaceMod = stripModule(read('lib/workspace.mjs'), 'lib/workspace.mjs');
@@ -71,6 +72,7 @@ const app = stripModule(read('app.mjs'), 'app.mjs');
 collectNames(models.code, 'lib/models.mjs');
 collectNames(memory.code, 'lib/memory.mjs');
 collectNames(tools.code, 'lib/tools.mjs');
+collectNames(toolPrompt.code, 'lib/tool-prompt.mjs');
 collectNames(chatStore.code, 'lib/store.mjs');
 collectNames(redact.code, 'lib/redact.mjs');
 collectNames(workspaceMod.code, 'lib/workspace.mjs');
@@ -130,6 +132,7 @@ const imports = mergeImports([
   ...models.imports,
   ...memory.imports,
   ...tools.imports,
+  ...toolPrompt.imports,
   ...chatStore.imports,
   ...redact.imports,
   ...workspaceMod.imports,
@@ -165,6 +168,10 @@ ${memory.code}
 /* ---------------------------------------------------------- lib/tools.mjs */
 
 ${tools.code}
+
+/* ---------------------------------------------------- lib/tool-prompt.mjs */
+
+${toolPrompt.code}
 
 /* --------------------------------------------------------- lib/redact.mjs */
 

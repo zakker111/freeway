@@ -721,6 +721,13 @@ async function main() {
       const text = events.filter((e) => e.type === 'delta').map((e) => e.text).join('');
       assert.match(text, /42/);
 
+      const opening = chatCalls[0];
+      const guidance = opening.messages.find(
+        (message) => message.role === 'system' && /Tool use is enabled in Settings/.test(message.content),
+      );
+      assert.ok(guidance, 'the tool request had no instruction to use the tools');
+      assert.match(guidance.content, /Available tools: .*calculate/, 'the prompt did not name the offered tools');
+
       const followUp = chatCalls[1];
       assert.ok(followUp, 'the app never sent the tool result back');
       const toolMessage = followUp.messages.find((m) => m.role === 'tool');
@@ -778,6 +785,24 @@ async function main() {
       assert.equal(read.settings.maxTokens, 4000, 'maxTokens must clamp to 4000');
       assert.equal(read.settings.tools, false);
       assert.equal(read.settings.systemPrompt, 'be brief');
+
+      // With the toggle off the request must carry neither tools nor a prompt
+      // claiming they are available.
+      mode = 'fallback';
+      chatCalls = [];
+      const off = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'use a tool' }] }),
+      });
+      await off.text();
+      assert.ok(chatCalls.length > 0, 'the disabled-tools turn never reached a model');
+      assert.equal(chatCalls[0].tools, undefined, 'tools were sent while the setting was off');
+      assert.equal(
+        chatCalls[0].messages.some((message) => /Tool use is enabled in Settings/.test(message.content)),
+        false,
+        'the model was told tools were on while the setting was off',
+      );
 
       const reset = await fetch(`${base}/api/config`, {
         method: 'POST',

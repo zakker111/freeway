@@ -19,8 +19,9 @@
 import { createFreebuffAuth, isSameOriginRequest } from '@freebuff/auth';
 import { compactMessages } from '../lib/memory.mjs';
 import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
+import { withToolInstruction } from '../lib/tool-prompt.mjs';
 
-const VERSION = '2.8.0-cloud';
+const VERSION = '2.8.4-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -140,9 +141,23 @@ function toPicker(model) {
 async function loadCatalog(env, force = false) {
   const fresh = Date.now() - catalogCache.at < CATALOG_TTL_MS;
   if (!force && fresh && catalogCache.models.length) return catalogCache;
-  const res = await fetch(`${baseFor(getProvider('openrouter'), env)}/models`, {
-    headers: { accept: 'application/json' },
-  });
+  // /api/config waits for this call, so it must never outlive the edge's own
+  // patience: a slow catalog used to reach the ~5s limit and turn the first
+  // visitor's page load into "Site unavailable" instead of a degraded page.
+  let res;
+  try {
+    res = await fetch(`${baseFor(getProvider('openrouter'), env)}/models`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(2_500),
+    });
+  } catch (error) {
+    catalogCache = {
+      at: Date.now() - CATALOG_TTL_MS + 30_000,
+      models: catalogCache.models,
+      error: `catalog fetch failed: ${String(error?.message ?? error).slice(0, 160)}`,
+    };
+    return catalogCache;
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     catalogCache = {
@@ -503,6 +518,7 @@ async function remoteModels(provider, key, env, account = '') {
       ...(key ? { authorization: `Bearer ${key}` } : {}),
       accept: 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
   });
   // A rejected key is not an absent /models route: do not answer it with the
   // fallback list, or a bad key looks like a working provider.
@@ -516,7 +532,9 @@ async function remoteModels(provider, key, env, account = '') {
   }
   // Gemini's OpenAI layer may not expose /models; its native endpoint does.
   if (ids.length === 0 && provider.nativeBase) {
-    const native = await fetch(`${provider.nativeBase}/models?key=${encodeURIComponent(key)}`);
+    const native = await fetch(`${provider.nativeBase}/models?key=${encodeURIComponent(key)}`, {
+      signal: AbortSignal.timeout(15_000),
+    });
     if (native.ok) {
       const body = await native.json().catch(() => ({}));
       ids = (Array.isArray(body?.models) ? body.models : [])
@@ -556,14 +574,14 @@ function appFor(env) {
   if (known && known.key === key) return known;
   let entry;
   if (!clientId || !origin) {
-    entry = { key, auth: null, handler: (request) => handle(request, env) };
+    entry = { key, auth: null, handler: (request, ...rest) => handle(request, env, ...rest) };
   } else {
     const auth = createFreebuffAuth({
       clientId,
       issuer: String(env?.FREEBUFF_ISSUER ?? '').trim() || undefined,
       baseUrl: origin,
     });
-    entry = { key, auth, handler: auth.wrap((request) => handle(request, env)) };
+    entry = { key, auth, handler: auth.wrap((request, ...rest) => handle(request, env, ...rest)) };
   }
   if (env && typeof env === 'object') appCache.set(env, entry);
   return entry;
@@ -767,6 +785,15 @@ const MAX_FILE_BYTES = 1_000_000;
 const MAX_FILE_COUNT = 40;
 const MAX_FILE_TOTAL = 8_000_000;
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/** A malformed % escape in a route id is a bad request, not a 500. */
+function decodeId(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
 
 export function cleanFileName(raw) {
   const name = String(raw ?? '').trim();
@@ -1145,9 +1172,19 @@ async function handleChat(request, env) {
 
   const streamRequested = body.stream !== false;
   const started = Date.now();
+  // Tools are only usable on the single-JSON path. Compute the exact list once
+  // so the prompt instruction and the request body cannot disagree.
+  const offeredTools =
+    !streamRequested && Array.isArray(body.tools) && body.tools.length > 0
+      ? body.tools.slice(0, 8)
+      : [];
+  const upstreamMessages = withToolInstruction(
+    recentImages(memory.messages, 2).map(toUpstreamMessage),
+    offeredTools,
+  );
   // Images and tool calls depend on the selected model's capabilities, so a
   // model retry is only safe for a plain text turn.
-  const canRetryModel = !parsed.hasImages && !(Array.isArray(body.tools) && body.tools.length);
+  const canRetryModel = !parsed.hasImages && offeredTools.length === 0;
   const modelIds = await sameProviderChain(provider, wanted, env, key, account, canRetryModel);
   // The selected provider is the whole provider decision. Retry models inside
   // it, but never send the conversation to another service; only the user can
@@ -1173,11 +1210,14 @@ async function handleChat(request, env) {
       upstream = await fetch(chatUrlFor(attempt.provider, env, attempt.account), {
         method: 'POST',
         headers,
+        // Bounded like the desktop app: a provider that stops talking must not
+        // hold the Worker open until the platform kills the request.
+        signal: AbortSignal.timeout(120_000),
         body: JSON.stringify({
           model: attempt.model,
           // Recent images only: older pictures stay visible in the chat but are
           // not re-uploaded on every turn. Fallbacks are disabled for images.
-          messages: recentImages(memory.messages, 2).map(toUpstreamMessage),
+          messages: upstreamMessages,
           stream: streamRequested,
           max_tokens: Math.min(
             Number.isFinite(body.max_tokens) ? Math.min(Math.max(Number(body.max_tokens), 64), 4096) : 2048,
@@ -1189,9 +1229,7 @@ async function handleChat(request, env) {
             : {}),
           // Tools only make sense on the single-JSON path; the stream has no place
           // to report a tool call back to this page.
-          ...(!streamRequested && Array.isArray(body.tools) && body.tools.length
-            ? { tools: body.tools.slice(0, 8), tool_choice: 'auto' }
-            : {}),
+          ...(offeredTools.length > 0 ? { tools: offeredTools, tool_choice: 'auto' } : {}),
           ...(streamRequested && attempt.provider.id === 'openrouter'
             ? { stream_options: { include_usage: true } }
             : {}),
@@ -1322,18 +1360,31 @@ async function handlePage(request, env) {
   return new Response(asset.body, { status: asset.status, headers });
 }
 
-async function handle(request, env) {
+async function handle(request, env, ctx) {
   {
     const url = new URL(request.url);
     const { pathname } = url;
 
     try {
       if (pathname === '/healthz') {
-        return new Response('ok', { headers: { 'content-type': 'text/plain', ...BASE_HEADERS } });
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+          return publicError(405, 'method', 'Use GET.');
+        }
+        return new Response(request.method === 'HEAD' ? null : 'ok', {
+          headers: { 'content-type': 'text/plain', ...BASE_HEADERS },
+        });
       }
 
       if (pathname === '/api/config' && request.method === 'GET') {
-        const catalog = await loadCatalog(env).catch((error) => ({ models: [], error: String(error?.message ?? error) }));
+        // The page shell must answer on a cold isolate. The catalog is only
+        // needed for the free-model count here (the page loads the real list
+        // from /api/models), so waiting on a slow upstream used to push the
+        // first visit past the edge's patience and serve "Site unavailable".
+        // Answer from whatever is cached and warm the catalog after the fact.
+        const catalog = catalogCache;
+        if (!catalog.models.length && typeof ctx?.waitUntil === 'function') {
+          ctx.waitUntil(loadCatalog(env).catch(() => {}));
+        }
         const free = catalog.models.filter((m) => isFreeChatModel(m) && !isExpired(m));
         const { source } = resolveKey(request, env, getProvider('openrouter'));
         // Which providers already have a deployment key: the page must not ask
@@ -1421,6 +1472,7 @@ async function handle(request, env) {
         try {
           const upstream = await fetch(`${UPSTREAM}/key`, {
             headers: { authorization: `Bearer ${quotaKey}`, accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000),
           });
           if (!upstream.ok) {
             return json(
@@ -1523,8 +1575,8 @@ async function handle(request, env) {
         if (!isSameOriginRequest(request, env.APP_ORIGIN)) {
           return publicError(403, 'foreign_origin', 'That request came from another site.');
         }
-        const id = decodeURIComponent(pathname.slice('/api/threads/'.length));
-        if (!THREAD_ID.test(id)) return publicError(400, 'bad_id', 'That chat id is not valid.');
+        const id = decodeId(pathname.slice('/api/threads/'.length));
+        if (!id || !THREAD_ID.test(id)) return publicError(400, 'bad_id', 'That chat id is not valid.');
         await ensureSchema(env.DB);
 
         if (request.method === 'DELETE') {
@@ -1593,7 +1645,7 @@ async function handle(request, env) {
 }
 
 export default {
-  fetch(request, env) {
-    return appFor(env).handler(request, env);
+  fetch(request, env, ctx) {
+    return appFor(env).handler(request, env, ctx);
   },
 };

@@ -5,6 +5,30 @@ rebuilt single file, rebuilt ZIP, and a redeploy to the same public link. The li
 the three archives with their checksums are in `../CURRENT-LINK.txt`; the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.8.4 · the page shell never waits for the catalog
+
+- [x] `/api/config` answers from the cached catalog and warms it with `ctx.waitUntil`
+- [x] Cloud check: a 3 s catalog cannot hold the config response past 1 s
+- [x] Rebuilt the Worker, deployed preview and production, re-probed both
+
+## Done — 2.8.3 · cloud cold-start timeout
+
+- [x] `/api/config` no longer blocks on an unbounded catalog fetch; a 2.5 s cap and the
+      cached list with `catalogError` replace the edge 502 reproduced on preview
+- [x] Timeouts on model lists, the native Gemini lookup, `/api/quota` and the chat call
+- [x] Rebuilt the Worker, redeployed preview and production, re-probed the cold route
+
+## Done — 2.8.2 · audit: bad URLs, HEAD, healthz
+
+- [x] `decodeId()` in `app.mjs` and `cloud/worker.mjs`: a malformed `%` escape is a 400,
+      not a 500 "URI malformed" from `decodeURIComponent`
+- [x] `HEAD /` serves the page headers; a monitor or `curl -I` no longer sees 404
+- [x] `/healthz` refuses non-GET methods in the cloud Worker
+- [x] CLI checks for the 400 and the HEAD response; cloud check for the health route
+- [x] Full audit: all six suites, generated bundle/worker sync, page-to-route cross-check,
+      Markdown escaping, CSP, path traversal, body limits and the confirm gate
+- [x] 2.8.2 shipped to desktop, cloud production and cloud preview
+
 ## Done — 1.8.1
 
 - [x] Show the running version in the header (`v1.8.1`), read from `/api/config`
@@ -552,6 +576,17 @@ answers only when a visitor pastes their own.
 - [x] Page test isolates `renderFiles()` and rejects chat-pin references
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
+
+## Done — 2.8.1 · tools follow the toggle
+
+- [x] Shared `lib/tool-prompt.mjs` instruction names the offered tools and forbids claiming a call without a result
+- [x] Desktop adds it only when the outgoing request carries tools; the no-tools retry drops it
+- [x] Cloud Worker adds it only on the non-streaming tool path; streaming and tools-off turns are unchanged
+- [x] Cloud page guard proves the Settings switch chooses the tool loop or streaming
+- [x] Desktop and cloud Settings copy explains the prompt and the write approval
+- [x] 198 units, 25 CLI, 21+21 simulation, 26 cloud checks and the browser preview check pass
+- [x] 2.8.1 on 3002; production and preview on 2.8.1-cloud; all three keyless smoke turns pass
+- [x] Source archive rebuilt from the final tree
 
 ## Done — 2.8.0 · preview runtime diagnostics
 

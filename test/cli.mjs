@@ -138,6 +138,32 @@ async function main() {
     }
   });
 
+  await check('a malformed chat id is a 400, not a crash', async () => {
+    const app = await startApp();
+    try {
+      const response = await fetch(`${app.base}/api/threads/%`, {
+        headers: { 'x-app-token': app.token },
+      });
+      assert.equal(response.status, 400, 'a bad % escape must be a client error');
+      assert.doesNotMatch(await response.text(), /URI malformed/, 'the raw decoder error reached the page');
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('HEAD / reports the page without a body', async () => {
+    const app = await startApp();
+    try {
+      const response = await fetch(`${app.base}/`, { method: 'HEAD' });
+      assert.equal(response.status, 200, 'a monitor cannot check the page');
+      assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8');
+      assert.ok(Number(response.headers.get('content-length')) > 1000, 'HEAD lost the page length');
+      assert.equal(await response.text(), '', 'HEAD returned a body');
+    } finally {
+      await stopApp(app);
+    }
+  });
+
   await check('saves, lists, searches and deletes chats', async () => {
     const app = await startApp();
     const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
