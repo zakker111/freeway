@@ -41,8 +41,9 @@ into the workspace and opens the result in Preview.
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
-end to end on commit `94715e4` (run 41940445555). The published 2.4.1 download was
-cross-built from Linux with the same steps (see `RELEASING.md`).
+end to end on commit `94715e4` (run 41940445555). The 2.4.2 release is built by that
+workflow from the tag and its Windows ZIP is the tested artifact. The earlier 2.4.1
+download was cross-built from Linux with the same steps (see `RELEASING.md`).
 
 Get it:
 
@@ -51,10 +52,9 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The published 2.4.1 `.exe` was assembled outside Windows and could not be launched in the
-build machine, so treat its first run as a smoke test. The workflow's `windows-client`
-artifact is the same source built and smoke-tested on Windows; it is not the attached
-release asset. If the published `.exe` refuses to start, use
+The 2.4.2 `.exe` is built and smoke-tested by the tag workflow. The earlier 2.4.1 `.exe` was
+assembled outside Windows and could not be launched in the build machine, so treat its
+first run as a smoke test. If the published `.exe` refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
 1. Push this folder to GitHub (the workflow is at `.github/workflows/build-windows.yml`).
@@ -65,7 +65,7 @@ release asset. If the published `.exe` refuses to start, use
    Run anyway**.
 5. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-Tagging a release (`git tag v2.4.1 && git push --tags`) attaches the same ZIP to the
+Tagging a release (`git tag v2.4.2 && git push --tags`) attaches the same ZIP to the
 GitHub release.
 
 ### Start it on your computer — exact steps
@@ -119,7 +119,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.4.1 — self-check
+Freeway 2.4.2 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable

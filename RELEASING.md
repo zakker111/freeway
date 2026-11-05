@@ -61,7 +61,7 @@ Name the result `Freeway.exe`, zip it with the README, and keep it out of the so
 ZIP. It is unsigned, so SmartScreen shows **More info → Run anyway**. The `.exe` cannot be
 executed in the Linux VM; `.github/workflows/build-windows.yml` is the authoritative,
 Windows-tested build. It passed on commit `94715e4` (run 41940445555); its
-`windows-client` artifact still needs to be attached to a release and launched on a desktop.
+`windows-client` artifact is attached by the 2.4.2 tag workflow; launching it on a Windows desktop is still pending.
 
 ## Live smoke matrix
 

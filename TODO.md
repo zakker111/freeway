@@ -553,6 +553,16 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.2 · Windows CI
+
+- [x] Bundler normalizes CRLF before import stripping and the `pageHtml()` terminator search
+- [x] Windows tests accept PATH-resolved executables and skip POSIX-only assumptions
+- [x] Windows workflow passed all steps on `94715e4` (run 41940445555)
+- [x] All five suites pass for 2.4.2
+- [x] 2.4.2 on 3002; production and preview on 2.4.2-cloud
+- [x] Source and GitHub-source archives rebuilt
+- [ ] Windows tag workflow attached and verified; launch on Windows pending
+
 ## Done — 2.4.1 · Node 22 CI discovery
 
 - [x] Unit tests run under Node 22 when the 14 files are passed explicitly

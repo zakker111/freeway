@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.2 | 2026-11-05 | Windows CI bundling and tests fixed; executable built and smoke-tested on Windows |
 | 2.4.1 | 2026-11-04 | Node 22 CI test discovery fixed; retry behavior unchanged |
 | 2.4.0 | 2026-11-04 | Cloud model retries stay inside the selected provider; Linux CI |
 | 2.3.5 | 2026-11-04 | Project name and repository are Freeway everywhere |
@@ -110,6 +111,21 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.2 — 2026-11-05
+
+**Windows CI now builds the same bundle as Linux and can test the executable.**
+
+- `build/bundle.mjs` normalizes CRLF before its import stripping and `pageHtml()`
+  terminator search, so a Windows checkout no longer fails with
+  `end of pageHtml() not found`.
+- Windows unit tests now accept PATH-resolved executables (`echo.exe`), use a real
+  outside temporary directory for the symlink escape, and skip the POSIX `0600`
+  assertion where NTFS does not expose those bits. Behavior assertions are unchanged.
+- 169 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
+- The tag workflow builds and smoke-tests `Freeway-2.4.2-windows.zip` on
+  `windows-latest` and attaches it to the release. No app runtime behavior change.
+- 2.4.2 desktop; 2.4.2-cloud on production and preview; URLs unchanged.
 
 ## 2.4.1 — 2026-11-04
 
