@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.6.0 | 2026-11-05 | Desktop previews use a tokenised loopback server for modules and fetch |
 | 2.5.0 | 2026-11-05 | Shared preview core bundles linked CSS/JS/SVG in both editions |
 | 2.4.6 | 2026-11-05 | HTML writes open the preview automatically |
 | 2.4.5 | 2026-11-05 | Keyless button names OVHcloud and says it switches provider |
@@ -116,6 +117,22 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.6.0 — 2026-11-05
+
+- Desktop HTML previews now load from a private loopback HTTP server instead of a
+  `srcdoc` document, so relative ES modules, `fetch()` and absolute `/assets` paths work.
+  The server binds `127.0.0.1`, exchanges a per-run 256-bit token for an HttpOnly,
+  SameSite=Lax cookie, and serves only files inside the selected workspace.
+- Directory indexes, nested entries and extensionless SPA routes work; SPA fallbacks
+  inject a `<base>` so relative assets still resolve. JavaScript/module MIME types,
+  8 MB assets, GET/HEAD only and `no-store` are enforced.
+- Hidden paths, `node_modules`, outside symlinks and common secret file names are refused.
+  A safe-looking symlink cannot expose a hidden target because the resolved path is checked
+  too. Tests cover traversal, symlinks, token loss and directory redirects.
+- The one shared static bundler remains the fallback for unsaved editor buffers, tunneled
+  tabs and every cloud preview. The 2 MB static preview limit is unchanged.
+- 185 units, 25 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.5.0 — 2026-11-05
 

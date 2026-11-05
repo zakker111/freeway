@@ -35,6 +35,13 @@ Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The
 In either edition, **Files → Sample** writes `sample/index.html` and `sample/style.css`
 into the workspace and opens the result in Preview.
 
+Desktop HTML previews use a private server on `127.0.0.1`, so linked files, relative ES
+modules, `fetch()` and absolute `/assets` paths behave like a normal dev server. It serves
+only the selected workspace, refuses hidden/secret files and stops with the app. Open the
+app at `http://127.0.0.1:3002` (the address it prints) to use it; an unsaved editor buffer
+or a tunneled tab falls back to the shared static preview. Cloud previews remain static and
+say clearly when a language needs a runtime they cannot provide.
+
 ### The one executable (no Node, no installer)
 
 `Freeway.exe` is the whole app with Node inside it: one file, no dependencies, no

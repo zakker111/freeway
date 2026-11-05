@@ -517,6 +517,53 @@ async function main() {
     }
   });
 
+  await check('serves a workspace preview through a tokenised loopback server', async () => {
+    const app = await startApp();
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const unauth = await fetch(`${app.base}/api/preview/serve`, { method: 'POST' });
+      assert.equal(unauth.status, 403);
+
+      const noWorkspace = await fetch(`${app.base}/api/preview/serve`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ entry: 'index.html' }),
+      });
+      assert.equal(noWorkspace.status, 400);
+
+      const site = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-server-preview-'));
+      fs.writeFileSync(path.join(site, 'index.html'), '<!doctype html><title>served</title><h1>preview works</h1>');
+      fs.writeFileSync(path.join(site, 'style.css'), 'h1 { color: green; }');
+      const configured = await fetch(`${app.base}/api/config`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ workspace: site }),
+      });
+      assert.equal(configured.status, 200);
+
+      const response = await fetch(`${app.base}/api/preview/serve`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ entry: 'index.html', host: '127.0.0.1' }),
+      });
+      assert.equal(response.status, 200);
+      const served = await response.json();
+      assert.match(served.url, /^http:\/\/127\.0\.0\.1:\d+\/__freeway_preview__\/[a-f0-9]{64}\/index\.html$/);
+
+      const handoff = await fetch(served.url, { redirect: 'manual' });
+      assert.equal(handoff.status, 302);
+      const cookie = (handoff.headers.get('set-cookie') ?? '').split(';')[0];
+      assert.match(cookie, /^freeway_preview=[a-f0-9]{64}$/);
+      const target = new URL(handoff.headers.get('location'), served.url).toString();
+      const page = await fetch(target, { headers: { cookie } });
+      assert.equal(page.status, 200);
+      assert.match(await page.text(), /preview works/);
+      assert.match(page.headers.get('content-type') ?? '', /text\/html/);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
   await check('the page ships the preview panel in a sandboxed frame', async () => {
     const app = await startApp();
     try {

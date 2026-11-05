@@ -1271,7 +1271,7 @@
         </div>
         <iframe id="pvFrame" class="pv-frame" title="Preview" referrerpolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
-        <p class="fine" id="pvNote">Paste the address of a local dev server. It is saved with this chat.</p>
+        <p class="fine" id="pvNote">Workspace HTML opens through a private local server, so ES modules and fetch work. You can also paste a dev-server address.</p>
         <div id="pvError" hidden></div>
       </div>
     </aside>
@@ -1468,6 +1468,8 @@
         ghView: "issues",
         preview: "",
         localPreview: false,
+        previewMode: "",
+        previewUrl: "",
         pvLoaded: false,
         pvTimer: null,
       };
@@ -2481,10 +2483,48 @@
 
       // A generated page should be visible the moment it lands. The tool event
       // carries its path, so no extra "make a preview" turn is needed.
+      async function loadEditorFile(filePath) {
+        try {
+          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+          state.fsFile = file.path;
+          $("fsFileName").textContent = `/${file.path}`;
+          $("fsContent").value = file.content;
+          $("fsEditor").classList.remove("hidden");
+          return file;
+        } catch {
+          return null;
+        }
+      }
+
+      // A generated page should be visible the moment it lands. A real loopback
+      // origin is used when the app itself is open on 127.0.0.1/localhost, so
+      // modules, fetch and absolute paths behave normally. Unsaved editor text
+      // and tunneled tabs fall back to the shared static bundler.
       async function previewWorkspaceFile(filePath, entryContent) {
         if (!/\.(html?|svg)$/i.test(filePath)) {
           showPreviewFailure(FreewayPreview.classify({ entry: filePath, host: { cloud: false } }));
           return;
+        }
+        const localHost =
+          location.hostname === "127.0.0.1" || location.hostname === "localhost";
+        let fallbackReason = "";
+        if (typeof entryContent !== "string" && localHost) {
+          try {
+            const served = await api("/api/preview/serve", {
+              method: "POST",
+              body: JSON.stringify({ entry: filePath, host: location.hostname }),
+            });
+            await loadEditorFile(served.entry);
+            showServedPreview(served.url, served.entry);
+            setStatus(`previewing /${served.entry}`);
+            return;
+          } catch (error) {
+            fallbackReason = error?.message || "local server unavailable";
+          }
+        } else if (typeof entryContent === "string") {
+          fallbackReason = "showing the unsaved editor buffer";
+        } else {
+          fallbackReason = "the local server needs Freeway opened at 127.0.0.1 or localhost";
         }
         try {
           const result = await FreewayPreview.bundleStatic({
@@ -2493,14 +2533,13 @@
             readFile: async (path) =>
               (await api(`/api/fs/read?path=${encodeURIComponent(path)}`)).content,
           });
-          if (typeof entryContent !== "string") {
-            const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
-            state.fsFile = file.path;
-            $("fsFileName").textContent = `/${file.path}`;
-            $("fsContent").value = file.content;
-            $("fsEditor").classList.remove("hidden");
-          }
+          if (typeof entryContent !== "string") await loadEditorFile(filePath);
           showLocalPreview(result.html, result.entry, result.warnings);
+          if (fallbackReason) {
+            previewNote(
+              `Static preview (${fallbackReason}). Linked assets are inlined; modules and fetch need the local server.`,
+            );
+          }
         } catch (error) {
           showPreviewFailure(error);
         }
@@ -2517,6 +2556,8 @@
           refreshFiles();
           if (/\.(html?|svg)$/i.test(result.path)) {
             await previewWorkspaceFile(result.path);
+          } else if (state.previewEntry && /\.(css|js|mjs|svg)$/i.test(result.path)) {
+            await previewWorkspaceFile(state.previewEntry);
           }
         } catch (error) {
           setStatus(error.message);
@@ -2748,6 +2789,9 @@
 
       function showPreviewFailure(error) {
         state.localPreview = false;
+        state.previewMode = "";
+        state.previewUrl = "";
+        state.preview = "";
         const frame = $("pvFrame");
         frame.removeAttribute("src");
         frame.removeAttribute("srcdoc");
@@ -2764,10 +2808,15 @@
       // so switching chats and coming back reopens the same server.
       const PV_REMOTE_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals";
       const PV_LOCAL_SANDBOX = "allow-scripts allow-forms allow-popups";
+      // A served preview uses its own loopback origin, never the app's origin.
+      const PV_SERVER_SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-modals";
 
       function applyPreview(value, { load = true } = {}) {
         const frame = $("pvFrame");
         state.localPreview = false;
+        state.previewMode = "remote";
+        state.previewUrl = "";
+        state.previewEntry = "";
         frame.setAttribute("sandbox", PV_REMOTE_SANDBOX);
         frame.removeAttribute("srcdoc");
         const raw = String(value ?? "").trim();
@@ -2809,6 +2858,8 @@
 
       function showLocalPreview(html, label, warnings) {
         state.localPreview = true;
+        state.previewMode = "static";
+        state.previewUrl = "";
         state.previewEntry = label;
         state.preview = "";
         clearTimeout(state.pvTimer);
@@ -2821,6 +2872,29 @@
         const extra = warnings?.length ? ` ${warnings.length} linked asset(s) were left external.` : "";
         previewNote(`Previewing ${label} from the workspace. Linked CSS and JS are inlined; external URLs may be blocked.${extra}`);
         // The write may have happened while the rail was closed; make the result visible.
+        railOpen(true);
+        showRailTab("preview");
+      }
+
+      // Served previews get a real origin, so relative modules, fetch and
+      // absolute /assets paths all behave like they do under a dev server.
+      function showServedPreview(url, label) {
+        state.localPreview = true;
+        state.previewMode = "server";
+        state.previewEntry = label;
+        state.previewUrl = url;
+        state.preview = "";
+        state.pvLoaded = false;
+        clearTimeout(state.pvTimer);
+        clearPreviewFailure();
+        const frame = $("pvFrame");
+        frame.setAttribute("sandbox", PV_SERVER_SANDBOX);
+        frame.removeAttribute("srcdoc");
+        frame.src = url;
+        $("pvUrl").value = "";
+        previewNote(
+          `Previewing ${label} through the local preview server. Only this workspace is reachable; ES modules, fetch and absolute paths work.`,
+        );
         railOpen(true);
         showRailTab("preview");
       }
@@ -3960,6 +4034,8 @@
         state.draft = null;
         state.preview = "";
         state.previewEntry = "";
+        state.previewMode = "";
+        state.previewUrl = "";
         state.localPreview = false;
         $("pvUrl").value = "";
         // A new chat must not keep showing the previous chat's preview.
@@ -4451,17 +4527,33 @@
       }
       $("stRefresh").addEventListener("click", refreshStatus);
       $("pvLoad").addEventListener("click", savePreview);
-      $("pvReload").addEventListener("click", () =>
-        applyPreview(state.preview || $("pvUrl").value),
-      );
+      $("pvReload").addEventListener("click", () => {
+        if (state.previewMode === "server" && state.previewUrl) {
+          $("pvFrame").src = state.previewUrl;
+          previewNote("Reloading the workspace preview…");
+          return;
+        }
+        applyPreview(state.preview || $("pvUrl").value);
+      });
       $("pvOpen").addEventListener("click", () => {
-        if (state.preview) window.open(state.preview, "_blank", "noopener");
-        else previewNote("Load an address first.");
+        if (state.previewMode === "server" && state.previewUrl) {
+          window.open(state.previewUrl, "_blank", "noopener");
+        } else if (state.preview) {
+          window.open(state.preview, "_blank", "noopener");
+        } else {
+          previewNote("Load an address first.");
+        }
       });
       $("pvUrl").addEventListener("keydown", (event) => {
         if (event.key === "Enter") savePreview();
       });
       $("pvFrame").addEventListener("load", () => {
+        if (state.previewMode === "server") {
+          state.pvLoaded = true;
+          clearTimeout(state.pvTimer);
+          previewNote("Loaded through the local preview server.");
+          return;
+        }
         if (!state.preview) return;
         state.pvLoaded = true;
         clearTimeout(state.pvTimer);

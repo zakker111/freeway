@@ -553,6 +553,14 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.6.0 · Phase 2 local preview server
+
+- [x] `lib/preview-server.mjs`: loopback-only, token→HttpOnly SameSite=Lax cookie, GET/HEAD
+- [x] Workspace-only assets through `readAsset`; hidden, node_modules, secrets and outside symlinks refused
+- [x] Relative ES modules, fetch, absolute paths, directory indexes, nested entries and SPA fallback
+- [x] Desktop uses the server for written HTML; unsaved/tunneled previews keep the shared static fallback
+- [x] 185 units, 25 CLI, 21+21 simulation and 24 cloud checks pass
+
 ## Done — 2.5.0 · Phase 1 shared preview core
 
 - [x] One `shared/preview.js` core used by desktop and cloud, synced into both pages

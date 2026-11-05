@@ -59,6 +59,7 @@ generated, never edited by hand.
 | `lib/redact.mjs` | strips `sk-…` secrets from logs, SSE errors and 5xx bodies |
 | `lib/memory.mjs` | deterministic long-chat compaction (no model call, no history loss) |
 | `lib/workspace.mjs` | the one folder tools may touch; realpath containment, size caps |
+| `lib/preview-server.mjs` | loopback preview origin: token cookie, workspace containment, MIME, SPA fallback |
 | `lib/github.mjs` | GitHub REST client behind the panel and the `github_*` tools |
 | `lib/commands.mjs` | allowlisted program runner; `shell: false`, filtered env, timeouts |
 | `lib/secrets.mjs` | `secrets.json` at 0600; the API exposes names and hints only |

@@ -59,6 +59,7 @@ const tools = stripModule(read('lib/tools.mjs'), 'lib/tools.mjs');
 const chatStore = stripModule(read('lib/store.mjs'), 'lib/store.mjs');
 const redact = stripModule(read('lib/redact.mjs'), 'lib/redact.mjs');
 const workspaceMod = stripModule(read('lib/workspace.mjs'), 'lib/workspace.mjs');
+const previewServerMod = stripModule(read('lib/preview-server.mjs'), 'lib/preview-server.mjs');
 const secretsMod = stripModule(read('lib/secrets.mjs'), 'lib/secrets.mjs');
 const githubMod = stripModule(read('lib/github.mjs'), 'lib/github.mjs');
 const commandsMod = stripModule(read('lib/commands.mjs'), 'lib/commands.mjs');
@@ -72,6 +73,7 @@ collectNames(tools.code, 'lib/tools.mjs');
 collectNames(chatStore.code, 'lib/store.mjs');
 collectNames(redact.code, 'lib/redact.mjs');
 collectNames(workspaceMod.code, 'lib/workspace.mjs');
+collectNames(previewServerMod.code, 'lib/preview-server.mjs');
 collectNames(secretsMod.code, 'lib/secrets.mjs');
 collectNames(githubMod.code, 'lib/github.mjs');
 collectNames(commandsMod.code, 'lib/commands.mjs');
@@ -128,7 +130,9 @@ const imports = mergeImports([
   ...tools.imports,
   ...chatStore.imports,
   ...redact.imports,
-  ...workspaceMod.imports,    ...secretsMod.imports,
+  ...workspaceMod.imports,
+  ...previewServerMod.imports,
+  ...secretsMod.imports,
     ...githubMod.imports,
     ...commandsMod.imports,
     ...statusMod.imports,
@@ -166,6 +170,10 @@ ${redact.code}
 /* ------------------------------------------------------ lib/workspace.mjs */
 
 ${workspaceMod.code}
+
+/* ------------------------------------------------- lib/preview-server.mjs */
+
+${previewServerMod.code}
 
 /* -------------------------------------------------------- lib/secrets.mjs */
 

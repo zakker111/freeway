@@ -29,6 +29,7 @@ import {
 import { openStore } from './lib/store.mjs';
 import { scrubSecrets } from './lib/redact.mjs';
 import { createWorkspace } from './lib/workspace.mjs';
+import { createPreviewServer } from './lib/preview-server.mjs';
 import { openSecrets } from './lib/secrets.mjs';
 import { createGithub } from './lib/github.mjs';
 import { createCommandRunner, parseAllowlist } from './lib/commands.mjs';
@@ -146,7 +147,7 @@ const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -179,6 +180,13 @@ const DEFAULT_SETTINGS = {
 
 let catalog = { models: [], fetchedAt: 0 };
 let htmlCache = null;
+// Started on the first workspace preview and reused for every file in it.
+let previewServer = null;
+
+function localPreviewServer() {
+  previewServer ??= createPreviewServer({ getWorkspace: workspace, appPort: PORT });
+  return previewServer;
+}
 
 /**
  * Models that already failed in this session. Remembering them for the rest of
@@ -1709,6 +1717,32 @@ async function route(req, res) {
     }
   }
 
+  // Start the loopback workspace server and return its tokenised entry URL.
+  // This is deliberately separate from the saved remote-preview address below.
+  if (req.method === 'POST' && pathname === '/api/preview/serve') {
+    if (!requireToken(req, res)) return;
+    const sandbox = workspace();
+    if (!sandbox.isReady) {
+      return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+    }
+    const body = await readJson(req, 4096);
+    const wanted = String(body?.entry ?? '').trim();
+    if (!wanted) return sendJson(res, 400, { error: 'Choose an HTML file to preview.' });
+    if (!/\.(html?|svg)$/i.test(wanted)) {
+      return sendJson(res, 400, { error: 'The local server preview starts from an HTML or SVG file.' });
+    }
+    try {
+      const file = sandbox.readAsset(wanted);
+      const preview = localPreviewServer();
+      const served = await preview.open(file.path, {
+        host: body?.host === 'localhost' ? 'localhost' : '127.0.0.1',
+      });
+      return sendJson(res, 200, { ...served, entry: file.path });
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, { error: error.message });
+    }
+  }
+
   // The preview address belongs to one chat and is stored on its own, so saving
   // it never fights with the debounced message save or its stale-rev guard.
   if (req.method === 'POST' && pathname.startsWith('/api/preview/')) {
@@ -1860,7 +1894,7 @@ async function runDoctor() {
 }
 
 export function createServer() {
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     route(req, res).catch((error) => {
       const status = error?.status ?? 500;
       if (status >= 500) {
@@ -1873,6 +1907,12 @@ export function createServer() {
       }
     });
   });
+  server.on('close', () => {
+    const preview = previewServer;
+    previewServer = null;
+    void preview?.close();
+  });
+  return server;
 }
 
 /**
