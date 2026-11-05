@@ -47,6 +47,12 @@ generated, never edited by hand.
    provider, with its own patterns). No route may hard-code a provider URL, and no model id
    reaches a provider that is not allowed.
    Provider keys live in `config.json` (0600) or the environment, never in the page or logs.
+10. **Preview adapters stay honest.** Markdown is rendered as escaped, script-free HTML.
+    TypeScript, JSX, SCSS/Sass, Less, Vue, Svelte and Astro are never treated as CSS/JS: the
+    shared core raises `BUILD_REQUIRED` and names the project's own command. Do not add a
+    partial compiler that may silently render the wrong page.
+    `build/sync-preview.mjs` must use a function replacer; a string replacement interprets
+    `$'` inside the core as the rest of the page. Keep the page-boundary test.
 
 ## Layout
 
@@ -60,6 +66,8 @@ generated, never edited by hand.
 | `lib/memory.mjs` | deterministic long-chat compaction (no model call, no history loss) |
 | `lib/workspace.mjs` | the one folder tools may touch; realpath containment, size caps |
 | `lib/preview-server.mjs` | loopback preview origin: token cookie, workspace containment, MIME, SPA fallback |
+| `shared/preview.js` | one preview core: static bundler, Markdown renderer, build adapters |
+| `build/sync-preview.mjs` | inlines the shared core into both pages; function replacer required |
 | `lib/github.mjs` | GitHub REST client behind the panel and the `github_*` tools |
 | `lib/commands.mjs` | allowlisted program runner; `shell: false`, filtered env, timeouts |
 | `lib/secrets.mjs` | `secrets.json` at 0600; the API exposes names and hints only |

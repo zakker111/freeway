@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.7.0 | 2026-11-05 | Markdown previews and build-aware TypeScript/JSX/SCSS adapters |
 | 2.6.0 | 2026-11-05 | Desktop previews use a tokenised loopback server for modules and fetch |
 | 2.5.0 | 2026-11-05 | Shared preview core bundles linked CSS/JS/SVG in both editions |
 | 2.4.6 | 2026-11-05 | HTML writes open the preview automatically |
@@ -117,6 +118,26 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.7.0 — 2026-11-05
+
+- Phase 3 adds a Markdown preview in both editions. Headings, lists, quotes, tables, links,
+  images, bold/italic, inline code and fenced code render in a script-free sandboxed document.
+  Raw HTML is escaped and `javascript:`/unsafe data URLs are dropped before links or images.
+- Desktop previews `.md` from the editor, Save and model writes; cloud previews it on Save,
+  Upload and account-file preview. Relative links and images are preserved but are not
+  resolved by the browser workspace.
+- TypeScript, JSX, SCSS/Sass, Less, Vue, Svelte and Astro are no longer mistaken for CSS or
+  JavaScript. They show a `BUILD_REQUIRED` card instead of a broken page. HTML that links a
+  `.scss` file, loads a `.tsx` script or declares `lang="scss"` gets the same card.
+- The card reads `package.json` and detects Next.js, Nuxt, SvelteKit, Astro, Vite or Parcel,
+  then names the project's dev/build command and output folder. Cloud explains that it cannot
+  run npm/tsc/sass; desktop points to its dev-server URL or the emitted files.
+- The app deliberately does not ship a partial TypeScript/JSX/SCSS compiler. Those need a real
+  toolchain; a wrong transform is worse than an honest build instruction.
+- `build/sync-preview.mjs` now uses a function replacer, so dollar sequences in the shared core
+  are literal text. A page-boundary guard prevents the core from swallowing the document again.
+- 191 units, 25 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.6.0 — 2026-11-05
 

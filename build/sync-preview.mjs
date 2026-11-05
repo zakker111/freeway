@@ -13,7 +13,12 @@ for (const relative of ['public/index.html', 'cloud/public/index.html']) {
   const page = fs.readFileSync(file, 'utf8');
   const marker = /<script id="preview-core">[\s\S]*?<\/script>/;
   if (!marker.test(page)) throw new Error(`${relative}: missing <script id="preview-core">`);
-  const next = page.replace(marker, `<script id="preview-core">\n${core}\n</script>`);
+  // A function replacer is required: `$'` and other dollar sequences inside
+  // the core would otherwise be interpreted as replacement patterns.
+  const next = page.replace(
+    marker,
+    () => `<script id="preview-core">\n${core}\n</script>`,
+  );
   fs.writeFileSync(file, next);
   console.log(`synced preview core into ${relative}`);
 }

@@ -512,12 +512,21 @@ chat as Markdown; all three are browser-local (`localStorage`) and need no route
 
 **Files in the cloud edition** have two homes. **This browser** is a text workspace in
 IndexedDB; names always travel with a request, and ticking a file includes up to 12,000
-characters of its text. You can upload text/HTML/SVG, download the editor, and preview `.html`,
-`.htm` or `.svg` in a sandboxed iframe that cannot reach the session or this site's API. Signed
+characters of its text. You can upload text/HTML/SVG/Markdown, download the editor, and preview
+`.html`, `.htm`, `.svg` or `.md` in a sandboxed iframe that cannot reach the session or this
+site's API. Signed
 in, **Account files** stores the same text in R2 under your subject — 1 MB per file, 40 files and
 8 MB per account — so it follows you to another device. Both workspaces are text-only; images
 belong in the composer. On the desktop the model reads real files through tools, with an
 Allow/Deny card before anything is written.
+
+**Previewing files.** Both editions preview HTML, SVG and Markdown. Linked CSS, classic
+JavaScript and SVG bundle into one sandboxed document; on the desktop the loopback server also
+handles ES modules, `fetch` and absolute paths. TypeScript, JSX, SCSS/Sass, Less, Vue, Svelte and
+Astro are source files, not browser assets: the preview card reads `package.json`, detects the
+framework (Next.js, Nuxt, SvelteKit, Astro, Vite or Parcel) and names the dev/build command and
+output folder. The app does not pretend to compile them. Cloud asks you to build locally and
+upload the result; desktop can serve the project's own dev server instead.
 
 The cloud edition carries the **same ten hosted providers** as the desktop app. A key comes
 from a Sites secret (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`,
@@ -548,8 +557,11 @@ Publish it yourself:
 - Free models vary a lot in quality, and many do not support tool calling. The
   "answered by" line and the tool chips tell you exactly what happened.
 - The queue lives in the page, so reloading drops anything still waiting behind an answer.
-- Markdown rendering is deliberately small: headings, lists, quotes, links, bold, italic,
+- Chat transcript Markdown is deliberately small: headings, lists, quotes, links, bold, italic,
   inline code and fenced code with a copy button. No tables, no syntax colouring.
+- File preview Markdown supports headings, lists, quotes, tables, links, images, emphasis and
+  fenced code. Raw HTML is escaped. TypeScript/JSX/SCSS are not compiled by the app; the build
+  card names the project's own command instead.
 - Some free variants route to providers with different data-retention policies. Do not
   paste secrets into prompts.
 

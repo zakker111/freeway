@@ -553,6 +553,16 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.7.0 · Phase 3 Markdown and build adapters
+
+- [x] Shared Markdown renderer: headings, lists, quotes, tables, links, images, emphasis and fences
+- [x] Raw HTML is escaped; unsafe link/image schemes are dropped before rendering
+- [x] Desktop and cloud preview `.md` from the editor, Save, Upload and account files
+- [x] `BUILD_REQUIRED` adapters for TS/JSX/SCSS/Sass/Less/Vue/Svelte/Astro
+- [x] `package.json` detection for Next.js, Nuxt, SvelteKit, Astro, Vite, Parcel; exact commands/output
+- [x] HTML cannot inline `.tsx`/`.scss` or `lang="scss"` as if it were browser source
+- [x] Sync uses a function replacer and a page-boundary guard; 191 units, 25 CLI, 21+21 simulation, 24 cloud
+
 ## Done — 2.6.0 · Phase 2 local preview server
 
 - [x] `lib/preview-server.mjs`: loopback-only, token→HttpOnly SameSite=Lax cookie, GET/HEAD
