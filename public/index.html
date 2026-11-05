@@ -1753,7 +1753,8 @@
           <button class="mini" id="pvOpen" type="button" title="Open in a new tab">Open ↗</button>
         </div>
         <iframe id="pvFrame" class="pv-frame" title="Preview" referrerpolicy="no-referrer"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                style="display:none"></iframe>
         <p class="fine" id="pvNote">Workspace HTML opens through a private local server, so ES modules and fetch work. You can also paste a dev-server address.</p>
         <div id="pvError" hidden></div>
       </div>
@@ -3314,6 +3315,7 @@
         const frame = $("pvFrame");
         frame.removeAttribute("src");
         frame.removeAttribute("srcdoc");
+        frame.style.display = "none";
         clearTimeout(state.pvTimer);
         railOpen(true);
         showRailTab("preview");
@@ -3332,6 +3334,7 @@
 
       function applyPreview(value, { load = true } = {}) {
         const frame = $("pvFrame");
+        clearPreviewFailure();
         state.localPreview = false;
         state.previewMode = "remote";
         state.previewUrl = "";
@@ -3344,6 +3347,7 @@
           state.pvLoaded = false;
           clearTimeout(state.pvTimer);
           frame.removeAttribute("src");
+          frame.style.display = "none";
           $("pvUrl").value = "";
           previewNote("Paste the address of a local dev server. It is saved with this chat.");
           return false;
@@ -3356,6 +3360,7 @@
         $("pvUrl").value = raw;
         if (!load) return true;
         state.pvLoaded = false;
+        frame.style.display = "";
         previewNote("Loading… if nothing appears, that site may refuse to be framed.");
         frame.src = raw;
         clearTimeout(state.pvTimer);
@@ -3386,6 +3391,7 @@
         const frame = $("pvFrame");
         frame.setAttribute("sandbox", PV_LOCAL_SANDBOX);
         frame.removeAttribute("src");
+        frame.style.display = "";
         frame.srcdoc = String(html);
         $("pvUrl").value = "";
         const extra = warnings?.length ? ` ${warnings.length} linked asset(s) were left external.` : "";
@@ -3409,6 +3415,7 @@
         const frame = $("pvFrame");
         frame.setAttribute("sandbox", PV_SERVER_SANDBOX);
         frame.removeAttribute("srcdoc");
+        frame.style.display = "";
         frame.src = url;
         $("pvUrl").value = "";
         previewNote(

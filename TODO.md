@@ -553,6 +553,13 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.7.1 · preview frame cleanup
+
+- [x] Hide the preview iframe for `BUILD_REQUIRED` cards and until a preview exists
+- [x] Restore it for Markdown/HTML/URL previews and clear stale error cards
+- [x] Real Chromium UI check: Markdown renders, SCSS card shows, URL path restores frame
+- [x] 192 units, 25 CLI, 21+21 simulation and 24 cloud checks pass
+
 ## Done — 2.7.0 · Phase 3 Markdown and build adapters
 
 - [x] Shared Markdown renderer: headings, lists, quotes, tables, links, images, emphasis and fences

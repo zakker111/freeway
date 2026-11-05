@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.7.1 | 2026-11-05 | Preview build cards hide the blank iframe; browser verification passed |
 | 2.7.0 | 2026-11-05 | Markdown previews and build-aware TypeScript/JSX/SCSS adapters |
 | 2.6.0 | 2026-11-05 | Desktop previews use a tokenised loopback server for modules and fetch |
 | 2.5.0 | 2026-11-05 | Shared preview core bundles linked CSS/JS/SVG in both editions |
@@ -118,6 +119,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.7.1 — 2026-11-05
+
+- A preview that needs a build now hides the preview iframe instead of leaving a blank white
+  panel above the `BUILD_REQUIRED` card. The frame starts hidden and is restored for Markdown,
+  HTML and URL previews; a failed bundle hides it again.
+- Loading a URL or another file after a build error clears the stale error card. The desktop
+  URL path also resets frame visibility.
+- Headless Chromium verification now passes with local Fontconfig: Files → Markdown renders
+  headings, a table and code; SCSS shows `BUILD_REQUIRED` with `npx sass style.scss style.css`;
+  the URL path restores the frame. Both page scripts still pass `node --check`.
+- 192 units, 25 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.7.0 — 2026-11-05
 
