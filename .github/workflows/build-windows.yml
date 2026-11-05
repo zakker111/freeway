@@ -59,6 +59,50 @@ jobs:
           .\Freeway.exe --version
           if ($LASTEXITCODE -ne 0) { throw "the executable did not report a version" }
 
+      - name: Launch the executable and serve the page
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $port = 31234
+          $config = Join-Path $env:RUNNER_TEMP "freeway-smoke-config"
+          $out = Join-Path $env:RUNNER_TEMP "freeway-smoke.out.log"
+          $err = Join-Path $env:RUNNER_TEMP "freeway-smoke.err.log"
+          $env:NO_OPEN = "1"
+          $exe = Start-Process -FilePath ".\Freeway.exe" `
+            -ArgumentList "--port", $port, "--host", "127.0.0.1", "--config", $config `
+            -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          try {
+            $served = $null
+            for ($i = 0; $i -lt 60; $i++) {
+              Start-Sleep -Milliseconds 250
+              if (-not (Get-Process -Id $exe.Id -ErrorAction SilentlyContinue)) { break }
+              try {
+                $served = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/config" -TimeoutSec 2
+                break
+              } catch {
+                $served = $null
+              }
+            }
+            if (-not $served) {
+              Get-Content $out -ErrorAction SilentlyContinue
+              Get-Content $err -ErrorAction SilentlyContinue
+              throw "Freeway.exe did not answer /api/config"
+            }
+            if ($served.version -ne $version) {
+              throw "Freeway.exe reported $($served.version), expected $version"
+            }
+            $page = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -TimeoutSec 10 -UseBasicParsing
+            if ($page.StatusCode -ne 200 -or $page.Content -notmatch "Freeway") {
+              throw "Freeway.exe did not serve the page"
+            }
+            Write-Host "Freeway.exe served $($served.version) and the page on Windows"
+          } finally {
+            if (Get-Process -Id $exe.Id -ErrorAction SilentlyContinue) {
+              Stop-Process -Id $exe.Id -Force
+            }
+          }
+
       - name: Package
         shell: pwsh
         run: |

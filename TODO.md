@@ -553,6 +553,15 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.4.4 · Windows launch test and redirect regression
+
+- [x] `fetchAsText` accepts an injected fetch for tests; the production call path is unchanged
+- [x] Regression test: a public URL redirecting to loopback or link-local is refused before the second request
+- [x] Regression test: an initial private URL makes no request; redirect loops stay bounded
+- [x] Windows workflow launches `Freeway.exe`, reads `/api/config`, checks the page and stops it
+- [x] 171 units, 24 CLI, 21+21 simulation, 24 cloud checks pass
+- [x] Windows tag run proves the executable starts and serves on a real Windows machine
+
 ## Done — 2.4.3 · security and reliability audit
 
 - [x] Manual redirect handling and DNS/IP checks for `fetch_url`; response body capped

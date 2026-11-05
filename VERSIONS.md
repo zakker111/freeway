@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.4.4 | 2026-11-05 | Windows executable launched and served in CI; redirect-hop regression test |
 | 2.4.3 | 2026-11-05 | Security and reliability audit: safe fetches, paired tool results, durable chat cache, private config |
 | 2.4.2 | 2026-11-05 | Windows CI bundling and tests fixed; executable built and smoke-tested on Windows |
 | 2.4.1 | 2026-11-04 | Node 22 CI test discovery fixed; retry behavior unchanged |
@@ -112,6 +113,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.4.4 — 2026-11-05
+
+- The Windows workflow now launches `Freeway.exe` on `windows-latest`, reads
+  `/api/config`, checks the served page and stops the process; `--version` alone
+  never proved the executable starts.
+- `fetchAsText` accepts an injected fetch so a regression test can prove a public URL
+  redirecting to loopback or link-local is refused before the second request.
+- The test also covers an initial private URL making no request and redirect loops
+  staying bounded; the production call path is unchanged.
+- 171 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 
 ## 2.4.3 — 2026-11-05
 
