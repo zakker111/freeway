@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.8.0 | 2026-11-05 | Preview runtime diagnostics for script errors, failed assets and rejections |
 | 2.7.2 | 2026-11-05 | Dependency-free browser regression test for preview cards |
 | 2.7.1 | 2026-11-05 | Preview build cards hide the blank iframe; browser verification passed |
 | 2.7.0 | 2026-11-05 | Markdown previews and build-aware TypeScript/JSX/SCSS adapters |
@@ -120,6 +121,21 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.8.0 — 2026-11-05
+
+- Added a shared preview diagnostics bridge. Script errors, resource-load failures and
+  unhandled promise rejections now appear in a bounded problems card below the frame
+  instead of leaving a silent blank page.
+- The bridge is injected into both `srcdoc` previews and desktop loopback-server pages.
+  The parent accepts messages only from the current frame, deduplicates them, caps the
+  list, and renders every message with `textContent` rather than HTML.
+- Remote http(s) previews stay cross-origin and expose no diagnostics; the page notes
+  that limit instead of pretending it can inspect them.
+- `lib/preview-bridge.mjs` is the single bridge source used by the pages and the server.
+  The new `broken.html` browser fixture checks a thrown error and a missing image, and
+  the problem card is cleared when another preview replaces it.
+- 194 units, 25 CLI, 21+21 simulation, 24 cloud and the browser check pass.
 
 ## 2.7.2 — 2026-11-05
 

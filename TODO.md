@@ -553,6 +553,15 @@ answers only when a visitor pastes their own.
 - [x] 13/13 Playwright checks, 10/10 real D1/R2 checks, and all five suites green
 - [x] Version 2.2.1 in both editions, archives rebuilt and both sites redeployed
 
+## Done — 2.8.0 · preview runtime diagnostics
+
+- [x] Shared diagnostics bridge for script errors, failed assets and unhandled rejections
+- [x] Injected into both srcdoc previews and desktop loopback-server pages
+- [x] Parent accepts only the current frame, dedupes, caps and renders text safely
+- [x] Problems card clears on the next preview; remote cross-origin limit is stated
+- [x] `broken.html` browser fixture checks a thrown error and a missing image
+- [x] 194 units, 25 CLI, 21+21 simulation, 24 cloud and the browser check pass
+
 ## Done — 2.7.2 · browser preview regression coverage
 
 - [x] `test/ui-preview.mjs` drives a temporary app and workspace through Chrome CDP

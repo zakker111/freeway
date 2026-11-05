@@ -139,6 +139,11 @@ async function main() {
     '# Phase 3 Markdown\n\nThis is rendered by the shared preview core.\n\n| Check | Result |\n| --- | --- |\n| Headings | yes |\n| Tables | yes |\n\n```js\nconst ready = true;\n```\n',
   );
   fs.writeFileSync(path.join(workspace, 'style.scss'), '$ink: #111;\nbody { color: $ink; }\n');
+  fs.writeFileSync(
+    path.join(workspace, 'broken.html'),
+    '<!doctype html><html><body><h1>Broken preview</h1><img src="missing.png" alt="missing">' +
+      '<script>setTimeout(function () { throw new Error("preview boom"); }, 0);</script></body></html>',
+  );
   const config = path.join(temp, 'config.json');
   fs.writeFileSync(config, JSON.stringify({ workspace }, null, 2));
 
@@ -236,6 +241,29 @@ async function main() {
     assert.match(markdown.source, /<table>/);
 
     await evaluate(cdp, '[...document.querySelectorAll(".rail-tab")].find((node) => node.textContent.trim() === "Files").click()');
+    await waitForPage(cdp, '!![...document.querySelectorAll(".fs-row")].find((node) => node.textContent.includes("broken.html"))');
+    assert.equal(await evaluate(cdp, clickRow('broken.html')), true);
+    await waitForPage(cdp, 'document.querySelector("#fsFileName").textContent.includes("broken.html")');
+    await evaluate(cdp, 'document.querySelector("#fsPreview").click()');
+    await waitForPage(cdp, '!document.querySelector("#pvProblems").hidden && document.querySelector("#pvProblems").innerText.includes("preview boom")');
+    const broken = await evaluate(
+      cdp,
+      `(() => {
+        const frame = document.querySelector('#pvFrame');
+        const problems = document.querySelector('#pvProblems');
+        return {
+          frameDisplay: getComputedStyle(frame).display,
+          problemsHidden: problems.hidden,
+          problemsText: problems.innerText,
+        };
+      })()`,
+    );
+    assert.notEqual(broken.frameDisplay, 'none', 'A page with a runtime error hid the frame');
+    assert.equal(broken.problemsHidden, false, 'Runtime problems were not shown');
+    assert.match(broken.problemsText, /Preview reported/);
+    assert.match(broken.problemsText, /preview boom/);
+
+    await evaluate(cdp, '[...document.querySelectorAll(".rail-tab")].find((node) => node.textContent.trim() === "Files").click()');
     await waitForPage(cdp, '!![...document.querySelectorAll(".fs-row")].find((node) => node.textContent.includes("style.scss"))');
     assert.equal(await evaluate(cdp, clickRow('style.scss')), true);
     await waitForPage(cdp, 'document.querySelector("#fsFileName").textContent.includes("style.scss")');
@@ -256,12 +284,14 @@ async function main() {
       `({
         frameDisplay: getComputedStyle(document.querySelector('#pvFrame')).display,
         errorHidden: document.querySelector('#pvError').hidden,
+        problemsHidden: document.querySelector('#pvProblems').hidden,
       })`,
     );
     assert.notEqual(urlState.frameDisplay, 'none', 'URL preview did not reveal the frame');
     assert.equal(urlState.errorHidden, true, 'URL preview kept the build card visible');
+    assert.equal(urlState.problemsHidden, true, 'URL preview kept stale runtime problems visible');
 
-    console.log('PASS browser preview: SCSS card hides the frame; Markdown and URL restore it.');
+    console.log('PASS browser preview: SCSS hides the frame; Markdown and URL restore it; runtime errors are reported.');
   } catch (error) {
     console.error('FAIL browser preview:', error.message);
     if (app?.exitCode === null) console.error('App log:', appLog.trim().split('\n').slice(-8).join('\n'));

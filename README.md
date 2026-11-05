@@ -528,7 +528,10 @@ handles ES modules, `fetch` and absolute paths. TypeScript, JSX, SCSS/Sass, Less
 Astro are source files, not browser assets: the preview card reads `package.json`, detects the
 framework (Next.js, Nuxt, SvelteKit, Astro, Vite or Parcel) and names the dev/build command and
 output folder. The app does not pretend to compile them. Cloud asks you to build locally and
-upload the result; desktop can serve the project's own dev server instead.
+upload the result; desktop can serve the project's own dev server instead. Workspace
+previews also collect script errors, failed assets and unhandled promise rejections in a
+small problems card under the frame, instead of leaving a silent blank page. Remote
+http(s) previews are cross-origin, so their errors stay in the browser console.
 
 The cloud edition carries the **same ten hosted providers** as the desktop app. A key comes
 from a Sites secret (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`,
@@ -564,6 +567,8 @@ Publish it yourself:
 - File preview Markdown supports headings, lists, quotes, tables, links, images, emphasis and
   fenced code. Raw HTML is escaped. TypeScript/JSX/SCSS are not compiled by the app; the build
   card names the project's own command instead.
+- Preview diagnostics are bounded to the current frame and available for workspace
+  previews; a remote http(s) page cannot be inspected from the app across origins.
 - Some free variants route to providers with different data-retention policies. Do not
   paste secrets into prompts.
 

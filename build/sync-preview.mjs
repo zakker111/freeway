@@ -1,24 +1,34 @@
 #!/usr/bin/env node
-// Copy the one shared preview core into both pages. The pages are otherwise
-// self-contained, so this keeps desktop and cloud on exactly the same code.
+// Copy the one shared preview core and diagnostics bridge into both pages.
+// The pages are otherwise self-contained, so this keeps desktop and cloud on
+// exactly the same preview code and error protocol.
 import fs from 'node:fs';
 import path from 'node:path';
+import { PREVIEW_BRIDGE_SOURCE } from '../lib/preview-bridge.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const core = fs.readFileSync(path.join(root, 'shared', 'preview.js'), 'utf8');
 if (core.includes('</script')) throw new Error('shared/preview.js contains a literal </script>');
+if (PREVIEW_BRIDGE_SOURCE.includes('</script')) {
+  throw new Error('lib/preview-bridge.mjs contains a literal </script>');
+}
+const bridgeJson = JSON.stringify(PREVIEW_BRIDGE_SOURCE).replace(/</g, () => '\\u003c');
 
 for (const relative of ['public/index.html', 'cloud/public/index.html']) {
   const file = path.join(root, relative);
   const page = fs.readFileSync(file, 'utf8');
-  const marker = /<script id="preview-core">[\s\S]*?<\/script>/;
-  if (!marker.test(page)) throw new Error(`${relative}: missing <script id="preview-core">`);
+  const coreMarker = /<script id="preview-core">[\s\S]*?<\/script>/;
+  const bridgeMarker = /<script type="application\/json" id="preview-bridge">[\s\S]*?<\/script>/;
+  if (!coreMarker.test(page)) throw new Error(`${relative}: missing <script id="preview-core">`);
+  if (!bridgeMarker.test(page)) throw new Error(`${relative}: missing <script id="preview-bridge">`);
   // A function replacer is required: `$'` and other dollar sequences inside
   // the core would otherwise be interpreted as replacement patterns.
-  const next = page.replace(
-    marker,
-    () => `<script id="preview-core">\n${core}\n</script>`,
-  );
+  const next = page
+    .replace(coreMarker, () => `<script id="preview-core">\n${core}\n</script>`)
+    .replace(
+      bridgeMarker,
+      () => `<script type="application/json" id="preview-bridge">${bridgeJson}</script>`,
+    );
   fs.writeFileSync(file, next);
-  console.log(`synced preview core into ${relative}`);
+  console.log(`synced preview core + bridge into ${relative}`);
 }

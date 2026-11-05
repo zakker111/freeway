@@ -1,6 +1,6 @@
 {
   "name": "freeway-cloud",
-  "version": "2.7.2",
+  "version": "2.8.0",
   "description": "Freeway cloud edition",
   "main": "index.js",
   "scripts": {

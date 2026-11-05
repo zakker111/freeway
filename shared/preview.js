@@ -931,6 +931,96 @@
     };
   }
 
+  /**
+   * Add the diagnostics bridge to a srcdoc document. The page supplies the
+   * bridge source, keeping this core independent of the DOM and of the server.
+   */
+  function withPreviewBridge(html, source) {
+    const markup = String(html ?? '');
+    const script = String(source ?? '');
+    if (!script || /<\/script/i.test(script)) return markup;
+    if (/<script\s+data-freeway-preview-bridge/i.test(markup)) return markup;
+    const tag = '<script data-freeway-preview-bridge>' + script + '<' + '/script>';
+    if (/<\/body\s*>/i.test(markup)) return markup.replace(/<\/body\s*>/i, (close) => tag + close);
+    if (/<\/html\s*>/i.test(markup)) return markup.replace(/<\/html\s*>/i, (close) => tag + close);
+    return markup + tag;
+  }
+
+  /**
+   * Collect bounded, text-only diagnostics from the current preview frame.
+   * Messages are accepted only from that frame and are rendered with
+   * textContent, never as HTML.
+   */
+  function createPreviewMonitor(options) {
+    const config = options || {};
+    const frame = config.frame;
+    const box = config.box;
+    const title = config.title;
+    const list = config.list;
+    const maxItems = Math.max(1, Math.min(20, Number(config.max) || 6));
+    const maxTotal = Math.max(maxItems, Math.min(60, Number(config.maxTotal) || 30));
+    const seen = new Set();
+    let enabled = config.enabled !== false;
+    let items = [];
+    let total = 0;
+
+    function clear() {
+      items = [];
+      total = 0;
+      seen.clear();
+      if (box) box.hidden = true;
+      if (title) title.textContent = '';
+      if (list) list.textContent = '';
+    }
+
+    function render() {
+      if (!box || !title || !list) return;
+      const suffix = total > items.length ? ' (first ' + items.length + ')' : '';
+      title.textContent = 'Preview reported ' + total + ' problem' + (total === 1 ? '' : 's') + suffix;
+      list.textContent = '';
+      const labels = { error: 'Script error', resource: 'Resource failed', rejection: 'Promise rejection' };
+      for (const item of items) {
+        const node = document.createElement('li');
+        const where = item.file
+          ? ' (' + item.file.slice(0, 180) + (item.line ? ':' + item.line : '') + ')'
+          : '';
+        node.textContent = (labels[item.kind] || 'Error') + ': ' + item.message + where;
+        list.append(node);
+      }
+      box.hidden = false;
+    }
+
+    function receive(event) {
+      if (!enabled || !frame || event.source !== frame.contentWindow) return;
+      const data = event.data;
+      if (!data || data.source !== 'freeway-preview') return;
+      if (total >= maxTotal) return;
+      const kind = data.kind === 'resource' || data.kind === 'rejection' ? data.kind : 'error';
+      const message = String(data.message || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (!message) return;
+      const file = String(data.file || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+      const line = Number(data.line) || 0;
+      const key = kind + '\n' + message + '\n' + file + '\n' + line;
+      if (seen.has(key)) return;
+      seen.add(key);
+      total += 1;
+      if (items.length < maxItems) items.push({ kind, message, file, line });
+      render();
+    }
+
+    if (typeof window !== 'undefined') window.addEventListener('message', receive);
+    return {
+      clear,
+      setEnabled(value) {
+        enabled = !!value;
+        if (!enabled) clear();
+      },
+      get total() {
+        return total;
+      },
+    };
+  }
+
   function renderError(input) {
     const error =
       input instanceof PreviewError
@@ -975,6 +1065,8 @@
     bundleStatic,
     classify,
     renderError,
+    withPreviewBridge,
+    createPreviewMonitor,
     renderMarkdown,
     markdownToHtml,
     buildPlan,
