@@ -236,8 +236,10 @@ answers only when a visitor pastes their own.
 - [ ] Blocked until that secret exists — the code path itself is already shipped.
 
 ### 1.47.0 — the release path
-- [ ] Run `.github/workflows/build-windows.yml` on a remote with credentials and attach the
-      `.exe`, then launch it on Windows. Both halves are blocked in this sandbox.
+- [x] Run `.github/workflows/build-windows.yml` on GitHub Actions: run 41940445555 passed
+      unit, CLI, SEA, smoke-test, package and artifact upload on commit `94715e4`.
+- [ ] Download the `windows-client` artifact, attach it to the release, and launch it on
+      Windows. Attaching and launching remain blocked in this sandbox.
 
 ## Done — 1.44.0 · the shared key is guarded
 

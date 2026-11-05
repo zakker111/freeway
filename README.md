@@ -40,8 +40,9 @@ into the workspace and opens the result in Preview.
 `Freeway.exe` is the whole app with Node inside it: one file, no dependencies, no
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
-workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; the 2.4.1
-download was cross-built from Linux with the exact same steps (see `RELEASING.md`).
+workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
+end to end on commit `94715e4` (run 41940445555). The published 2.4.1 download was
+cross-built from Linux with the same steps (see `RELEASING.md`).
 
 Get it:
 
@@ -50,8 +51,10 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.4.1 `.exe` was assembled outside Windows and could not be launched in the build
-machine, so treat its first run as a smoke test. If it refuses to start, use
+The published 2.4.1 `.exe` was assembled outside Windows and could not be launched in the
+build machine, so treat its first run as a smoke test. The workflow's `windows-client`
+artifact is the same source built and smoke-tested on Windows; it is not the attached
+release asset. If the published `.exe` refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
 1. Push this folder to GitHub (the workflow is at `.github/workflows/build-windows.yml`).
