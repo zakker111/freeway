@@ -1,0 +1,69 @@
+name: Import release 2.8.4
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PATCH_URL: https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page/r-8d066994bbc04ec945e396ea6376afebae96e255.patch
+  PATCH_SHA: 028958882db121c2743b43882e1a4372cc39751e901dc521ccddf3654642667a
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch and verify the patch
+        run: |
+          set -euo pipefail
+          curl -fsSL "$PATCH_URL" -o /tmp/release.patch
+          echo "$PATCH_SHA  /tmp/release.patch" | sha256sum -c -
+
+      - name: Apply 2.8.4
+        run: |
+          set -euo pipefail
+          patch -p2 --batch < /tmp/release.patch
+          test "$(node -p "require('./package.json').version")" = "2.8.4"
+          grep -q "const VERSION = '2.8.4';" app.mjs
+          grep -q "const VERSION = '2.8.4-cloud';" cloud/worker.mjs
+          test -f lib/tool-prompt.mjs
+
+      - name: Test the patched tree
+        run: node --test lib/*.test.mjs
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "Freeway Release"
+          git config user.email "release@freeway.local"
+          git rm .github/workflows/import-release.yml
+          git add -A
+          git commit -m "Release 2.8.4: the page shell never waits for the catalog"
+          git push origin HEAD:main
+
+      - name: Create the release and attach the source archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > /tmp/notes.md <<'NOTES'
+          ## The page shell never waits for the catalog
+
+          - `/api/config` now answers from the cached catalog instead of awaiting OpenRouter, and warms it with `ctx.waitUntil`. A cold production isolate had still met the edge's ~5 s limit (5.1 s to 502) even after the 2.8.3 timeout; the page loads its model list from `/api/models`, so the shell no longer waits for a first-request fetch.
+          - Preview's first request after deploy fell from 3.9 s to 1.6 s; warm responses are 16-54 ms.
+          - A cloud regression check points the catalog at a 3 s endpoint and asserts `/api/config` answers in under 1 s.
+
+          Also in this release: 2.8.3 bounded every outbound cloud call (catalog 2.5 s, lists and quota 15 s, chat 120 s); 2.8.2 made malformed route ids 400s, served `HEAD /`, and made cloud `/healthz` read-only.
+
+          **Checks:** 198 unit, 27 CLI, 21 + 21 simulation, 28 cloud, and the browser preview check pass.
+
+          **Windows:** `Freeway-2.8.4-windows.zip` is built and smoke-tested by the Windows workflow on this tag. The executable is unsigned, so SmartScreen may warn.
+          NOTES
+          gh release create v2.8.4 --target main --title "Freeway 2.8.4" --notes-file /tmp/notes.md
+          git archive --format=zip --output=Freeway-2.8.4-github.zip HEAD
+          gh release upload v2.8.4 Freeway-2.8.4-github.zip
