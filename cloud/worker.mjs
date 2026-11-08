@@ -38,7 +38,7 @@ import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs'
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.17.1-cloud';
+const VERSION = '2.17.2-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;

@@ -8,13 +8,13 @@ preview is a bug.
 
 | Place | Field | Format |
 | --- | --- | --- |
-| `app.mjs` | `VERSION` | `2.17.1` |
-| `package.json` | `version` | `2.17.1` |
-| `cloud/worker.mjs` | `VERSION` | `2.17.1-cloud` |
-| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.17.1` |
-| `VERSIONS.md` | table row + section | `2.17.1` |
-| `CURRENT-LINK.txt` | app + zip line | `2.17.1` |
-| ZIP | `dist/Freeway-<version>.zip` | `2.17.1` |
+| `app.mjs` | `VERSION` | `2.17.2` |
+| `package.json` | `version` | `2.17.2` |
+| `cloud/worker.mjs` | `VERSION` | `2.17.2-cloud` |
+| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.17.2` |
+| `VERSIONS.md` | table row + section | `2.17.2` |
+| `CURRENT-LINK.txt` | app + zip line | `2.17.2` |
+| ZIP | `dist/Freeway-<version>.zip` | `2.17.2` |
 
 The cloud build carries the app version with a `-cloud` suffix, so app and site can never
 drift. Extra cloud-only deploys during a debug session use `-cloud.2`, `-cloud.3`, … until the
@@ -24,7 +24,7 @@ next real release collapses them back to `<version>-cloud`.
 
 ```bash
 cd freeway
-./release.sh 2.17.1
+./release.sh 2.17.2
 ```
 
 It rewrites all three version strings, rebuilds `freeway.mjs` (the CLI/SEA bundle),
@@ -92,7 +92,7 @@ that delay, and the result recorded separately.
 
 ## Version bump semantics
 
-- **patch** (`2.17.1` → `2.17.0`): fixes, copy, provider lists, docs, tooling
+- **patch** (`2.17.2` → `2.17.1`): fixes, copy, provider lists, docs, tooling
 - **minor** (`2.13` → `2.14`): a new capability the user can see (streaming, search, auth)
 - **major** (`2.x` → `3.x`): a break in config, routes or file layout
 

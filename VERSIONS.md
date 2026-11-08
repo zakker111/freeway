@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.17.2 | 2026-11-08 | Preview links are labelled by scope, and a missing file offers Open Files / Save sample & retry |
 | 2.17.1 | 2026-11-08 | Preview deep links always open the panel and explain a missing browser file |
 | 2.17.0 | 2026-11-08 | Release polish: share management, in-app dialogs, stable download and accessibility |
 | 2.16.0 | 2026-11-08 | Account-backed preview links: a cloud preview opens on any signed-in device |
@@ -155,6 +156,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.17.2 — 2026-11-08
+
+- **The link scope is visible.** A saved page now shows a **Browser-only link** pill next to
+  **copy link**. An account share shows **Portable link** instead. A browser-only link also
+  offers **sign in for portable link** when auth and preview shares are enabled.
+- **A missing preview file offers a way forward.** The panel now includes **open files** and,
+  for `sample/index.html`, **save sample & retry**. Saving the sample immediately previews it
+  and keeps the original hash link usable. Other missing files can be created in Files.
+- **Checks.** 260 unit (including 53 page checks), 33 CLI, 28 + 28 simulations and 36 cloud
+  checks pass. Desktop 2.17.2; production and preview report 2.17.2-cloud.
 
 ## 2.17.1 — 2026-11-08
 

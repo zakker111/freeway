@@ -64,7 +64,7 @@ installer. A build copies a Windows `node.exe`, injects the app as a Node SEA bl
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
 end to end on commit `94715e4` (run 41940445555). The last Windows executable published
-from this repo is 2.8.4; the current 2.17.1 source ZIP is built by `release.sh`, while a
+from this repo is 2.8.4; the current 2.17.2 source ZIP is built by `release.sh`, while a
 new `.exe` needs the workflow run. The earlier 2.4.1 download was cross-built from Linux
 with the same steps (see `RELEASING.md`).
 
@@ -142,7 +142,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.17.1 — self-check
+Freeway 2.17.2 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable

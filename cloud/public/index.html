@@ -1174,6 +1174,14 @@
       button.ghost:hover:not(:disabled) { background: var(--surface-3); border-color: var(--line); color: var(--text); }
       button.mini { padding: 3px 9px; font-size: 11.5px; border-radius: 8px; color: var(--muted); background: transparent; box-shadow: none; }
       button.mini:hover:not(:disabled) { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+      .link-scope {
+        display: inline-flex; align-items: center; white-space: nowrap;
+        padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px;
+        color: var(--muted); background: var(--surface-2);
+        font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+      }
+      .link-scope.portable { color: var(--accent-strong); border-color: var(--accent-line); background: var(--accent-soft); }
+      .preview-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 2px; }
       :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
       header {
@@ -1821,6 +1829,10 @@
           <button class="mini" type="button" id="previewGo">go</button>
         </div>
         <p class="fine" id="previewNote" role="status" aria-live="polite">Nothing previewed yet.</p>
+        <div class="preview-actions" id="previewMissing" hidden>
+          <button class="ghost mini" type="button" id="previewMissingFiles">open files</button>
+          <button class="mini" type="button" id="previewMissingSample" hidden>save sample &amp; retry</button>
+        </div>
         <div id="previewError" hidden></div>
         <div id="previewProblems" class="preview-problems" hidden>
           <p class="fine" id="previewProblemsTitle"></p>
@@ -1829,6 +1841,8 @@
         <div class="row" style="gap:8px;align-items:center">
           <a class="fine" id="previewOpen" href="#" target="_blank" rel="noreferrer" hidden>open in a new tab ↗</a>
           <button class="mini" type="button" id="previewCopy" hidden>copy link</button>
+          <span class="link-scope" id="previewLinkScope" hidden></span>
+          <a class="fine" id="previewSignIn" href="#" hidden>sign in for portable link</a>
           <button class="mini" type="button" id="previewShare" hidden title="Save this preview to your account and copy a link that opens on your other devices">share link</button>
         </div>
         <iframe id="previewFrame" title="Preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" style="display:none;width:100%;height:58vh;border:1px solid var(--line-2);border-radius:8px;background:#fff"></iframe>
@@ -2027,6 +2041,7 @@
         fileLimits: null,
         previewLink: '',
         previewName: '',
+        previewMissing: '',
         previewShare: null,
         previewShares: [],
         previewSharesUsage: null,
@@ -3979,6 +3994,25 @@
         if (copy) copy.hidden = !state.previewLink;
         const share = $('previewShare');
         if (share) share.hidden = !(target && state.previewSharesEnabled && state.user);
+        const scope = $('previewLinkScope');
+        if (scope) {
+          scope.hidden = !state.previewLink;
+          scope.textContent = shared ? 'Portable link' : 'Browser-only link';
+          scope.classList.toggle('portable', Boolean(shared));
+          scope.title = shared
+            ? 'This account link opens on any device where you sign in.'
+            : 'This link opens only in this browser, where the file is saved.';
+        }
+        const signIn = $('previewSignIn');
+        if (signIn) {
+          signIn.hidden = !(state.previewLink && !shared && state.previewSharesEnabled && !state.user);
+          if (!signIn.hidden) {
+            signIn.href =
+              '/auth/freebuff/signin?returnTo=' +
+              encodeURIComponent(location.pathname + location.search + location.hash);
+            signIn.title = 'Sign in, then save this preview to make a link that opens on your other devices';
+          }
+        }
         try {
           // Keep the address bar on the browser link even when the copy link is
           // account-backed; opening a /preview/<id> URL would leave the app.
@@ -4010,22 +4044,38 @@
         switchRail('preview');
         const files = readFiles();
         if (!(name in files)) {
-          clearPreview();
-          try {
-            // clearPreview() resets the address bar; put the requested link back
-            // so the user can retry after saving the file.
-            history.replaceState(null, '', previewLinkFor(name));
-          } catch {
-            /* history can be restricted in a sandboxed or embedded tab */
-          }
-          $('previewNote').textContent =
-            `That preview link points at ${name}, which is not saved in this browser. ` +
-            'Browser-only links work where the file is saved; sign in and use share link to open it on another device.';
+          showMissingPreview(name);
           return false;
         }
         $('fileName').value = name;
         $('fileBody').value = files[name];
         return previewSavedHtml(name);
+      }
+
+      function showMissingPreview(name) {
+        clearPreview();
+        state.previewMissing = name;
+        // clearPreview() resets the address bar; put the requested link back so
+        // the user can retry after saving the file.
+        try {
+          history.replaceState(null, '', previewLinkFor(name));
+        } catch {
+          /* history can be restricted in a sandboxed or embedded tab */
+        }
+        $('previewNote').textContent =
+          `That preview link points at ${name}, which is not saved in this browser. ` +
+          'Open Files to save it, or save the built-in sample and retry. Browser-only links ' +
+          'work only where the file is saved; sign in after previewing to make a portable link.';
+        $('previewMissingSample').hidden = name.replace(/^\.?\//, '') !== 'sample/index.html';
+        $('previewMissing').hidden = false;
+        $('rail').hidden = false;
+        switchRail('preview');
+      }
+
+      function hideMissingPreview() {
+        state.previewMissing = '';
+        const box = $('previewMissing');
+        if (box) box.hidden = true;
       }
 
       function clearPreviewFailure() {
@@ -4049,6 +4099,7 @@
         $('previewOpen').hidden = true;
         const copy = $('previewCopy');
         if (copy) copy.hidden = true;
+        hideMissingPreview();
         setPreviewLink('');
       }
 
@@ -4064,6 +4115,7 @@
         $('previewOpen').hidden = true;
         const copy = $('previewCopy');
         if (copy) copy.hidden = true;
+        hideMissingPreview();
         setPreviewLink('');
         const box = $('previewError');
         box.innerHTML = FreewayPreview.renderError(error);
@@ -4092,10 +4144,23 @@
         // Only a real saved page has a link to copy; the sample is in memory.
         const target = targetName === '' ? '' : String(targetName || label || '').trim();
         const saved = Boolean(target) && /\.(html?|svg|md|markdown)$/i.test(target) && !/\(in memory\)/i.test(target);
+        hideMissingPreview();
         setPreviewLink(saved ? target : '');
         $('rail').hidden = false;
         switchRail('preview');
       }
+
+      $('previewMissingFiles').onclick = () => {
+        const name = state.previewMissing;
+        if (name) $('fileName').value = name;
+        $('rail').hidden = false;
+        switchRail('files');
+        $('fileBody').focus();
+      };
+
+      $('previewMissingSample').onclick = () => {
+        loadSamplePage();
+      };
 
       $('previewGo').onclick = () => {
         let url;
@@ -4123,8 +4188,13 @@
         state.previewLink = '';
         state.previewName = '';
         state.previewShare = null;
+        hideMissingPreview();
         const share = $('previewShare');
         if (share) share.hidden = true;
+        const scope = $('previewLinkScope');
+        if (scope) scope.hidden = true;
+        const signIn = $('previewSignIn');
+        if (signIn) signIn.hidden = true;
         try {
           history.replaceState(null, '', location.pathname || '/');
         } catch {

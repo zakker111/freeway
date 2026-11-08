@@ -6,6 +6,13 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release still 
 2.8.4 archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.17.2 · preview link scope and recovery
+
+- [x] Browser-only and portable preview links have visible labels
+- [x] Missing preview files offer open files and save sample & retry
+- [x] A browser-only link offers sign-in for a portable link
+- [x] Page checks cover the scope label and recovery actions
+
 ## Done — 2.17.1 · preview deep-link feedback
 
 - [x] `#preview=<file>` always opens the Preview panel
