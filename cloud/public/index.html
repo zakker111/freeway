@@ -1984,7 +1984,12 @@
         <input id="settingTools" type="checkbox" style="width:auto" />
         Workspace tools (testing): let the model list, read and write browser files
       </label>
-      <div class="fine" style="margin-top:4px">Off by default. When on, the model is told to use these tools; write_file still asks you first.</div>
+      <div class="fine" style="margin-top:4px">Off by default. When on, the model is told to use these tools; write_file asks first unless Auto-approve browser writes is on.</div>
+      <label for="settingAutoApprove" style="display:flex; gap:8px; align-items:center; margin-top:10px" title="Bypass the Confirm card for write_file only. Tool use must also be on; deleting, revoking and other destructive actions still ask.">
+        <input id="settingAutoApprove" type="checkbox" style="width:auto" aria-describedby="settingAutoApproveHelp" />
+        Auto-approve browser writes
+      </label>
+      <div class="fine" id="settingAutoApproveHelp" style="margin-top:4px">Off by default. This bypasses the Confirm card for write_file only: the model can create or overwrite browser files directly while tools are on. Deleting files, revoking links and other destructive actions still ask.</div>
       <div class="row" style="justify-content:flex-start; flex-wrap:wrap; margin-top:14px">
         <button class="ghost mini" id="historyBtn" type="button">Saved chats</button>
         <button class="ghost mini" id="promptsBtn" type="button">Prompts</button>
@@ -2473,7 +2478,8 @@
 
       // ------------------------------------------- workspace tools (testing)
       // Same shape as the desktop tools, but a Worker has no disk: these read and
-      // write the browser workspace. Writes always ask first, like Windows does.
+      // write the browser workspace. Writes ask first unless the user explicitly
+      // enables Auto-approve browser writes; destructive rail actions still ask.
       const WORKSPACE_TOOLS = [
         {
           type: 'function',
@@ -2495,7 +2501,7 @@
           type: 'function',
           function: {
             name: 'write_file',
-            description: 'Create or overwrite a file in the browser workspace. The user must approve.',
+            description: 'Create or overwrite a file in the browser workspace. The user may be asked to approve the write.',
             parameters: {
               type: 'object',
               properties: { path: { type: 'string' }, content: { type: 'string' } },
@@ -2660,6 +2666,7 @@
           let fallbackFrom = '';
           let retriedFrom = '';
           let compacted = 0;
+          let autoApprovedWrites = 0;
           for (let step = 0; step < 3; step += 1) {
             if (state.stopRequested) throw new DOMException('stopped', 'AbortError');
             const headers = { 'content-type': 'application/json' };
@@ -2698,7 +2705,9 @@
               } catch {
                 args = {};
               }
-              const allowed = name === 'write_file' ? await askTool(name, args) : true;
+              const autoApproved = name === 'write_file' && settings.autoApproveWrites;
+              const allowed = name === 'write_file' ? autoApproved || (await askTool(name, args)) : true;
+              if (autoApproved && allowed) autoApprovedWrites += 1;
               results.push(`${name}(${JSON.stringify(args)}) -> ${allowed ? await runTool(name, args) : 'DENIED by the user'}`);
             }
             convo.push({ role: 'user', content: 'TOOL RESULTS\n' + results.join('\n') });
@@ -2719,6 +2728,9 @@
           if (fallbackFrom && answeredBy) meta.textContent += ' · via ' + answeredBy;
           if (retriedFrom) meta.textContent += ' · retried from ' + retriedFrom;
           if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
+          if (autoApprovedWrites) {
+            meta.textContent += ` · ${autoApprovedWrites} write${autoApprovedWrites === 1 ? '' : 's'} auto-approved`;
+          }
           addMeta(pending.wrap, '', answer);
           bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
         } catch (error) {
@@ -3174,6 +3186,7 @@
           maxTokens: Number.isFinite(raw.maxTokens) ? raw.maxTokens : 2048,
           temperature: Number.isFinite(raw.temperature) ? raw.temperature : null,
           tools: raw.tools === true,
+          autoApproveWrites: raw.autoApproveWrites === true,
         };
       }
 
@@ -4546,6 +4559,7 @@
         $('settingMax').value = settings.maxTokens;
         $('settingTemp').value = settings.temperature === null ? '' : settings.temperature;
         $('settingTools').checked = settings.tools === true;
+        $('settingAutoApprove').checked = settings.autoApproveWrites === true;
         $('settingsDialog').showModal();
       };
       $('settingsCancel').onclick = () => $('settingsDialog').close();
@@ -4562,6 +4576,7 @@
               ? Math.min(Math.max(temperature, 0), 2)
               : null,
             tools: $('settingTools').checked,
+            autoApproveWrites: $('settingAutoApprove').checked,
           }),
         );
         $('settingsDialog').close();

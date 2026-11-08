@@ -42,7 +42,9 @@ generated, never edited by hand.
    the explicit, off-by-default `settings.autoApprove` choice may skip it, and only in Build.
    Plan mode never auto-approves, and a timeout or dropped connection counts as *deny*.
    Only a response that was offered tools may run a tool call; with the Tools switch off,
-   a returned call is ignored, never treated as an implicit opt-in.
+   a returned call is ignored, never treated as an implicit opt-in. The cloud edition has
+   its own off-by-default `autoApproveWrites`; it may skip only its browser `write_file`
+   card, never file deletion, link revocation or another destructive rail action.
 7. **Secrets are write-only from the browser.** The API returns names and a four
    character hint; values never leave the process.
 8. **Version sync.** `VERSION` in `app.mjs` and `version` in `package.json` must be

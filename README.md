@@ -64,7 +64,7 @@ installer. A build copies a Windows `node.exe`, injects the app as a Node SEA bl
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
 end to end on commit `94715e4` (run 41940445555). The last Windows executable published
-from this repo is 2.8.4; the current 2.17.2 source ZIP is built by `release.sh`, while a
+from this repo is 2.8.4; the current 2.18.1 source ZIP is built by `release.sh`, while a
 new `.exe` needs the workflow run. The earlier 2.4.1 download was cross-built from Linux
 with the same steps (see `RELEASING.md`).
 
@@ -336,7 +336,10 @@ between machines.
 - **Settings.** System prompt, temperature, max output tokens, tools, the retry-log
   switch, the per-chat request cap, the workspace folder, the command allowlist and —
   off by default, applying to every Build workspace — **Auto-approve Build actions**.
-  Saved to the config file, not to the page.
+  Cloud Settings also has **Auto-approve browser writes**, off by default, which bypasses
+  the Confirm card for its browser `write_file` only; deleting files or revoking links
+  still asks. Desktop settings are saved to the config file; cloud settings stay in this
+  browser.
 - **Model picker.** Searchable, filterable by tools / vision / context, with live
   per-million pricing from the catalog (never hardcoded).
 - **Quota meter.** The header pill shows free requests left today. Click it to replace a
@@ -591,8 +594,9 @@ characters of its text. You can upload text/HTML/SVG/Markdown, download the edit
 site's API. Signed
 in, **Account files** stores the same text in R2 under your subject — 1 MB per file, 40 files and
 8 MB per account — so it follows you to another device. Both workspaces are text-only; images
-belong in the composer. On the desktop the model reads real files through tools, with an
-Allow/Deny card before anything is written.
+belong in the composer. On the desktop the model reads real files through tools, with an Allow/Deny card before
+anything is written; cloud browser writes ask the same way unless **Auto-approve browser
+writes** is enabled there.
 
 **Preview links that follow you.** With workspace tools on and a signed-in account, a cloud
 `preview_link` saves a self-contained snapshot in R2 and returns `/preview/<id>`. Re-sharing

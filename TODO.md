@@ -6,6 +6,18 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release still 
 2.8.4 archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.18.1 · cloud boot repair
+
+- [x] Restored the missing comma in the cloud `write_file` description
+- [x] Added a page test that compiles every inline script in both editions
+- [x] 262 unit (55 page), 33 CLI, 28 + 28 simulation and 36 cloud checks pass
+
+## Done — 2.18.0 · cloud browser write bypass
+
+- [x] Off-by-default **Auto-approve browser writes** in cloud Settings
+- [x] Bypasses only `write_file`; deletion, revocation and other confirms still ask
+- [x] The footer marks auto-approved writes; a page test covers opt-in, persistence and wiring
+
 ## Done — 2.17.2 · preview link scope and recovery
 
 - [x] Browser-only and portable preview links have visible labels

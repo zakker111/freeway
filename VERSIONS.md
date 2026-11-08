@@ -5,6 +5,8 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.18.1 | 2026-11-08 | Fix the 2.18.0 cloud boot failure and parse every inline page script |
+| 2.18.0 | 2026-11-08 | Cloud browser write bypass (superseded by the 2.18.1 boot fix) |
 | 2.17.2 | 2026-11-08 | Preview links are labelled by scope, and a missing file offers Open Files / Save sample & retry |
 | 2.17.1 | 2026-11-08 | Preview deep links always open the panel and explain a missing browser file |
 | 2.17.0 | 2026-11-08 | Release polish: share management, in-app dialogs, stable download and accessibility |
@@ -156,6 +158,29 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.18.1 — 2026-11-08
+
+- **The cloud page boots again.** A missing comma in the `write_file` tool description
+  stopped the page script before model loading, so 2.18.0's new setting was unreachable.
+  The comma is fixed and the setting now loads normally.
+- **The test suite now compiles both pages.** A new page check parses every inline
+  `<script>` in the desktop and cloud pages, so a syntax error fails the gate instead of
+  shipping a blank-looking app.
+- **Checks.** All 2.18.1 gates pass: 262 unit (including 55 page checks), 33 CLI,
+  28 + 28 simulations and 36 cloud checks. Desktop 2.18.1; production and preview report
+  2.18.1-cloud.
+
+## 2.18.0 — 2026-11-08
+
+- **Cloud writes can go straight through when you choose.** Settings → **Auto-approve
+  browser writes** is off by default. When on, the cloud model's `write_file` creates or
+  overwrites browser files without the Confirm card, and the answer footer says how many
+  writes were auto-approved. Workspace tools must also be on. Deleting files, revoking
+  preview links and other destructive actions still ask. Desktop keeps its existing
+  **Auto-approve Build actions** setting.
+- **Superseded by 2.18.1.** The cloud page stopped at load because of the missing comma;
+  2.18.1 fixes the script and adds the parse check.
 
 ## 2.17.2 — 2026-11-08
 
