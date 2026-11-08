@@ -2,8 +2,8 @@
 
 Ticked items are in the shipped build. Every step ends the same way: full test suite,
 rebuilt single file, rebuilt ZIP, and a redeploy to the same public link. The live URLs and
-the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release still carries the
-2.8.4 archives, and the cloud site is open
+the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release carries the
+2.19.0 source and Windows archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
 ## Done — 2.19.0 · preview captures and Git tools

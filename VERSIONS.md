@@ -176,6 +176,10 @@ change. The running app reports its version in the header badge and at `GET /api
 - **Checks.** All 2.19.0 gates pass: 269 unit tests, 34 CLI checks, 28 + 28
   simulations and 36 cloud checks. The new route test captures a preview through
   a fake local browser; the desktop bundle includes `lib/git.mjs`.
+- **Windows.** The Windows Actions job built and smoke-tested
+  `Freeway-2.19.0-windows.zip`; it is attached to the release. The first tag run
+  failed only on a CRLF assertion in the new revert test, fixed on main before the
+  successful build.
 
 ## 2.18.1 — 2026-11-08
 

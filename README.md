@@ -63,9 +63,9 @@ provide.
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
-end to end on commit `94715e4` (run 41940445555). The last Windows executable published
-from this repo is 2.8.4; the current 2.19.0 source ZIP is built by `release.sh`, while a
-new `.exe` needs the workflow run. The earlier 2.4.1 download was cross-built from Linux
+end to end on commit `94715e4` (run 41940445555). The 2.19.0 Windows executable was built and smoke-tested on the Windows Actions
+workflow and attached to the 2.19.0 release; the matching source ZIP is built by
+`release.sh` and attached too. The earlier 2.4.1 download was cross-built from Linux
 with the same steps (see `RELEASING.md`).
 
 Get it:
@@ -75,8 +75,7 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.8.4 `.exe` is built and smoke-tested by the tag workflow. The earlier 2.4.1 `.exe` was
-assembled outside Windows and could not be launched in the build machine, so treat its
+The 2.19.0 `.exe` was built and smoke-tested by the Windows workflow. The earlier 2.4.1 `.exe` was assembled outside Windows and could not be launched in the build machine, so treat its
 first run as a smoke test. If the published `.exe` refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
