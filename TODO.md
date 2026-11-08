@@ -6,6 +6,12 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release still 
 2.8.4 archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.17.1 · preview deep-link feedback
+
+- [x] `#preview=<file>` always opens the Preview panel
+- [x] A missing browser file shows a visible explanation and keeps the link
+- [x] Page checks require the panel-open and missing-file paths
+
 ## Done — 2.17.0 · release polish
 
 - [x] Cloud **Shares** panel lists account links; open, copy, revoke one and revoke all

@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.17.1 | 2026-11-08 | Preview deep links always open the panel and explain a missing browser file |
 | 2.17.0 | 2026-11-08 | Release polish: share management, in-app dialogs, stable download and accessibility |
 | 2.16.0 | 2026-11-08 | Account-backed preview links: a cloud preview opens on any signed-in device |
 | 2.15.0 | 2026-11-08 | Preview links: the model can hand over a working preview URL in both editions |
@@ -154,6 +155,16 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.17.1 — 2026-11-08
+
+- **A preview deep link always does something visible.** Opening `#preview=<file>` now opens
+  the Preview panel. If the named file is not saved in this browser, the panel says so and
+  keeps the link, instead of leaving the user on the app with no response. Browser-only links
+  work only where the file exists; a signed-in account share is the cross-device option.
+- **Checks.** All 2.17.1 gates pass: 259 unit (including 52 page checks), 33 CLI,
+  28 + 28 simulations and 36 cloud checks. Desktop 2.17.1; production and preview report
+  2.17.1-cloud.
 
 ## 2.17.0 — 2026-11-08
 

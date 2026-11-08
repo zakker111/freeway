@@ -4003,9 +4003,24 @@
       async function openPreviewFromHash(only = previewFromHash()) {
         const name = String(only || '').trim();
         if (!name) return false;
+        // Opening a link must always produce a visible result. A browser-only
+        // link is scoped to this browser, so a stale or cross-device link is
+        // common; explain that in the panel instead of doing nothing.
+        $('rail').hidden = false;
+        switchRail('preview');
         const files = readFiles();
         if (!(name in files)) {
-          $('previewNote').textContent = `That preview link points at ${name}, which is not saved in this chat.`;
+          clearPreview();
+          try {
+            // clearPreview() resets the address bar; put the requested link back
+            // so the user can retry after saving the file.
+            history.replaceState(null, '', previewLinkFor(name));
+          } catch {
+            /* history can be restricted in a sandboxed or embedded tab */
+          }
+          $('previewNote').textContent =
+            `That preview link points at ${name}, which is not saved in this browser. ` +
+            'Browser-only links work where the file is saved; sign in and use share link to open it on another device.';
           return false;
         }
         $('fileName').value = name;
