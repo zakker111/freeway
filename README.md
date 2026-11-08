@@ -5,9 +5,16 @@ Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Cloudflare Workers AI, OVHcloud and
 Ollama. When the model you picked is
 rate-limited, it retries the next free model on the same provider automatically and tells
 you which one answered. It never changes provider unless you do. The model can also use
-tools: read the clock, do exact arithmetic, and fetch public web pages.
+tools: read the clock, do exact arithmetic, fetch public web pages, and — in Build — edit
+workspace files, scaffold a page, start a dev server, check a preview and, for vision models,
+capture it with installed Edge or Chrome so the model can inspect the layout.
 
 Existing settings and chats from earlier versions are carried forward automatically.
+
+In the desktop app a new chat starts in **Plan**. The model can read the workspace and
+propose a plan with steps, files and a verification command, but it cannot write or run
+anything; press **Build this plan** to switch to Build and execute it. The composer also has
+a `Plan | Build` switch, and the plan is saved with the chat.
 
 The first screen is not a key wall: press **Use OVHcloud instead — no key** and send a message
 straight away. OVHcloud publishes a public demo endpoint with no account, no card and a
@@ -32,15 +39,23 @@ Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The
 - **`Freeway-<version>-github.zip`** — the source tree for uploading to GitHub; it has
   no build output and no keys.
 
-In either edition, **Files → Sample** writes `sample/index.html` and `sample/style.css`
-into the workspace and opens the result in Preview.
+In either edition, **Preview** in the header opens a working sample page immediately.
+The sample is shown in memory, so a new chat stays empty; **Files → Sample** writes
+`sample/index.html` and `sample/style.css` into that chat's workspace.
+
+Each chat owns its files and Preview. A new desktop chat gets a folder under the app
+config (`workspaces/<chat-id>`); older chats keep the folder from Settings, so upgrading
+does not hide a project. The cloud edition namespaces browser files and account files by
+chat, and an old account file is claimed by the first existing chat opened after upgrade.
 
 Desktop HTML previews use a private server on `127.0.0.1`, so linked files, relative ES
-modules, `fetch()` and absolute `/assets` paths behave like a normal dev server. It serves
-only the selected workspace, refuses hidden/secret files and stops with the app. Open the
-app at `http://127.0.0.1:3002` (the address it prints) to use it; an unsaved editor buffer
-or a tunneled tab falls back to the shared static preview. Cloud previews remain static and
-say clearly when a language needs a runtime they cannot provide.
+modules, same-origin `fetch()` and absolute `/assets` paths behave like a normal dev server.
+It serves only the selected workspace, refuses hidden/secret files and stops with the app.
+A restrictive CSP keeps a preview from contacting external hosts, so use a real dev server
+for third-party APIs. Open the app at `http://127.0.0.1:3002` (the address it prints) to use
+it; an unsaved editor buffer or a tunneled tab falls back to the shared static preview.
+Cloud previews remain static and say clearly when a language needs a runtime they cannot
+provide.
 
 ### The one executable (no Node, no installer)
 
@@ -48,9 +63,10 @@ say clearly when a language needs a runtime they cannot provide.
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
-end to end on commit `94715e4` (run 41940445555). The 2.4.2 release is built by that
-workflow from the tag and its Windows ZIP is the tested artifact. The earlier 2.4.1
-download was cross-built from Linux with the same steps (see `RELEASING.md`).
+end to end on commit `94715e4` (run 41940445555). The last Windows executable published
+from this repo is 2.8.4; the current 2.17.0 source ZIP is built by `release.sh`, while a
+new `.exe` needs the workflow run. The earlier 2.4.1 download was cross-built from Linux
+with the same steps (see `RELEASING.md`).
 
 Get it:
 
@@ -59,7 +75,7 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.4.2 `.exe` is built and smoke-tested by the tag workflow. The earlier 2.4.1 `.exe` was
+The 2.8.4 `.exe` is built and smoke-tested by the tag workflow. The earlier 2.4.1 `.exe` was
 assembled outside Windows and could not be launched in the build machine, so treat its
 first run as a smoke test. If the published `.exe` refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
@@ -72,7 +88,7 @@ first run as a smoke test. If the published `.exe` refuses to start, use
    Run anyway**.
 5. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-Tagging a release (`git tag v2.4.2 && git push --tags`) attaches the same ZIP to the
+Tagging a release (`git tag vX.Y.Z && git push --tags`) attaches the same ZIP to the
 GitHub release.
 
 ### Start it on your computer — exact steps
@@ -126,7 +142,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.4.2 — self-check
+Freeway 2.17.0 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable
@@ -197,7 +213,9 @@ default is `127.0.0.1:3002`. `start.cmd` and `start.sh` pass their arguments thr
 
 Binding to `0.0.0.0` is for containers and virtual machines. There is no password, so
 anyone who can reach the port can spend your OpenRouter credits — the app prints a warning
-when you do it.
+when you do it. The app accepts loopback and IP-literal `Host` headers by default; if a
+proxy or tunnel presents a public hostname, name it in `FREEWAY_ALLOWED_HOSTS` (comma
+separated). That fence prevents a DNS-rebinding page from reading the per-run app token.
 
 ### One file
 
@@ -287,9 +305,15 @@ between machines.
 - **Request budget.** Set a soft cap on free requests per conversation; the footer counts
   up and warns as you approach it. It warns, it never blocks.
 - **Tools.** Clock, exact calculator, public web fetch, workspace file tools, GitHub helpers
-  and allowlisted commands (see below). Only offered to models whose catalog entry supports
+  (desktop only; cloud has a browser-side repository rail) and allowlisted commands (see below). Only offered to models whose catalog entry supports
   tool calling; when they are on, the server tells the model to use them instead of guessing.
-  If a model rejects the parameter the app retries once without tools.
+  If a model rejects the parameter the app retries once without tools. A tool call returned
+  when tools were not offered is ignored, not executed.
+- **Files and Secrets on a short screen.** Long file and secret lists get their own
+  bounded scroll area instead of stretching the rail and pushing the editor or actions
+  below the fold. The panel body still scrolls, with contained overscroll, and opening a
+  file reveals its editor. Under 640px of height the rail compacts so the controls stay
+  reachable, and the editor keeps a readable minimum height instead of clipping its textarea.
 - **Real chat controls.** Copy, regenerate, edit a prompt, new chat, stop mid-stream, and
   the thread survives a reload (kept in `localStorage`).
 - **Nothing lost to a refresh.** If an answer is cut off — tab closed, page reloaded,
@@ -310,8 +334,9 @@ between machines.
   settings and the model choice. **Import** restores the settings and merges the chats
   back, or replaces them all.
 - **Settings.** System prompt, temperature, max output tokens, tools, the retry-log
-  switch, the per-chat request cap, the workspace folder and — off by default — the
-  command allowlist. Saved to the config file, not to the page.
+  switch, the per-chat request cap, the workspace folder, the command allowlist and —
+  off by default, applying to every Build workspace — **Auto-approve Build actions**.
+  Saved to the config file, not to the page.
 - **Model picker.** Searchable, filterable by tools / vision / context, with live
   per-million pricing from the catalog (never hardcoded).
 - **Quota meter.** The header pill shows free requests left today. Click it to replace a
@@ -326,25 +351,44 @@ between machines.
 | `fetch_url` | Reads a public page and returns its text | http(s) only, private/local addresses refused, 8s timeout, 20k char cap |
 | `list_files` | Lists a folder in the workspace | Opt-in root, `node_modules`/`.git` skipped, 500 entries |
 | `read_file` | Reads a text file from the workspace | realpath containment, 256 KB cap, binaries refused |
-| `write_file` | Writes a text file in the workspace | **approved per call**, 1 MB cap, realpath containment |
+| `write_file` | Writes a text file in the workspace | **approved per call** (unless auto-approve is on), 1 MB cap, realpath containment |
 | `search_files` | Greps text across the workspace, with line numbers | literal by default or regex, generated folders skipped, 2,000 files, 80 matches |
 | `read_many` | Reads up to 8 files in one call | 320 KB total, per-file errors reported |
-| `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff**, every find must be unique, 1 MB cap |
+| `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff** (unless auto-approve is on), every find must be unique, 1 MB cap |
+| `scaffold_project` | Creates a three-file static starter site | **approved per call**, refuses to overwrite, workspace-contained |
+| `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
+| `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or an account-backed page snapshot (cloud, signed in) | starts the private preview server, a `#preview=` browser link, or an owner-only `/preview/<id>` snapshot with a sandbox CSP; never a public share |
+| `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, 800×600 PNG, 320 KB cap, at most 2 per run |
 | `github_list` | Repositories, issues, pulls or commits | read-only, 20 rows, 12s timeout |
 | `github_create_issue` | Opens an issue | **approved per call** |
 | `run_command` | Runs one allowlisted program in the workspace | **approved per call**, `shell: false`, filtered env, 60s, 64 KB, streamed output |
+| `run_tests` | Runs the project tests and returns parsed file/line failures | **approved per call** (unless auto-approve is on), same allowlist and runner as `run_command` |
+| `start_process` | Starts a dev server or watcher that keeps running | **approved per call**, allowlisted program, max 3, port detected once it listens, stopped on quit |
+| `process_logs` | Reads a managed process's recent output and port | read-only, newest 8 KB, status and uptime |
+| `stop_process` | Stops one managed process, or all of them | **approved per call**, frees the port |
 
-Tool loops are bounded: at most 3 rounds and 4 calls per round, so a confused model cannot
-spin forever. Turn tools off entirely in Settings. Whenever tools are actually offered, both
+Tool loops are bounded: a Build turn gets at most 40 tool steps and 15 minutes, with a live
+budget in the composer; Plan stays read-only and is capped at 3 rounds. A round can carry 4
+calls, so a confused model cannot spin forever. Turn tools off entirely in Settings. Whenever tools are actually offered, both
 editions prepend a short system instruction (`lib/tool-prompt.mjs`) telling the model to use
 them and not to claim a call ran without a result. It is omitted when tools are off, or after
-a model rejects the parameter. Anything that writes or executes —
-`write_file`, `apply_patch`, `github_create_issue`, `run_command` — stops at an Allow / Deny card first,
-and a dropped connection or a three-minute wait counts as Deny.
+a model rejects the parameter. By default, anything that writes or executes —
+`write_file`, `apply_patch`, `scaffold_project`, `github_create_issue`, `run_command`,
+`start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
+connection or a three-minute wait counts as Deny. The off-by-default **Auto-approve Build
+actions** setting can skip those cards for every Build workspace while it is on. Plan mode
+never auto-approves, and the workspace and command allowlist still apply. Each skipped card
+is marked in the transcript. Tool calls are only run when that response was offered tools;
+turning tools off is a hard stop, not a hint.
 
 `run_command` has no shell at all, so `&&`, pipes and `>` are just text passed to the
 program. It is off until you tick *Allow the model to run commands* and name the programs
 (for example `node, npm, git`); anything else is refused before a process starts.
+
+Managed dev servers use that same allowlist and runner. `start_process` keeps at most three
+programs alive, detects the port they print and only offers it once something accepts a
+connection there; `process_logs` is read-only, and `stop_process` (or quitting the app)
+frees the port. A running server appears under the composer with **Open** and **Stop**.
 
 Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, both in
 `lib/tools.mjs`.
@@ -359,6 +403,8 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `lib/providers.mjs` | the provider table: base URLs, key rules, free-plan checks |
 | `lib/memory.mjs` | long-chat compaction into one memory note |
 | `lib/tools.mjs` | tool schemas, calculator, URL guard, HTML-to-text |
+| `lib/scaffold.mjs` | dependency-free three-file starter site, with escaped copy and themes |
+| `lib/preview-check.mjs` | static HTML/CSS asset verification for the Build repair loop |
 | `lib/testparse.mjs` | parses test output into file/line failures |
 | `lib/redact.mjs` | scrubs `sk-…` secrets from logs and errors |
 | `lib/models.test.mjs` | unit tests for model selection |
@@ -368,6 +414,8 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `lib/github.mjs` | GitHub REST client behind the panel and the `github_*` tools |
 | `lib/commands.mjs` | allowlisted program runner: `shell: false`, filtered env, caps |
 | `lib/commands.test.mjs` | unit tests for the runner |
+| `lib/processes.mjs` | managed dev servers: cap, port detection, bounded logs, TTL |
+| `lib/processes.test.mjs` | unit tests for the process manager |
 | `lib/store.mjs` | saved chats: list, search, import/export |
 | `lib/status.mjs` | in-memory attempt log behind the Status tab and `/api/status` |
 | `lib/store.test.mjs` | unit tests for saved chats |
@@ -387,6 +435,7 @@ npm test             # unit tests for selection and tools
 npm run simulate     # mock upstream + real app: retries, tools, errors
 npm run test:cli     # flags, flag precedence, the single-file build
 npm run test:ui      # real browser check; set CHROME_BIN
+node cloud/build.mjs && node cloud/test.mjs  # cloud Worker suite
 npm run build:single # regenerate freeway.mjs
 ```
 
@@ -435,6 +484,8 @@ models this app will send.
 | **Cohere** | <https://dashboard.cohere.com/api-keys> → **Trial key** | opaque | trial key: 1,000 calls/month, 20 requests/min; chat models only |
 | **SambaNova** | <https://cloud.sambanova.ai/apis> → **Create API key** | opaque | no-payment tier: 20 requests/min, 20/day per model |
 | **Aion Labs** | <https://www.aionlabs.ai/> → console | opaque | free plan: 15 requests/min, 20,000 tokens/day |
+| **Z.AI** | <https://z.ai/model-api> → API key | opaque | `glm-4.7-flash` only; paid GLM models are refused |
+| **Cloudflare Workers AI** | <https://dash.cloudflare.com/profile/api-tokens> → Create token; Account ID from the dashboard | opaque + 32-character Account ID | 10,000 Neurons/day; the listed Workers AI chat models only |
 | **OVHcloud** | none — keyless | — | public demo endpoint: 2 requests/min per model, no account |
 
 1. Open the link for the provider you want, sign in, and create a key.
@@ -450,9 +501,10 @@ models this app will send.
 - **Cloud, just for you:** choose the provider, press **key**, paste. It stays in that tab's
   `sessionStorage` and is sent per request; the Worker does not store it.
 - **Cloud, for every visitor:** add `OPENROUTER_API_KEY`, `GROQ_API_KEY`,
-  `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `SAMBANOVA_API_KEY` or
-  `AION_API_KEY` under **Sites → Secrets**. Visitors then need no key at all;
-  OVHcloud works with no secret.
+  `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `SAMBANOVA_API_KEY`,
+  `AION_API_KEY`, `ZAI_API_KEY`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+  under **Sites → Secrets**. Visitors then need no key at all; OVHcloud works with no
+  secret.
 
 Never paste a key into chat, an issue, a screenshot or a commit. If one leaks, revoke it in
 the provider console and create another.
@@ -470,7 +522,8 @@ stored in `config.json` (0600); the page only ever learns whether a key exists.
 Environment overrides, mostly for tests: `GROQ_BASE_URL`, `GEMINI_BASE_URL`,
 `MISTRAL_BASE_URL`, `COHERE_BASE_URL`, `SAMBANOVA_BASE_URL`, `OPENROUTER_BASE_URL`, plus
 `GROQ_API_KEY` / `GEMINI_API_KEY` / `MISTRAL_API_KEY` / `COHERE_API_KEY` /
-`SAMBANOVA_API_KEY` / `OPENROUTER_API_KEY` to skip the saved file.
+`SAMBANOVA_API_KEY` / `OPENROUTER_API_KEY` / `ZAI_API_KEY` / `CLOUDFLARE_API_TOKEN` /
+`CLOUDFLARE_ACCOUNT_ID` to skip the saved file.
 
 ## If the workspace folder is missing
 
@@ -485,39 +538,53 @@ with that message, chat still answering, settings still saving, nothing in the s
 
 The desktop app needs Node because it writes threads, reads files and runs commands. The
 `cloud/` folder is a smaller program for people who just want to chat: one Cloudflare
-Worker serves the page, lists free models and proxies a single turn to OpenRouter.
+Worker serves the page, lists free models, proxies a single turn to OpenRouter, syncs
+chats and account files when you sign in, and leaves the GitHub token in the browser.
 
 - **No key on the deployment?** The page asks for one, keeps it in that tab
   (`sessionStorage`) and sends it per request. The Worker never stores or echoes it. The
   same dialog offers **Use OVHcloud instead — no key**, which selects the keyless provider and
   starts a chat without an account.
 - **Key on the deployment?** Add `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`,
-  `MISTRAL_API_KEY`, `COHERE_API_KEY` or `SAMBANOVA_API_KEY` under **Sites → Secrets** and
+  `MISTRAL_API_KEY`, `COHERE_API_KEY`, `SAMBANOVA_API_KEY`, `AION_API_KEY`, `ZAI_API_KEY`,
+  `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`) under **Sites → Secrets** and
   visitors never see a key field for that provider.
 - **Free only, checked on the server:** the requested id must still be free in the live
   OpenRouter catalog, so a hand-edited request cannot reach a paid model.
-- **Different by design:** chats, prompts, the file workspace and Markdown export all live in
-  this browser (`localStorage`/`sessionStorage`), not on a disk. The command runner and the
-  desktop GitHub panel have no cloud equivalent.
+- **Chats follow your account.** Saved chats live in this browser (`localStorage`) and, when
+  you sign in, sync both ways with your account in D1, so they reopen on another device.
+  Guest chats are claimed by the first account that signs in. Prompts, the file workspace and
+  Markdown export stay browser-local. The desktop filesystem tools, command runner and
+  managed dev servers have no cloud equivalent. The cloud GitHub rail is a browser-side
+  repository list; GitHub tools that write remain desktop-only.
+- **GitHub in the tab.** Save a fine-grained or classic PAT as `GITHUB_TOKEN` under
+  **Secrets**. The GitHub rail calls `https://api.github.com` directly, keeps the token in
+  `sessionStorage`, and never sends it to the Worker. It disappears when the tab closes;
+  no token is configured on the deployment, and the panel only lists repositories.
 
 Run it locally (no Wrangler needed):
 
 ```bash
 cd cloud
+node build.mjs               # bundle the Worker first
 node dev.mjs                 # http://127.0.0.1:3100, paste a key in the page
 OPENROUTER_API_KEY=sk-or-… node dev.mjs   # pretend the deployment has a key
 ```
 
 Routes: `GET /`, `GET /healthz`, `GET /api/config`, `GET /api/models?provider=…`,
-`POST /api/chat`.
+`GET /api/quota`, `GET /api/budget`, `GET /api/me`, `GET|PUT|DELETE /api/files[/:name]`,
+`GET /api/threads`, `PUT|DELETE /api/threads/:id`, `POST /api/chat`, and
+`/auth/freebuff/*` when sign-in is configured. The GitHub rail is browser-to-GitHub and has
+no Worker route.
 
 `POST /api/chat` streams Server-Sent Events: `{"delta":"…"}` frames as tokens arrive, then one
 `{"done":true,"model":…,"ms":…}` frame. Pass `stream:false` for the old single JSON reply.
 
-The page also keeps a prompt library, a saved-chat history (30 newest) and exports the current
-chat as Markdown; all three are browser-local (`localStorage`) and need no route, key or account.
+The page also keeps a prompt library, a 200-chat history (200 messages per chat) and exports
+the current chat as Markdown. Prompts and Markdown export stay browser-local; chats work
+without an account and sync to the signed-in account when there is one.
 
-**Files in the cloud edition** have two homes. **This browser** is a text workspace in
+**Files in the cloud edition** have two homes, both scoped to the open chat. **This browser** is a text workspace in
 IndexedDB; names always travel with a request, and ticking a file includes up to 12,000
 characters of its text. You can upload text/HTML/SVG/Markdown, download the editor, and preview
 `.html`, `.htm`, `.svg` or `.md` in a sandboxed iframe that cannot reach the session or this
@@ -527,13 +594,21 @@ in, **Account files** stores the same text in R2 under your subject — 1 MB per
 belong in the composer. On the desktop the model reads real files through tools, with an
 Allow/Deny card before anything is written.
 
+**Preview links that follow you.** With workspace tools on and a signed-in account, a cloud
+`preview_link` saves a self-contained snapshot in R2 and returns `/preview/<id>`. Re-sharing
+the same chat file updates that URL. The page is served only to the owning account under a
+sandbox CSP; another account gets 404 and a signed-out visitor gets a sign-in page. Links are
+limited to 1.5 MB each, 40 shares / 8 MB per account, and deleting the account file revokes
+its snapshots. Signed out, the link stays the browser-only `#preview=` form. The cloud
+**Shares** panel lists saved links with open, copy, revoke and revoke-all actions.
+
 **Previewing files.** Both editions preview HTML, SVG and Markdown. Linked CSS, classic
 JavaScript and SVG bundle into one sandboxed document; on the desktop the loopback server also
 handles ES modules, `fetch` and absolute paths. TypeScript, JSX, SCSS/Sass, Less, Vue, Svelte and
 Astro are source files, not browser assets: the preview card reads `package.json`, detects the
 framework (Next.js, Nuxt, SvelteKit, Astro, Vite or Parcel) and names the dev/build command and
 output folder. The app does not pretend to compile them. Cloud asks you to build locally and
-upload the result; desktop can serve the project's own dev server instead. Workspace
+upload the result; desktop can start the project's own dev server in Build and serve it instead. Workspace
 previews also collect script errors, failed assets and unhandled promise rejections in a
 small problems card under the frame, instead of leaving a silent blank page. Remote
 http(s) previews are cross-origin, so their errors stay in the browser console.
@@ -567,6 +642,9 @@ Publish it yourself:
 - Free models vary a lot in quality, and many do not support tool calling. The
   "answered by" line and the tool chips tell you exactly what happened.
 - The queue lives in the page, so reloading drops anything still waiting behind an answer.
+- The cloud GitHub rail is a browser-only repository list: the token lives in that tab's
+  `sessionStorage`, a new tab asks for it again, and issues, pull requests, commits and
+  `github_*` tools remain desktop-only.
 - Chat transcript Markdown is deliberately small: headings, lists, quotes, links, bold, italic,
   inline code and fenced code with a copy button. No tables, no syntax colouring.
 - File preview Markdown supports headings, lists, quotes, tables, links, images, emphasis and
@@ -574,6 +652,9 @@ Publish it yourself:
   card names the project's own command instead.
 - Preview diagnostics are bounded to the current frame and available for workspace
   previews; a remote http(s) page cannot be inspected from the app across origins.
+- Screenshot verification is desktop Build only and needs Edge or Chrome. It is offered only
+  when every model in the OpenRouter fallback chain accepts images; a page over the 320 KB
+  image cap gets a clear failure instead of a silently empty picture.
 - Some free variants route to providers with different data-retention policies. Do not
   paste secrets into prompts.
 

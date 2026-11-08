@@ -127,6 +127,110 @@ const mock = http.createServer(async (req, res) => {
       return;
     }
 
+    // Plan mode gets a plan artifact. The mock deliberately ignores the tool
+    // list in plan-write so the server has to refuse a mutating call itself.
+    if (mode === 'plan' && Array.isArray(body.tools) && !body.messages.some((m) => m.role === 'tool')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [
+          {
+            delta: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_plan',
+                  type: 'function',
+                  function: {
+                    name: 'propose_plan',
+                    arguments: JSON.stringify({
+                      goal: 'Ship Plan mode',
+                      assumptions: ['The workspace is set'],
+                      steps: [
+                        {
+                          title: 'Read the chat loop',
+                          detail: 'Find where tools are offered',
+                          files: ['app.mjs'],
+                          verify: 'node --check app.mjs',
+                        },
+                        {
+                          title: 'Render the plan card',
+                          files: ['public/index.html'],
+                          verify: 'node --test lib/pages.test.mjs',
+                        },
+                      ],
+                      risks: ['A free model may skip the artifact'],
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [{ delta: {}, finish_reason: 'tool_calls' }],
+        usage: { prompt_tokens: 20, completion_tokens: 8, cost: 0 },
+      });
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    if (mode === 'plan-write' && Array.isArray(body.tools) && !body.messages.some((m) => m.role === 'tool')) {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [
+          {
+            delta: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_plan_write',
+                  type: 'function',
+                  function: {
+                    name: 'write_file',
+                    arguments: JSON.stringify({ path: 'plan/blocked.txt', content: 'should not exist' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [{ delta: {}, finish_reason: 'tool_calls' }],
+        usage: { prompt_tokens: 20, completion_tokens: 8, cost: 0 },
+      });
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    if (mode === 'plan' || mode === 'plan-write') {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, { id: 'x', model: 'mock/alpha-free', choices: [{ delta: { role: 'assistant', content: '' } }] });
+      sse(res, { id: 'x', model: 'mock/alpha-free', choices: [{ delta: { content: 'Plan handled.' } }] });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [{ delta: {}, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 30, completion_tokens: 2, cost: 0 },
+      });
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
     if (mode === 'patch' && Array.isArray(body.tools) && !body.messages.some((m) => m.role === 'tool')) {
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       sse(res, {
@@ -392,6 +496,67 @@ const mock = http.createServer(async (req, res) => {
       return;
     }
 
+
+    // The provider ignores the absent tools list. The app must not execute this
+    // call, whether it arrives through the protocol or as formatted text.
+    if (mode === 'unoffered-write') {
+      if (body.messages.some((message) => message.role === 'tool')) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        sse(res, { id: 'x', model: 'mock/alpha-free', choices: [{ delta: { content: 'Should not have run.' } }] });
+        sse(res, {
+          id: 'x',
+          model: 'mock/alpha-free',
+          choices: [{ delta: {}, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 10, completion_tokens: 4 },
+        });
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      const asText = String(body.messages.at(-1)?.content || '').includes('as text');
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      if (asText) {
+        const text =
+          'Writing that page now.\n<tool_call>\n<function=write_file>\n' +
+          '<parameter=path>unoffered/text-blocked.html</parameter>\n' +
+          '<parameter=content><h1>blocked</h1></parameter>\n' +
+          '</function>\n</tool_call>';
+        sse(res, { id: 'x', model: 'mock/alpha-free', choices: [{ delta: { role: 'assistant', content: text } }] });
+      } else {
+        sse(res, {
+          id: 'x',
+          model: 'mock/alpha-free',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: 'call_unoffered',
+                    type: 'function',
+                    function: {
+                      name: 'write_file',
+                      arguments: JSON.stringify({ path: 'unoffered/blocked.txt', content: 'must not exist' }),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        });
+      }
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [{ delta: {}, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 6 },
+      });
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
     if (mode === 'exhausted') {
       res.writeHead(429, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
@@ -613,7 +778,9 @@ async function main() {
     });
 
     await check('reports the free daily quota', async () => {
-      const body = await (await get(`${base}/api/key`)).json();
+      const body = await (
+        await get(`${base}/api/key`, { headers: { 'x-app-token': token } })
+      ).json();
       assert.equal(body.ok, true);
       assert.equal(body.freeDaily.remaining, 47);
     });
@@ -668,6 +835,63 @@ async function main() {
       assert.deepEqual(config.skipped, [], 'New Chat did not clear the failure memory');
     });
 
+    await check('a chat turn and its files share one managed workspace', async () => {
+      const chatId = 'sim-chat-files-1';
+      const otherId = 'sim-chat-files-2';
+      const headers = { 'content-type': 'application/json', 'x-app-token': token };
+
+      const turn = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          provider: 'openrouter',
+          model: 'mock/beta-free',
+          threadId: chatId,
+          workspace: '',
+          messages: [{ role: 'user', content: 'hello from a managed chat' }],
+        }),
+      });
+      assert.equal(turn.status, 200);
+      const text = collectSse(await turn.text())
+        .filter((event) => event.type === 'delta')
+        .map((event) => event.text)
+        .join('');
+      assert.equal(text, 'Hello from mock/beta-free!');
+
+      const write = await fetch(`${base}/api/fs/write`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ chat: chatId, workspace: '', path: 'note.txt', content: 'from this chat' }),
+      });
+      assert.equal(write.status, 200);
+      assert.equal(
+        fs.readFileSync(path.join(configDir, 'workspaces', chatId, 'note.txt'), 'utf8'),
+        'from this chat',
+      );
+
+      const listing = await (
+        await get(`${base}/api/fs?path=.&chat=${chatId}&workspace=`, { headers })
+      ).json();
+      assert.ok(listing.entries.some((entry) => entry.name === 'note.txt'));
+      const otherListing = await (
+        await get(`${base}/api/fs?path=.&chat=${otherId}&workspace=`, { headers })
+      ).json();
+      assert.equal(otherListing.entries.length, 0, 'a second chat inherited the first chat files');
+
+      const save = await fetch(`${base}/api/threads/${chatId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          title: 'Managed chat',
+          messages: [{ role: 'user', content: 'hello from a managed chat' }],
+          workspace: '',
+        }),
+      });
+      assert.equal(save.status, 200);
+      const saved = await (await get(`${base}/api/threads/${chatId}`, { headers })).json();
+      assert.equal(saved.thread.workspace, '', 'the chat workspace policy was not saved');
+    });
+
     await check('keeps the chosen provider when it cannot answer', async () => {
       mode = 'cross-provider';
       chatCalls = [];
@@ -715,6 +939,12 @@ async function main() {
         body: JSON.stringify({ messages: [{ role: 'user', content: 'what is 6*7?' }] }),
       });
       const events = collectSse(await response.text());
+      const meta = events.find((e) => e.type === 'meta');
+      assert.equal(meta?.build?.maxSteps, 40, 'the page was not told the Build step limit');
+      assert.equal(meta?.build?.maxMs, 15 * 60 * 1000, 'the page was not told the Build time limit');
+      const progress = events.find((e) => e.type === 'build');
+      assert.equal(progress?.steps, 1, 'the first tool step was not reported');
+      assert.equal(progress?.maxSteps, 40);
       const tool = events.find((e) => e.type === 'tool');
       assert.equal(tool?.name, 'calculate');
       assert.match(tool.preview, /42/);
@@ -812,6 +1042,69 @@ async function main() {
       assert.equal(reset.status, 200);
     });
 
+
+    await check('does not advertise command tools when commands are off', async () => {
+      const workspace = path.join(configDir, 'ws');
+      fs.mkdirSync(workspace, { recursive: true });
+      const save = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({
+          workspace,
+          settings: { tools: true, allowCommands: false, commandAllowlist: 'node' },
+        }),
+      });
+      assert.equal(save.status, 200);
+      await fetch(`${base}/api/session/reset`, {
+        method: 'POST',
+        headers: { 'x-app-token': token },
+      });
+
+      mode = 'fallback';
+      chatCalls = [];
+      const response = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'show me the tools' }] }),
+      });
+      await response.text();
+      const offered = (chatCalls[0]?.tools ?? []).map((tool) => tool.function.name);
+      for (const name of ['run_command', 'run_tests', 'start_process']) {
+        assert.equal(offered.includes(name), false, `commands are off but ${name} was advertised`);
+      }
+      assert.ok(offered.includes('write_file'), `the regular Build tools disappeared too: ${JSON.stringify(offered)}`);
+
+      const enable = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ settings: { allowCommands: true, commandAllowlist: 'node' } }),
+      });
+      assert.equal(enable.status, 200);
+      await fetch(`${base}/api/session/reset`, {
+        method: 'POST',
+        headers: { 'x-app-token': token },
+      });
+      mode = 'fallback';
+      chatCalls = [];
+      const enabledResponse = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'show me the tools' }] }),
+      });
+      await enabledResponse.text();
+      const enabled = (chatCalls[0]?.tools ?? []).map((tool) => tool.function.name);
+      for (const name of ['run_command', 'run_tests', 'start_process']) {
+        assert.ok(enabled.includes(name), `allowlisted command tool ${name} was not advertised`);
+      }
+
+      const reset = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ settings: { allowCommands: false, commandAllowlist: '' } }),
+      });
+      assert.equal(reset.status, 200);
+    });
+
     await check('stops with a clear error when every model is rate limited', async () => {
       mode = 'exhausted';
       chatCalls = [];
@@ -884,6 +1177,179 @@ async function main() {
       const toolMessage = followUp.messages.find((m) => m.role === 'tool');
       assert.match(toolMessage.content, /Wrote \/written\/by-model\.txt/);
       mode = 'fallback';
+    });
+
+    await check('auto-approve writes only when the user explicitly trusts Build', async () => {
+      const initial = await (await fetch(`${base}/api/config`, { headers: { 'x-app-token': token } })).json();
+      assert.equal(initial.settings.autoApprove, false, 'auto-approve must be off by default');
+
+      const workspace = path.join(configDir, 'ws');
+      fs.mkdirSync(workspace, { recursive: true });
+      const save = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ settings: { autoApprove: true } }),
+      });
+      assert.equal(save.status, 200);
+
+      const target = path.join(workspace, 'written', 'by-model.txt');
+      fs.rmSync(target, { force: true });
+      mode = 'write';
+      chatCalls = [];
+      const response = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'write without asking' }] }),
+      });
+      const events = collectSse(await response.text());
+
+      assert.equal(events.some((event) => event.type === 'confirm'), false, 'auto-approve still asked for a click');
+      assert.equal(fs.readFileSync(target, 'utf8'), 'the model wrote this');
+      assert.ok(
+        events.some((event) => event.type === 'auto_approve' && event.name === 'write_file'),
+        'the page was not told that the write was auto-approved',
+      );
+      assert.equal(events.find((event) => event.type === 'tool')?.ok, true);
+
+      const reset = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ settings: { autoApprove: false } }),
+      });
+      assert.equal(reset.status, 200);
+      mode = 'fallback';
+    });
+
+
+    await check('does not execute tool calls when tools were not offered', async () => {
+      const workspace = path.join(configDir, 'ws');
+      fs.mkdirSync(workspace, { recursive: true });
+      fs.rmSync(path.join(workspace, 'unoffered'), { recursive: true, force: true });
+      const save = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({
+          workspace,
+          settings: { tools: false, autoApprove: true },
+        }),
+      });
+      assert.equal(save.status, 200);
+
+      const attempt = async (prompt, target, expectError) => {
+        await fetch(`${base}/api/session/reset`, {
+          method: 'POST',
+          headers: { 'x-app-token': token },
+        });
+        mode = 'unoffered-write';
+        chatCalls = [];
+        const response = await fetch(`${base}/api/chat`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-app-token': token },
+          body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+        });
+        const events = collectSse(await response.text());
+        assert.equal(chatCalls.length, 1, 'a tool call was sent back to the provider');
+        assert.equal(events.some((event) => event.type === 'confirm'), false, 'an unoffered tool asked for a click');
+        assert.equal(events.some((event) => event.type === 'auto_approve'), false, 'an unoffered tool was auto-approved');
+        assert.equal(events.some((event) => event.type === 'tool'), false, 'an unoffered tool was executed');
+        assert.equal(fs.existsSync(target), false, 'an unoffered tool wrote a file');
+        const error = events.find((event) => event.type === 'error');
+        if (expectError) {
+          assert.match(error?.message ?? '', /tools were not offered/, `the turn did not explain the rejected call: ${JSON.stringify(events)}`);
+        } else {
+          // A text-form call can coexist with prose; the prose is still a valid
+          // answer, but the call itself must have been stripped, not executed.
+          assert.equal(error, undefined, 'a prose answer with a rejected call became an error');
+          assert.ok(events.some((event) => event.type === 'done'), 'the prose answer did not finish');
+        }
+      };
+
+      try {
+        await attempt('use the tool to write it', path.join(workspace, 'unoffered', 'blocked.txt'), true);
+        await attempt('write it as text', path.join(workspace, 'unoffered', 'text-blocked.html'), false);
+      } finally {
+        mode = 'fallback';
+        const reset = await fetch(`${base}/api/config`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-app-token': token },
+          body: JSON.stringify({ settings: { tools: true, autoApprove: false } }),
+        });
+        assert.equal(reset.status, 200);
+      }
+    });
+
+    await check('plan mode offers only read tools and returns a plan artifact', async () => {
+      mode = 'plan';
+      chatCalls = [];
+      const response = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ mode: 'plan', messages: [{ role: 'user', content: 'plan this change' }] }),
+      });
+      const events = collectSse(await response.text());
+      const meta = events.find((event) => event.type === 'meta');
+      assert.equal(meta?.mode, 'plan');
+      assert.equal(meta?.build, null, 'plan mode should not show a Build budget');
+      const offered = (chatCalls[0]?.tools ?? []).map((tool) => tool.function.name);
+      assert.ok(offered.includes('propose_plan'), 'plan mode never offered propose_plan');
+      assert.ok(offered.includes('read_file'), 'plan mode lost the read tools');
+      assert.ok(offered.includes('preview_check'), 'plan mode lost the read-only preview check');
+      for (const name of ['write_file', 'apply_patch', 'run_command', 'run_tests', 'github_create_issue']) {
+        assert.equal(offered.includes(name), false, `plan mode advertised ${name}`);
+      }
+
+      const plan = events.find((event) => event.type === 'plan')?.plan;
+      assert.ok(plan, 'no plan event reached the page');
+      assert.equal(plan.goal, 'Ship Plan mode');
+      assert.equal(plan.steps.length, 2);
+      assert.equal(plan.steps[0].status, 'pending');
+      assert.match(events.find((event) => event.type === 'tool')?.preview ?? '', /Goal: Ship Plan mode/);
+      assert.equal(events.some((event) => event.type === 'confirm'), false, 'plan mode asked to write');
+      assert.match(chatCalls[1]?.messages.find((message) => message.role === 'tool')?.content ?? '', /Goal: Ship Plan mode/);
+      mode = 'fallback';
+    });
+
+    await check('plan mode refuses a write even when the model calls one', async () => {
+      mode = 'plan-write';
+      const workspace = path.join(configDir, 'ws');
+      const target = path.join(workspace, 'plan', 'blocked.txt');
+      fs.rmSync(target, { force: true });
+      chatCalls = [];
+
+      const response = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ mode: 'plan', messages: [{ role: 'user', content: 'just write it' }] }),
+      });
+      const events = collectSse(await response.text());
+      assert.equal(events.some((event) => event.type === 'confirm'), false, 'the write was offered for approval');
+      assert.equal(fs.existsSync(target), false, 'plan mode wrote a file');
+
+      const tool = events.find((event) => event.type === 'tool' && event.name === 'write_file');
+      assert.equal(tool?.ok, false, 'the refused write was reported as successful');
+      assert.match(tool?.preview ?? '', /Plan mode is read-only/);
+      const toolMessage = chatCalls[1]?.messages.find((message) => message.role === 'tool');
+      assert.match(toolMessage?.content ?? '', /Plan mode is read-only/);
+      mode = 'fallback';
+    });
+
+    await check('a saved chat keeps its mode and plan artifact', async () => {
+      const id = 'plan-thread-0001';
+      const save = await fetch(`${base}/api/threads/${id}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({
+          title: 'Plan chat',
+          messages: [{ role: 'user', content: 'plan it' }],
+          mode: 'plan',
+          plan: { goal: 'Keep this plan', steps: [{ title: 'One' }] },
+        }),
+      });
+      assert.equal(save.status, 200, 'the plan chat did not save');
+      const read = await (await fetch(`${base}/api/threads/${id}`, { headers: { 'x-app-token': token } })).json();
+      assert.equal(read.thread.mode, 'plan');
+      assert.equal(read.thread.plan.goal, 'Keep this plan');
+      assert.equal(read.thread.plan.steps[0].status, 'pending');
     });
 
     await check('a denied write leaves the file untouched', async () => {

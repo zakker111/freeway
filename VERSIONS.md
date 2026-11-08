@@ -5,6 +5,35 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.17.0 | 2026-11-08 | Release polish: share management, in-app dialogs, stable download and accessibility |
+| 2.16.0 | 2026-11-08 | Account-backed preview links: a cloud preview opens on any signed-in device |
+| 2.15.0 | 2026-11-08 | Preview links: the model can hand over a working preview URL in both editions |
+| 2.14.4 | 2026-11-08 | Short-window lists keep their own scroll height while the editor stays whole |
+| 2.14.3 | 2026-11-08 | Short-window file editor keeps its minimum height so its textarea is not clipped |
+| 2.14.2 | 2026-11-08 | Scrollable Files/Secrets lists keep the editor and actions reachable on short screens |
+| 2.14.1 | 2026-11-08 | Audit: tool calls are ignored when tools were not offered; `run_tests` follows the runner |
+| 2.14.0 | 2026-11-08 | Opt-in Auto-approve Build actions plus a live UI audit and modal polish |
+| 2.13.10 | 2026-11-08 | Audit: dead-code cleanup, correct cloud GitHub docs and working cloud test command |
+| 2.13.9 | 2026-11-08 | Empty Saved chats panel offers a Start a new chat action |
+| 2.13.8 | 2026-11-08 | Chats control is labelled; the panel no longer depends on an unlabeled icon |
+| 2.13.7 | 2026-11-08 | Security hardening: request fences, secret denylist, scrubbed errors, pinned fetch |
+| 2.13.6 | 2026-11-07 | Fluid phone-to-laptop scaling: 1040px reading column and larger phone text |
+| 2.13.5 | 2026-11-07 | Phone composer gets a full-width row; header is three rows |
+| 2.13.4 | 2026-11-07 | Header offset follows late wraps so Preview stays clickable |
+| 2.13.3 | 2026-11-07 | Preview stays clickable below the rail; stale and cloud pages recover |
+| 2.13.2 | 2026-11-07 | Preview recovers from stale entries and cloud reopens saved pages |
+| 2.13.1 | 2026-11-07 | Preview finds the generated page again after a reload or chat switch |
+| 2.13.0 | 2026-11-07 | Desktop Build verifies a preview with a local headless screenshot for vision models |
+| 2.12.2 | 2026-11-07 | Keep the cloud account-files status and sign-in status in separate elements |
+| 2.12.1 | 2026-11-07 | New chats appear in the sidebar before the first message, in both editions |
+| 2.12.0 | 2026-11-07 | Build starts real dev servers: port detection, bounded logs, stop and cleanup |
+| 2.11.0 | 2026-11-07 | Bounded Build verification: starter scaffold and local preview asset checks |
+| 2.10.1 | 2026-11-07 | Chats with files but no messages survive a restart in both editions |
+| 2.10.0 | 2026-11-06 | Every chat owns its files, account files and Preview |
+| 2.9.2 | 2026-11-06 | One-click Preview in both editions opens a working sample |
+| 2.9.1 | 2026-11-06 | Cloud chats reopen on reload and sync both ways with the signed-in account |
+| 2.9.0 | 2026-11-05 | Plan mode: read-only planning with a persisted plan artifact, then Build |
+| 2.8.5 | 2026-11-05 | Bigger, labelled image and text-file attachment buttons in both editions |
 | 2.8.4 | 2026-11-05 | Cloud answers the page from cache and warms the catalog in the background |
 | 2.8.3 | 2026-11-05 | Cloud requests are time-bounded so a cold deploy cannot answer 502 |
 | 2.8.2 | 2026-11-05 | Audit fixes: malformed route ids are 400s, HEAD serves the page, healthz is read-only |
@@ -125,6 +154,428 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.17.0 — 2026-11-08
+
+- **Account preview links are manageable.** The cloud rail has a **Shares** panel that lists
+  every saved link with its file, date and size. Open or copy one, revoke one, or revoke all.
+  Revoking the link that is currently previewed restores the browser `#preview=` copy link
+  instead of leaving a dead account URL behind; signing out and deleting the account file do
+  the same. `GET /api/previews` lists an account's links and `DELETE /api/previews` revokes
+  them all; the existing single-link DELETE is unchanged.
+- **One stable desktop download.** The cloud page's desktop link is now a stable
+  `github.com/zakker111/freeway/releases/latest` URL served from `/api/config`, not a
+  temporary `style.dev` tunnel. The desktop Settings screen has the same release link.
+- **Prompts belong to the app.** Both editions replace native `prompt()` and `confirm()`
+  with one in-app `<dialog>`: rename, project, memory, import, secret delete and quit all
+  use it. Escape cancels, Enter submits, and the custom overlays are labelled and trap Tab.
+- **Accessible status.** The header status and cloud banner are live regions, both pages
+  expose a hidden `aria-live` region, and the dialogs have titles and focus handling.
+- **Checks.** All 2.17.0 gates pass: 259 unit (including 52 page checks), 33 CLI,
+  28 + 28 simulations and 36 cloud checks. Desktop 2.17.0; production and preview report
+  2.17.0-cloud.
+
+## 2.16.0 — 2026-11-08
+
+- **A cloud preview link survives the device.** When signed in, `preview_link` packages the
+  page as a self-contained HTML snapshot in the account's R2 space and returns
+  `/preview/<id>` instead of a browser-only `#preview=` link. Re-sharing the same chat file
+  updates the same URL; another device signed into the account renders it.
+- **Owner-only, not a public share.** The snapshot row is keyed by the session subject and
+  served under `sandbox` with a CSP, so the generated page cannot read the app's cookies or
+  call its APIs. A signed-out visitor gets a sign-in page; another account gets 404.
+- **Stable and revocable.** One share per chat file, 1.5 MB per snapshot, 40 shares / 8 MB
+  per account. Deleting the account file also removes its snapshot. The Preview panel has a
+  Share link button; Copy link creates the account link lazily when signed in. Signed out,
+  the link stays the browser-only `#preview=` form.
+- **Checks.** All 2.16.0 gates pass: 257 unit (including 50 page checks), 33 CLI,
+  28 + 28 simulations and 35 cloud checks. Desktop 2.16.0; production and preview report
+  2.16.0-cloud.
+
+## 2.15.0 — 2026-11-08
+
+- **The model can hand over a preview link.** Desktop Build offers `preview_link`, and every
+  HTML or SVG write now returns its tokenised loopback preview URL in the same tool result,
+  so even a model that never calls the tool can show the address. The Preview panel has a
+  Copy link button, and asking to see a page opens the panel as well as returning the link.
+- **Cloud links reopen the saved page.** Cloud Build offers `preview_link` for browser files;
+  the URL carries the file in `#preview=` and reopens it in the Preview panel after a reload
+  or when opened in a new tab. Cloud links stay in this browser — they are not public shares.
+- **Checks.** All 2.15.0 gates pass: 257 unit (including 50 page checks), 33 CLI,
+  28 + 28 simulations and 33 cloud checks. Desktop 2.15.0; production and preview report
+  2.15.0-cloud.
+
+## 2.14.4 — 2026-11-08
+
+- **Long lists keep their space.** The file and secret lists no longer shrink when the
+  editor is visible on a short screen. They stay at their bounded scroll height, and the
+  panel body scrolls when both cannot fit, instead of reducing a 48-file list to 40px.
+- **Checks.** All 2.14.4 gates pass: 255 unit (including 49 page checks), 33 CLI,
+  28 + 28 simulations and 33 cloud checks. Desktop 2.14.4; production and preview report
+  2.14.4-cloud.
+
+## 2.14.3 — 2026-11-08
+
+- **The short-window editor stays whole.** On windows under 640px, the desktop file
+  editor now keeps a 170px minimum height. A long list and a short viewport can still
+  scroll the rail, but the textarea no longer extends below the panel and gets clipped.
+- **Checks.** All 2.14.3 gates pass: 255 unit (including 49 page checks), 33 CLI,
+  28 + 28 simulations and 33 cloud checks. Desktop 2.14.3; production and preview report
+  2.14.3-cloud.
+
+## 2.14.2 — 2026-11-08
+
+- **Files and Secrets scroll where it matters.** Long file and secret lists now have a
+  bounded scroll area instead of stretching the rail and pushing the editor or actions
+  below the fold. The panel body remains scrollable, with contained overscroll so reaching
+  the end does not fling the chat behind it.
+- **Opening a file brings the editor into view.** The desktop file browser scrolls the
+  editor to the nearest edge and focuses it; the preview path reveals the buffer without
+  stealing focus. Under 640px of height the rail compacts and shortens the editor/list.
+- **Checks.** All 2.14.2 gates pass: 255 unit (including 49 page checks), 33 CLI,
+  28 + 28 simulations and 33 cloud checks. Desktop 2.14.2; production and preview report
+  2.14.2-cloud.
+
+## 2.14.1 — 2026-11-08
+
+- **Tools off is a hard stop.** When a provider returns a tool call in a response that was
+  not offered tools, the call is ignored. This covers protocol `tool_calls`, calls written
+  as `<tool_call>` text, and the automatic retry after a provider rejects the tools
+  parameter. If there is no usable answer, the turn says the call was rejected.
+- **`run_tests` follows the runner gate.** It disappears with `run_command` and
+  `start_process` when no workspace, command switch or allowlist could run it, instead of
+  being advertised and then failing every call. Its approval path is unchanged.
+- **Checks.** All 2.14.1 gates pass: 254 unit, 33 CLI, 28 + 28 simulations and 33 cloud
+  checks. Desktop 2.14.1; production and preview report 2.14.1-cloud.
+
+## 2.14.0 — 2026-11-08
+
+- **Approval shortcut, off by default.** Settings now has **Auto-approve Build actions**.
+  When enabled, Build can write files, create GitHub issues, start or stop allowlisted
+  processes and run allowlisted commands without an Allow / Deny card. Plan remains
+  read-only; workspace containment and the command allowlist still apply. Every skipped
+  card is marked in the transcript.
+- **UI audit.** Fixed the API-key modal footer squeezing “Save and start” onto three lines,
+  added the missing desktop favicon, made the numeric token field valid at its default
+  value, and gave icon-only controls accessible names. The Settings text now names the
+  approval trade-off and the remaining limits.
+- **Checks.** 254 unit, 33 CLI, 26 + 26 simulations and 33 cloud checks pass. Desktop
+  2.14.0; production and preview report 2.14.0-cloud.
+
+## 2.13.10 — 2026-11-08
+
+- **Dead code removed.** Dropped an unused `baseUrlFor` import in `app.mjs` and an unused
+  `accountEnabled()` helper in the cloud page. No behaviour changes.
+- **Cloud test command works.** `cloud/package.json` now points `npm test` at the real
+  `cloud/test.mjs` suite instead of failing with “no test specified”; `npm run build`
+  rebuilds the Worker bundle.
+- **Cloud docs match the build.** The Worker header now lists the real routes and explains
+  that chats, account files and the browser-side GitHub rail exist in the cloud edition;
+  it no longer claims GitHub was dropped. README, AGENTS and RELEASING were updated for the
+  cloud GitHub token, full route list, provider keys and current test commands.
+- **Checks.** All 2.13.10 release gates pass: 253 unit, 33 CLI, 25 + 25 simulations and
+  33 cloud checks. Desktop 2.13.10; production and preview report 2.13.10-cloud.
+
+## 2.13.9 — 2026-11-08
+
+- **The empty panel has an action.** When there are no saved chats, the sidebar now shows
+  **Start a new chat** under the empty-state text in both editions. It calls the existing
+  new-chat path, so the draft is saved and listed immediately; it is not shown for a search
+  that simply has no matches.
+- **Checks.** Both page tests require the action; all 2.13.9 release gates pass
+  (253 unit, 33 CLI, 25 + 25 simulations, 33 cloud).
+
+## 2.13.8 — 2026-11-08
+
+- **Chats is visible.** The saved-chats control now reads **☰ Chats** in both the desktop and
+  cloud editions, so reopening the panel no longer depends on recognizing an unlabeled icon.
+  The label hides below 640px so the header still fits on phones.
+- **Same panel, same behaviour.** The docked column, narrow-screen drawer, search, keyboard
+  shortcut and empty state are unchanged.
+- **Regression coverage.** Both page tests require the visible label; all 2.13.8 release gates
+  pass (251 unit, 33 CLI, 25 + 25 simulations, 33 cloud).
+
+## 2.13.7 — 2026-11-08
+
+- **Local request fence.** Foreign `Host` headers and cross-origin mutations are refused,
+  so a DNS-rebinding page cannot read the app token or drive the local API. A proxy host
+  must be named in `FREEWAY_ALLOWED_HOSTS`.
+- **Credential files stay out of tools.** Listing, reads, writes, search and previews
+  refuse `.env*` (except examples), `secrets.*`, `credentials.*`, SSH keys and common key
+  files; the preview server also refuses `config.json` and `threads.json`.
+- **Quota and errors.** `/api/key` requires the app token. Provider error text is scrubbed
+  there and in cloud chat errors; redaction covers OpenRouter, Groq, Gemini, GitHub, xAI,
+  AWS and generic `sk-` key shapes.
+- **Storage and transport.** `threads.json` is written `0600`, cloud pages send `nosniff`,
+  preview HTML gets a restrictive CSP, regex search rejects catastrophic-backtracking
+  shapes and is time-budgeted, and `fetch_url` pins validated DNS answers.
+- **Checks.** 251 unit, 33 CLI, 25 + 25 simulations and 33 cloud checks pass. Desktop
+  2.13.7; preview and production report **2.13.7-cloud**.
+
+## 2.13.6 — 2026-11-07
+
+- **The reading column scales with the screen.** It stays 860px on smaller
+  laptops, grows to 1040px from 1200px wide, and the body text scales fluidly
+  from 15px to 16.8px instead of changing only at breakpoints.
+- **Phones get larger type and touch targets.** At 700px and below the page uses
+  16px text, Send is 46px high, header controls are 40px high, and message
+  bubbles use the full width.
+- **Shared rules.** Desktop and cloud use the same `--content` token, type
+  scale, phone breakpoint and touch sizes.
+- **Checks.** 247 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass.
+- **Shipped everywhere.** Desktop 2.13.6; preview and production report
+  **2.13.6-cloud**.
+
+## 2.13.5 — 2026-11-07
+
+- **The phone composer fits the screen.** At 700px and below the textarea takes
+  a full-width row and the controls sit beneath it; Send moves to the right.
+  At 432×822 the composer is 406px wide and the textarea is 406×50, with no
+  horizontal overflow.
+- **The desktop header is three rows, not four.** Capping the redundant quota
+  pill at 640px keeps New, Settings, Preview, Files and Quit on one row. The
+  header measures 141px, and Preview opens the rail at exactly that offset.
+- **Checks.** 246 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass.
+- **Shipped everywhere.** Desktop 2.13.5; preview and production report
+  **2.13.5-cloud**. The Windows SEA carries the same page.
+
+## 2.13.4 — 2026-11-07
+
+- **The header offset follows late wraps.** 2.13.3 measured the header once when the
+  rail opened, but the provider and model rows can reflow afterwards (observed 141px
+  becoming 184px on a 432px viewport). A `ResizeObserver` now keeps `--header-h` current,
+  so the fixed rail starts below the whole header on both editions.
+- **The click target was verified.** At 432×822 the centre of the header Preview button
+  now resolves to the button itself, not a rail row. The rail begins at the final header
+  height instead of partway through it.
+- **Windows EXE rebuilt.** `Freeway-2.13.4-windows.zip` carries the Node v26.13.0 SEA
+  executable built from the same `freeway.cjs`; the Linux SEA proxy of that blob reports
+  2.13.4. The Windows PE is inspected but cannot be launched in this Linux VM.
+- **Checks.** 245 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass.
+- **Shipped everywhere.** Desktop 2.13.4; preview and production report **2.13.4-cloud**.
+
+## 2.13.3 — 2026-11-07
+
+- **The header Preview button is clickable again.** On screens narrower than 1100px,
+  the fixed right rail started at the top of the viewport and covered the header
+  controls; a hit test at the Preview button resolved to a rail row. Both editions now
+  start the rail below the measured header height and update it on resize.
+- **Stale entries fall through.** Preview still tries the remembered page first, then a
+  fresh workspace scan after a rename or delete. A real error stays visible instead of
+  being replaced by the in-memory sample.
+- **Cloud reopens the real page.** Cloud Preview picks the best saved HTML, SVG or
+  Markdown entry after a reload or chat switch before using the sample.
+- **Windows EXE rebuilt.** `Freeway-2.13.3-windows.zip` contains the Node v26.13.0 SEA
+  executable built from the same `freeway.cjs`. The Linux SEA proxy of that blob serves
+  2.13.3; the Windows PE is inspected but cannot be launched in this Linux VM.
+- **Checks.** 245 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass.
+- **Shipped everywhere.** Desktop 2.13.3; preview and production report **2.13.3-cloud**.
+
+## 2.13.2 — 2026-11-07
+
+- **Stale entries fall through.** Preview remembers the last page, but that path can be
+  renamed or deleted between turns. It now tries the remembered selection, then a fresh
+  workspace scan, and only keeps an error after the real candidates fail. The in-memory
+  sample never hides that error.
+- **Cloud reopens the real page.** Cloud Preview now scans saved browser files for the
+  best HTML, SVG or Markdown entry — index pages and shallow/public paths first — before
+  falling back to the sample after a reload or chat switch.
+- **Windows EXE rebuilt.** `Freeway-2.13.2-windows.zip` contains the Node v26.13.0 SEA
+  executable built from the same `freeway.cjs`. The Linux SEA proxy of the same blob
+  reported 2.13.2 and served `/api/config` and the page; the Windows PE was inspected but
+  cannot be launched in this Linux VM.
+- **Checks.** 243 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass.
+- **Shipped everywhere.** Desktop 2.13.2; preview and production report **2.13.2-cloud**.
+
+## 2.13.1 — 2026-11-07
+
+- **Preview finds the page again.** A reloaded tab or a switched chat keeps its generated
+  files but loses the in-memory file selection, so Preview opened empty or fell back to the
+  sample. The workspace now reports its best preview entry: `index.html` first, then other
+  HTML, SVG and Markdown, with shallow and `public/` pages ranked ahead of docs and generated
+  folders. A selected preview file still wins when the tab has one.
+- **Bounded discovery.** The server scans at most four folder levels with a 400-candidate
+  budget, skips hidden and generated directories (`node_modules`, `.git`, build output) and
+  keeps every resolved path inside the active workspace.
+- **The sample is not a file.** “sample (in memory)” is never stored as a workspace entry,
+  so writing CSS or JS afterwards asks for a real page instead of reopening the sample.
+- **Checks.** 241 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass. The new API
+  route is covered at the endpoint and workspace-unit level; reopening Preview is covered
+  by the page test.
+- **Shipped everywhere.** Desktop 2.13.1; preview and production report **2.13.1-cloud**.
+
+## 2.13.0 — 2026-11-07
+
+- **Build can see its own page.** `screenshot_preview` runs the static `preview_check` first,
+  then starts a temporary loopback preview, captures an 800×600 PNG with an installed
+  headless Edge or Chrome, and attaches the image to the model turn for layout, spacing,
+  overflow and contrast inspection. At most two captures are allowed in one Build run.
+- **Only when it can work.** Screenshot verification is on by default
+  (`screenshotChecks: true`) with a Settings switch. It is offered only in desktop Build
+  when the workspace is ready and every model in the OpenRouter fallback chain accepts
+  images; Plan mode, non-vision chains and the switch being off remove the tool entirely.
+  No image is sent when it is off.
+- **Bounded and private.** No new dependency: the browser gets a temporary profile and a
+  filtered environment that never contains a provider key. The PNG is validated and capped
+  at 320 KB; the tool event shows it inline under the tool chips, while the saved chat keeps
+  the text answer and tool summary.
+- **Checks.** 238 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks pass. Capture is
+  covered with an injected browser spawn and a real PNG fixture; this Linux VM has no Edge
+  or Chrome, so a live desktop capture was not possible here.
+- **Shipped everywhere.** Desktop 2.13.0; preview and production report **2.13.0-cloud**.
+
+## 2.12.2 — 2026-11-07
+
+- **Account status lines no longer collide.** The cloud Files panel and the Settings
+  account row both used `id="accountNote"`. `getElementById` resolved the Files note,
+  and rendering the account row moved it into Settings, so the Files message vanished.
+  The Files status now has its own `filesAccountNote` element; both stay in place.
+- **Guard.** The page test now rejects duplicate element ids in either edition, so a
+  future `$("id")` cannot silently target the wrong element. All five suites pass:
+  225 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks.
+- **Shipped everywhere.** The desktop app reports 2.12.2; preview and production
+  report **2.12.2-cloud**. Both cloud environments were published and checked.
+
+## 2.12.1 — 2026-11-07
+
+- **New Chat is visible immediately.** The desktop page adds a local sidebar summary
+  before the debounced save and persists the empty thread; cloud `saveThread` accepts
+  `allowEmpty`, so New Chat, a restored draft and a provider switch all keep a listed
+  draft. The first message updates that same id and title instead of creating a second
+  chat.
+- **Checks.** New page regressions cover the desktop New Chat and boot paths plus the
+  cloud New Chat save. 223 unit tests, 29/29 CLI checks, 25/25 source simulations,
+  25/25 bundled simulations and 31/31 cloud checks pass. The desktop bundle and ZIP
+  were rebuilt for 2.12.1.
+- **Shipped everywhere.** The desktop app reports 2.12.1; preview and production report
+  **2.12.1-cloud**. Both cloud environments were published and checked.
+
+## 2.12.0 — 2026-11-07
+
+- **A dev server can be started from Build.** `start_process` runs an allowlisted program in
+  the workspace and keeps it alive after the turn. The port it prints is detected and offered
+  in the composer's new dev-server bar, which opens it in Preview and stops it with one click.
+  Output is captured as a bounded tail and read back with `process_logs`.
+- **Nothing is left behind.** At most three managed processes run at once, a 30-minute TTL
+  stops one nobody closed, and quitting the app kills the rest. `stop_process` ends one id or
+  all of them. Both start and stop go through the Allow / Deny card; Plan mode offers neither.
+- **Checks.** New port-detection and lifecycle regressions start a real loopback server,
+  assert the port only appears once it accepts connections, and verify the port is free after
+  a stop. The desktop bundle and ZIP were rebuilt for 2.12.0.
+- **Shipped everywhere.** The desktop app reports 2.12.0, preview and production report
+  **2.12.0-cloud**, and the ZIP was rebuilt after both deployments.
+
+## 2.11.0 — 2026-11-07
+
+- **Build is a bounded loop.** A Build turn can use up to 40 tool steps within 15 minutes.
+  The composer shows the remaining step and time budget, and either limit stops the turn
+  with a clear message. Plan keeps its small three-round cap and remains read-only.
+- **Start from a page that works.** `scaffold_project` creates `index.html`, `styles.css`
+  and `app.js` in a folder, with three themes, escaped copy and no dependencies. It refuses
+  to overwrite an existing file and still goes through the Allow / Deny card.
+- **Check before opening Preview.** `preview_check` follows local HTML, stylesheet, script
+  and image references, reports missing files with the page or stylesheet that referenced
+  them, and can be run again after a repair. It never fetches external URLs or executes
+  JavaScript. Plan mode may use it because it only reads.
+- **Checks.** 215 units, 28 CLI, 25 + 25 simulations and 31 cloud checks pass. The desktop
+  bundle and ZIP were rebuilt, and preview and production now report **2.11.0-cloud** and
+  remain published. Managed dev-server start/stop and screenshot verification remain the
+  next Build slice.
+
+## 2.10.1 — 2026-11-07
+
+- **A chat with files and no messages survives.** The desktop page now saves the current
+  chat after **Files → Sample**, an editor save or a successful tool write, even before the
+  first message. A file-only chat is therefore still there after **New Chat** and after a
+  restart, instead of being discarded because its message list was empty.
+- **Cloud does the same.** The cloud page saves a file-only thread, refreshes the chat list
+  immediately and keeps the chat when another one starts. The D1 thread cleaner accepts a
+  zero-message thread while still enforcing the 200-message ceiling, so the account copy is
+  not rejected.
+- **New chat, not "Untitled".** An empty saved chat is labelled **New chat** until its first
+  message gives it a title.
+- **Checks.** 209 units, 28 CLI, 25 + 25 simulations, 31 cloud checks; both bundles and the
+  ZIP were rebuilt. Preview and production now report **2.10.1-cloud** and both remain
+  published. The deployed page serves the file-only save path; a signed-in account round
+  trip was not available in this environment.
+
+## 2.10.0 — 2026-11-06
+
+- **A chat is a workspace.** New desktop chats get their own managed folder under the
+  app config; files, file tools, local previews and turn context all use that folder.
+  Existing chats keep the Settings folder, so an upgrade does not hide a project. The
+  workspace policy is saved with the thread (`""` = managed, a path = explicit, absent =
+  legacy), and a partial save cannot move a chat back to the legacy folder.
+- **New Chat starts empty in the cloud too.** Browser files are stored in a per-chat
+  IndexedDB namespace, and account files are scoped by chat in D1/R2. The first existing
+  chat opened after the upgrade claims the old global namespace; a brand-new chat sees
+  nothing from the previous one. Account quotas remain per account.
+- **Preview belongs to the chat.** Switching chats closes the previous local preview
+  server and clears the frame; the header button shows its sample in memory instead of
+  writing sample files. Files → Sample remains the explicit write action.
+- **Checks.** 209 units, 28 CLI, 25 + 25 simulation, 30 cloud checks; desktop and cloud
+  builds are rebuilt together. One simulation turn also proves its files and saved
+  workspace policy belong to that chat.
+
+## 2.9.2 — 2026-11-06
+
+- **Preview is one click.** A **Preview** button in the desktop and cloud header opens the
+  preview rail and starts a working sample page when the chat has no preview yet. If a
+  workspace page or URL is already open, it reopens that instead of replacing it.
+- The starter is still written by **Files → Sample**; the new header action removes the
+  setup steps.
+- Checks: 207 units, 27 CLI, 24 + 24 simulations, 29 cloud checks; bundle, ZIP and both
+  cloud environments rebuilt.
+
+## 2.9.1 — 2026-11-06
+
+- **A reload reopens what you were reading.** The cloud page remembered the chat list but
+  always started a blank conversation. It now stores the active chat id and opens it (or the
+  newest saved chat) after the account merge, so a refresh no longer looks like the chat was
+  lost.
+- **Signing in uploads local chats.** The old sync only pulled account rows into the browser;
+  a chat created while signed out was never sent up. Sync now merges both sides and uploads
+  browser-only or newer chats in small batches. Saved chats are namespaced per account, so a
+  second account on the same browser cannot inherit the first one's history.
+- **Long chats save.** The D1 thread cleaner accepted only 80 messages while the page keeps
+  200; a long conversation was rejected with `400 bad_thread`. Both ceilings are now 200.
+- **Checks.** A page regression test covers reopen, per-account keys and two-way upload; a
+  cloud check saves a 200-message thread through the real cleaner. All suites pass.
+
+## 2.9.0 — 2026-11-05
+
+- **Plan before Build.** Every new desktop chat starts in **Plan**: the composer switch is
+  `Plan | Build`, and Plan may read the workspace, the clock, public pages and GitHub
+  issues, but it cannot write. The only output is a plan card in the transcript: goal,
+  assumptions, ordered steps with files and a verification command, and risks. **Build this
+  plan** switches to Build and sends the artifact as the task; writes still need the normal
+  approval card.
+- **The server enforces read-only.** Plan mode sends only the read tools plus the two plan
+  tools, and `/api/chat` refuses any other call before it can show a confirmation card. The
+  simulation makes a mock model call `write_file` in Plan and asserts no file and no
+  approval request.
+- **Plan survives.** `mode` and `plan` are saved with the thread and restored on reload or
+  restart; threads saved before 2.9.0 keep opening in Build. `update_plan_step` moves the
+  card through `pending → active → done` while Build works.
+- **Live check.** A real desktop Plan turn with OVHcloud gpt-oss-20b called
+  `propose_plan` and streamed a plan artifact with two ordered steps and verification
+  commands, without a write or an approval card. Production cloud streamed a keyless
+  2.9.0 turn with HTTP 200.
+- **Limits.** Plan editing before Build and cloud/D1 plan mode are not in this release. A
+  model without tool support can describe a plan in text but cannot create the artifact.
+  Cloud remains chat + static preview.
+- 205 units, 27 CLI, 24 + 24 simulations and 28 cloud checks pass. The single-file bundle
+  and cloud worker were rebuilt, and both cloud environments were redeployed.
+
+## 2.8.5 — 2026-11-05
+
+- **Attachments are visible.** The image and text-file controls in the composer are now
+  full-height buttons with an icon and a label instead of two small emoji chips; the image
+  button carries the accent colour. Below 700 px the labels hide so the composer still
+  fits a phone.
+- Both editions use the same markup and CSS. Image compression, the one-image-per-turn
+  rule, the accepted text types and every route are unchanged.
+- 198 units, 27 CLI, 21 + 21 simulation, 28 cloud checks and the browser preview check pass.
 
 ## 2.8.4 — 2026-11-05
 

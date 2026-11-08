@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -84,6 +85,23 @@ async function stopApp(app) {
   if (!app) return;
   app.proc.child.kill('SIGTERM');
   await app.proc.done;
+}
+
+/** fetch() refuses to spoof Host, so the header tests use raw HTTP. */
+function rawGet(base, target, headers = {}) {
+  const url = new URL(base);
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: url.hostname, port: url.port, path: target, method: 'GET', headers },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
 }
 
 const results = [];
@@ -187,6 +205,21 @@ async function main() {
       const read = await (await fetch(`${app.base}/api/threads/chat-abc123`, { headers })).json();
       assert.equal(read.thread.messages[0].content, 'hello bicycles');
 
+      // A file-only draft must survive the save route too, not just the store.
+      const draftResponse = await fetch(`${app.base}/api/threads`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ title: 'New chat', messages: [], workspace: '' }),
+      });
+      assert.equal(draftResponse.status, 200);
+      const draft = (await draftResponse.json()).thread;
+      assert.equal(draft.messages.length, 0);
+      const draftRead = await (await fetch(`${app.base}/api/threads/${draft.id}`, { headers })).json();
+      assert.equal(draftRead.thread.messages.length, 0, 'the empty draft did not round-trip');
+      const draftList = (await (await fetch(`${app.base}/api/threads`, { headers })).json()).threads;
+      assert.equal(draftList.length, 2, 'the empty draft is missing from the sidebar list');
+      assert.ok(draftList.some((thread) => thread.id === draft.id), 'the empty draft has no list entry');
+
       assert.ok(
         fs.existsSync(path.join(app.dir, 'threads.json')),
         'threads.json was not written next to the config',
@@ -194,6 +227,8 @@ async function main() {
 
       const del = await fetch(`${app.base}/api/threads/chat-abc123`, { method: 'DELETE', headers });
       assert.equal(del.status, 200);
+      const delDraft = await fetch(`${app.base}/api/threads/${draft.id}`, { method: 'DELETE', headers });
+      assert.equal(delDraft.status, 200);
       const after = (await (await fetch(`${app.base}/api/threads`, { headers })).json()).threads;
       assert.equal(after.length, 0);
     } finally {
@@ -274,6 +309,42 @@ async function main() {
       });
       assert.equal(write.status, 200);
       assert.equal(fs.readFileSync(path.join(workspace, 'made', 'up.txt'), 'utf8'), 'written');
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('a new chat gets its own files', async () => {
+    const app = await startApp();
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    const alpha = 'chat-alpha-1';
+    const beta = 'chat-beta-1';
+    try {
+      const write = await fetch(`${app.base}/api/fs/write`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ chat: alpha, workspace: '', path: 'alpha.txt', content: 'alpha' }),
+      });
+      assert.equal(write.status, 200);
+      assert.equal(fs.readFileSync(path.join(app.dir, 'workspaces', alpha, 'alpha.txt'), 'utf8'), 'alpha');
+
+      const alphaList = await (
+        await fetch(`${app.base}/api/fs?path=.&chat=${alpha}&workspace=`, { headers })
+      ).json();
+      assert.ok(alphaList.entries.some((entry) => entry.name === 'alpha.txt'));
+      const betaList = await (
+        await fetch(`${app.base}/api/fs?path=.&chat=${beta}&workspace=`, { headers })
+      ).json();
+      assert.equal(betaList.entries.length, 0, 'the second chat inherited the first chat files');
+
+      const save = await fetch(`${app.base}/api/threads/${alpha}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'alpha chat' }], workspace: '' }),
+      });
+      assert.equal(save.status, 200);
+      const saved = await (await fetch(`${app.base}/api/threads/${alpha}`, { headers })).json();
+      assert.equal(saved.thread.workspace, '', 'the managed workspace policy was not saved');
     } finally {
       await stopApp(app);
     }
@@ -567,6 +638,10 @@ async function main() {
       });
       assert.equal(configured.status, 200);
 
+      const discovered = await fetch(`${app.base}/api/fs/preview-entry`, { headers });
+      assert.equal(discovered.status, 200);
+      assert.equal((await discovered.json()).entry, 'index.html');
+
       const response = await fetch(`${app.base}/api/preview/serve`, {
         method: 'POST',
         headers,
@@ -585,6 +660,38 @@ async function main() {
       assert.equal(page.status, 200);
       assert.match(await page.text(), /preview works/);
       assert.match(page.headers.get('content-type') ?? '', /text\/html/);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('managed processes are token-gated and start empty', async () => {
+    const app = await startApp();
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const unauth = await fetch(`${app.base}/api/processes`);
+      assert.equal(unauth.status, 403);
+
+      const listed = await (await fetch(`${app.base}/api/processes`, { headers })).json();
+      assert.ok(Array.isArray(listed.processes), 'no process list');
+      assert.equal(listed.processes.length, 0);
+      assert.equal(listed.limits.maxProcesses, 3);
+
+      const missing = await fetch(`${app.base}/api/processes/stop`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: 'dev-404' }),
+      });
+      assert.equal(missing.status, 404);
+
+      const all = await (
+        await fetch(`${app.base}/api/processes/stop`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({}),
+        })
+      ).json();
+      assert.deepEqual(all.stopped, []);
     } finally {
       await stopApp(app);
     }
@@ -640,6 +747,78 @@ async function main() {
       assert.match(body.error, /too large/);
     } finally {
       await stopApp(app);
+    }
+  });
+
+  await check('refuses a foreign Host before serving the token page', async () => {
+    const app = await startApp();
+    try {
+      const response = await rawGet(app.base, '/', { host: 'evil.example' });
+      assert.equal(response.status, 403);
+      assert.doesNotMatch(response.body, /const APP_TOKEN/);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('refuses cross-origin mutations but accepts same-origin ones', async () => {
+    const app = await startApp();
+    const url = `${app.base}/api/threads/origin-chat-1`;
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const foreign = await fetch(url, {
+        method: 'PUT',
+        headers: { ...headers, origin: 'https://evil.example' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'foreign' }] }),
+      });
+      assert.equal(foreign.status, 403);
+
+      const same = await fetch(url, {
+        method: 'PUT',
+        headers: { ...headers, origin: app.base },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'same origin' }] }),
+      });
+      assert.equal(same.status, 200);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('/api/key requires the app token', async () => {
+    const app = await startApp();
+    try {
+      const response = await fetch(`${app.base}/api/key`);
+      assert.equal(response.status, 403);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('/api/key scrubs a key echoed by the provider', async () => {
+    const key = 'sk-or-v1-echoed-key-that-must-not-leak';
+    const upstream = http.createServer((req, res) => {
+      if (req.url === '/api/v1/key') {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: `Incorrect API key provided: ${key}` } }));
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
+    const port = upstream.address().port;
+    const app = await startApp({
+      env: { OPENROUTER_API_KEY: key, OPENROUTER_BASE_URL: `http://127.0.0.1:${port}/api/v1` },
+    });
+    try {
+      const response = await fetch(`${app.base}/api/key`, { headers: { 'x-app-token': app.token } });
+      assert.equal(response.status, 502);
+      const body = await response.text();
+      assert.equal(body.includes(key), false, 'the rejected key was echoed to the page');
+      assert.match(body, /sk-or-\[redacted\]/);
+    } finally {
+      await stopApp(app);
+      await new Promise((resolve) => upstream.close(resolve));
     }
   });
 

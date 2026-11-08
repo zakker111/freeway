@@ -1,16 +1,32 @@
 // Cloud edition of Freeway — a single Cloudflare Worker module.
 //
 // What this keeps from the desktop app: free models only, the light toned
-// page, and one server-side proxy so the key never sits in the HTML.
-// What it drops, because a Worker cannot do it: threads on disk, the file
-// workspace, the command runner and the GitHub panel. Those stay desktop-only.
+// page, one server-side proxy so the key never sits in the HTML, account chats
+// in D1, browser/account files, and the browser-side GitHub rail. What it drops,
+// because a Worker cannot do it: filesystem tools, the command runner, managed
+// dev servers, and server-side GitHub tools. The GitHub rail calls api.github.com
+// from the page with a session-only token.
 //
 // Routes
-//   GET  /                 the page (served from ./public)
-//   GET  /healthz          200 "ok"
-//   GET  /api/config       version, whether a server key exists, free count
-//   GET  /api/models       free models only, already priced and sorted
-//   POST /api/chat         { model, messages } -> { text, model, usage, ms }
+//   GET    /                         the page (served from ./public)
+//   GET    /healthz                  200 "ok"
+//   GET    /api/config               version, server keys, limits, account files
+//   GET    /api/models?provider=…    free models only, already priced and sorted
+//   GET    /api/quota                OpenRouter free-request allowance
+//   GET    /api/budget               this visitor's shared-key turns left today
+//   GET    /api/me                   signed-in account, if any
+//   GET    /api/files[/:name]        account file list or download
+//   PUT    /api/files/:name          save a text file to the signed-in account
+//   DELETE /api/files/:name          delete an account file
+//   GET    /api/previews             list the account's preview links and usage
+//   POST   /api/previews             save a self-contained preview to the account
+//   DELETE /api/previews             revoke every account preview
+//   DELETE /api/previews/:id         revoke one account preview
+//   GET    /preview/:id              owner-only rendered preview snapshot
+//   GET    /api/threads              account chats (D1)
+//   PUT|DELETE /api/threads/:id      save or delete one account chat
+//   POST   /api/chat                 { model, messages } -> SSE or JSON
+//   /auth/freebuff/*                 sign-in, callback and sign-out when configured
 //
 // The key comes from env.OPENROUTER_API_KEY when the deployment has it, and
 // otherwise from an `x-openrouter-key` header the page sends only for that
@@ -20,8 +36,9 @@ import { createFreebuffAuth, isSameOriginRequest } from '@freebuff/auth';
 import { compactMessages } from '../lib/memory.mjs';
 import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
+import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.8.4-cloud';
+const VERSION = '2.17.0-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -154,7 +171,7 @@ async function loadCatalog(env, force = false) {
     catalogCache = {
       at: Date.now() - CATALOG_TTL_MS + 30_000,
       models: catalogCache.models,
-      error: `catalog fetch failed: ${String(error?.message ?? error).slice(0, 160)}`,
+      error: scrubSecrets(`catalog fetch failed: ${String(error?.message ?? error).slice(0, 160)}`),
     };
     return catalogCache;
   }
@@ -163,7 +180,7 @@ async function loadCatalog(env, force = false) {
     catalogCache = {
       at: Date.now() - CATALOG_TTL_MS + 30_000, // retry in 30s, not 10min
       models: catalogCache.models,
-      error: `catalog ${res.status}: ${text.slice(0, 200)}`,
+      error: scrubSecrets(`catalog ${res.status}: ${text.slice(0, 200)}`),
     };
     return catalogCache;
   }
@@ -553,7 +570,13 @@ async function remoteModels(provider, key, env, account = '') {
 }
 
 function publicError(status, code, message, extra = {}) {
-  return json({ error: code, message, ...extra }, status, retryHeader(extra.retryAfterMs));
+  // Upstream bodies sometimes quote the credential they rejected. No error
+  // path — chat, catalog, auth or a catch-all — may pass that through.
+  return json(
+    { error: code, message: scrubSecrets(String(message)), ...extra },
+    status,
+    retryHeader(extra.retryAfterMs),
+  );
 }
 
 // ------------------------------------------------------------------ account
@@ -605,6 +628,10 @@ const THREAD_ID = /^[A-Za-z0-9_-]{6,64}$/;
 // Every chat an account has is kept and listed, up to this ceiling. It used to
 // be 30, which silently deleted the 31st-oldest chat on save.
 const MAX_THREADS = 200;
+// The page keeps the same 200-message ceiling. The old 80-message cleaner
+// silently rejected a long chat with 400 bad_thread even though it was saved
+// locally, which made a long conversation look lost.
+const MAX_THREAD_MESSAGES = 200;
 const MAX_THREAD_CHARS = 120_000;
 const THREAD_COLUMNS = 'id, title, provider, model, messages, updated_at';
 
@@ -712,21 +739,55 @@ async function ensureSchema(db) {
          PRIMARY KEY (sub, name)
        )`,
     ),
+    // New account files belong to one chat. The old table stays as the
+    // legacy namespace so a 2.9 account can be claimed without a destructive
+    // migration; it is never read by a new chat.
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS chat_files (
+         sub TEXT NOT NULL,
+         chat_id TEXT NOT NULL,
+         name TEXT NOT NULL,
+         size INTEGER NOT NULL,
+         type TEXT NOT NULL,
+         updated_at INTEGER NOT NULL,
+         PRIMARY KEY (sub, chat_id, name)
+       )`,
+    ),
+    // A preview share is a self-contained HTML snapshot, not a live view of
+    // the browser workspace. One row per file and chat keeps its URL stable
+    // when the file is shared again.
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS preview_shares (
+         sub TEXT NOT NULL,
+         id TEXT NOT NULL,
+         chat_id TEXT NOT NULL,
+         name TEXT NOT NULL,
+         size INTEGER NOT NULL,
+         created_at INTEGER NOT NULL,
+         updated_at INTEGER NOT NULL,
+         PRIMARY KEY (sub, id),
+         UNIQUE (sub, chat_id, name)
+       )`,
+    ),
   ]);
   await db.batch([
     db.prepare('CREATE INDEX IF NOT EXISTS chats_by_sub ON chats (sub, updated_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS files_by_sub ON files (sub, updated_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS chat_files_by_chat ON chat_files (sub, chat_id, updated_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS preview_shares_by_sub ON preview_shares (sub, updated_at DESC)'),
   ]);
   schemaReady.add(db);
 }
 
 /** A thread as the browser stores it, trimmed to what the database accepts. */
-function cleanThread(input) {
+export function cleanThread(input) {
   if (!input || typeof input !== 'object') return null;
   const id = String(input.id ?? '');
   if (!THREAD_ID.test(id)) return null;
   const messages = Array.isArray(input.messages) ? input.messages : [];
-  if (messages.length === 0 || messages.length > 80) return null;
+  // A chat can own files before its first message. Keep that record so account
+  // sync can carry the id; normal chat messages still require content.
+  if (messages.length > MAX_THREAD_MESSAGES) return null;
   const kept = [];
   let chars = 0;
   for (const message of messages) {
@@ -785,6 +846,13 @@ const MAX_FILE_BYTES = 1_000_000;
 const MAX_FILE_COUNT = 40;
 const MAX_FILE_TOTAL = 8_000_000;
 const FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+// Snapshots are bundled HTML, so they can be larger than one source file but
+// still need a ceiling that a Worker can parse and an account can afford.
+const MAX_SHARE_BYTES = 1_500_000;
+const MAX_SHARE_COUNT = 40;
+const MAX_SHARE_TOTAL = 8_000_000;
+const MAX_SHARE_BODY = MAX_SHARE_BYTES + 200_000;
+const SHARE_ID = /^[a-f0-9]{32}$/;
 
 /** A malformed % escape in a route id is a bad request, not a 500. */
 function decodeId(value) {
@@ -801,8 +869,23 @@ export function cleanFileName(raw) {
   return name;
 }
 
-function fileKey(user, name) {
-  return `u/${encodeURIComponent(String(user.sub))}/${name}`;
+// Preview shares keep the workspace path, so `sample/index.html` stays distinct
+// from a root `index.html`. Each segment uses the same safe character set as an
+// account file, and `..` is refused before a key or header is built.
+const SHARE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+const CHAT_ID = /^[A-Za-z0-9_-]{6,64}$/;
+
+function cleanShareName(raw) {
+  const name = String(raw ?? '').trim();
+  if (name.length > 128 || !SHARE_NAME.test(name) || name.includes('..')) return null;
+  return name;
+}
+
+function fileKey(user, name, chatId = '') {
+  const base = `u/${encodeURIComponent(String(user.sub))}`;
+  return chatId
+    ? `${base}/chats/${encodeURIComponent(chatId)}/${name}`
+    : `${base}/${name}`;
 }
 
 function fileType(raw) {
@@ -820,10 +903,16 @@ function fileRow(row) {
 }
 
 async function fileUsage(env, sub) {
+  // The quota is per account, not per chat: chat files and the legacy
+  // namespace share the same 40-file / 8 MB allowance.
   const rows = await env.DB.prepare(
-    'SELECT COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes FROM files WHERE sub = ?',
+    `SELECT COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes FROM (
+       SELECT size FROM files WHERE sub = ?
+       UNION ALL
+       SELECT size FROM chat_files WHERE sub = ?
+     )`,
   )
-    .bind(sub)
+    .bind(sub, sub)
     .all();
   const first = rows?.results?.[0] ?? {};
   return {
@@ -839,6 +928,9 @@ async function fileUsage(env, sub) {
  * The account-file API, after authentication. It is separate from `handle` so
  * the storage rules can be tested without minting a session, and every lookup
  * uses the session's subject rather than a header or query parameter.
+ *
+ * `?chat=` scopes a listing and every read/write to one chat. Requests without
+ * it use the 2.9 account namespace, which is kept for migration and tests.
  */
 export async function handleFiles(request, env, user) {
   if (!user) return publicError(401, 'sign_in_required', 'Sign in to use account files.');
@@ -847,14 +939,29 @@ export async function handleFiles(request, env, user) {
   await ensureSchema(env.DB);
 
   const url = new URL(request.url);
+  const rawChat = url.searchParams.get('chat');
+  if (rawChat !== null && !CHAT_ID.test(rawChat)) {
+    return publicError(400, 'bad_chat', 'That chat id is not valid.');
+  }
+  const chatId = rawChat ?? '';
   const prefix = '/api/files/';
+
   if (url.pathname === '/api/files') {
     if (request.method !== 'GET') return publicError(405, 'method', 'Use GET, PUT or DELETE.');
-    const rows = await env.DB.prepare(
-      'SELECT name, size, type, updated_at FROM files WHERE sub = ? ORDER BY updated_at DESC',
-    )
-      .bind(user.sub)
-      .all();
+    if (chatId && url.searchParams.get('claim') === '1') {
+      await claimLegacyFiles(env, user, chatId);
+    }
+    const rows = chatId
+      ? await env.DB.prepare(
+          'SELECT name, size, type, updated_at FROM chat_files WHERE sub = ? AND chat_id = ? ORDER BY updated_at DESC',
+        )
+          .bind(user.sub, chatId)
+          .all()
+      : await env.DB.prepare(
+          'SELECT name, size, type, updated_at FROM files WHERE sub = ? ORDER BY updated_at DESC',
+        )
+          .bind(user.sub)
+          .all();
     return json(
       { files: (rows?.results ?? []).map(fileRow), usage: await fileUsage(env, user.sub) },
       200,
@@ -896,8 +1003,12 @@ export async function handleFiles(request, env, user) {
     if (bytes.includes(0)) {
       return publicError(415, 'binary_file', 'Account files are text only; images go in the composer.');
     }
-    const existing = await env.DB.prepare('SELECT size FROM files WHERE sub = ? AND name = ?')
-      .bind(user.sub, name)
+    const existing = await env.DB.prepare(
+      chatId
+        ? 'SELECT size FROM chat_files WHERE sub = ? AND chat_id = ? AND name = ?'
+        : 'SELECT size FROM files WHERE sub = ? AND name = ?',
+    )
+      .bind(...(chatId ? [user.sub, chatId, name] : [user.sub, name]))
       .all();
     const previous = Number(existing?.results?.[0]?.size) || 0;
     const usage = await fileUsage(env, user.sub);
@@ -908,18 +1019,29 @@ export async function handleFiles(request, env, user) {
       return publicError(413, 'storage_full', 'That would exceed the 8 MB account limit.');
     }
     const type = fileType(request.headers.get('content-type'));
-    const key = fileKey(user, name);
+    const key = fileKey(user, name, chatId);
     await env.FILES.put(key, bytes, { httpMetadata: { contentType: type } });
     try {
       const updatedAt = Date.now();
-      await env.DB.prepare(
-        `INSERT INTO files (sub, name, size, type, updated_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(sub, name) DO UPDATE SET
-           size = excluded.size, type = excluded.type, updated_at = excluded.updated_at`,
-      )
-        .bind(user.sub, name, bytes.byteLength, type, updatedAt)
-        .run();
+      if (chatId) {
+        await env.DB.prepare(
+          `INSERT INTO chat_files (sub, chat_id, name, size, type, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(sub, chat_id, name) DO UPDATE SET
+             size = excluded.size, type = excluded.type, updated_at = excluded.updated_at`,
+        )
+          .bind(user.sub, chatId, name, bytes.byteLength, type, updatedAt)
+          .run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO files (sub, name, size, type, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(sub, name) DO UPDATE SET
+             size = excluded.size, type = excluded.type, updated_at = excluded.updated_at`,
+        )
+          .bind(user.sub, name, bytes.byteLength, type, updatedAt)
+          .run();
+      }
       return json(
         {
           ok: true,
@@ -939,8 +1061,29 @@ export async function handleFiles(request, env, user) {
     if (!isSameOriginRequest(request, env.APP_ORIGIN)) {
       return publicError(403, 'foreign_origin', 'That request came from another site.');
     }
-    await env.FILES.delete(fileKey(user, name));
-    await env.DB.prepare('DELETE FROM files WHERE sub = ? AND name = ?').bind(user.sub, name).run();
+    // A deleted file must not leave a live snapshot behind. Revoke the share
+    // rows first, then the file, so a partial failure errs toward no access.
+    const shares = await env.DB.prepare(
+      'SELECT id FROM preview_shares WHERE sub = ? AND chat_id = ? AND name = ?',
+    )
+      .bind(user.sub, chatId, name)
+      .all();
+    for (const row of shares?.results ?? []) {
+      await env.FILES.delete(previewKey(user, row.id));
+    }
+    await env.DB.prepare(
+      'DELETE FROM preview_shares WHERE sub = ? AND chat_id = ? AND name = ?',
+    )
+      .bind(user.sub, chatId, name)
+      .run();
+    await env.FILES.delete(fileKey(user, name, chatId));
+    await env.DB.prepare(
+      chatId
+        ? 'DELETE FROM chat_files WHERE sub = ? AND chat_id = ? AND name = ?'
+        : 'DELETE FROM files WHERE sub = ? AND name = ?',
+    )
+      .bind(...(chatId ? [user.sub, chatId, name] : [user.sub, name]))
+      .run();
     return json({ ok: true, usage: await fileUsage(env, user.sub) }, 200, {
       'cache-control': 'private, no-store',
     });
@@ -948,12 +1091,14 @@ export async function handleFiles(request, env, user) {
 
   if (request.method !== 'GET') return publicError(405, 'method', 'Use GET, PUT or DELETE.');
   const found = await env.DB.prepare(
-    'SELECT name, size, type, updated_at FROM files WHERE sub = ? AND name = ?',
+    chatId
+      ? 'SELECT name, size, type, updated_at FROM chat_files WHERE sub = ? AND chat_id = ? AND name = ?'
+      : 'SELECT name, size, type, updated_at FROM files WHERE sub = ? AND name = ?',
   )
-    .bind(user.sub, name)
+    .bind(...(chatId ? [user.sub, chatId, name] : [user.sub, name]))
     .all();
   if (!found?.results?.length) return publicError(404, 'no_file', 'No such file.');
-  const object = await env.FILES.get(fileKey(user, name));
+  const object = await env.FILES.get(fileKey(user, name, chatId));
   if (!object) return publicError(404, 'no_file', 'No such file.');
   // Always text/plain, even for HTML: opening this URL must never execute an
   // uploaded page on the site's origin. Preview renders it in a sandbox instead.
@@ -965,6 +1110,316 @@ export async function handleFiles(request, env, user) {
       'cache-control': 'private, no-store',
     },
   });
+}
+
+/**
+ * Move the 2.9 account namespace into one chat when that chat is first opened.
+ * Copy first, then delete the old row, so an interrupted migration leaves the
+ * file readable in the legacy namespace rather than losing it.
+ */
+async function claimLegacyFiles(env, user, chatId) {
+  const rows = await env.DB.prepare(
+    'SELECT name, size, type, updated_at FROM files WHERE sub = ? ORDER BY updated_at DESC LIMIT ?',
+  )
+    .bind(user.sub, MAX_FILE_COUNT)
+    .all();
+  for (const row of rows?.results ?? []) {
+    const name = cleanFileName(row.name);
+    if (!name) continue;
+    const oldKey = fileKey(user, name);
+    const object = await env.FILES.get(oldKey);
+    if (!object) continue;
+    try {
+      const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
+      await env.FILES.put(fileKey(user, name, chatId), bytes, {
+        httpMetadata: { contentType: row.type || 'text/plain' },
+      });
+      await env.DB.prepare(
+        `INSERT INTO chat_files (sub, chat_id, name, size, type, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(sub, chat_id, name) DO UPDATE SET
+           size = excluded.size, type = excluded.type, updated_at = excluded.updated_at`,
+      )
+        .bind(user.sub, chatId, name, Number(row.size) || bytes.byteLength, row.type, Number(row.updated_at) || Date.now())
+        .run();
+      await env.DB.prepare('DELETE FROM files WHERE sub = ? AND name = ?').bind(user.sub, name).run();
+    } catch {
+      // Leave the legacy row in place for the next attempt.
+    }
+  }
+}
+
+// ------------------------------------------------------------- preview shares
+// A share is a self-contained HTML snapshot, not a live link into somebody's
+// browser storage. The URL id is unguessable, the row is scoped to the session
+// subject, and the snapshot is served under `sandbox` so generated page code
+// cannot read this origin's cookies or call its APIs. Sharing the same chat file
+// again updates the existing row and keeps the same URL.
+function previewKey(user, id) {
+  return `u/${encodeURIComponent(String(user.sub))}/previews/${id}.html`;
+}
+
+function newShareId() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function shareUsage(env, sub) {
+  const rows = await env.DB.prepare(
+    'SELECT COUNT(*) AS count, COALESCE(SUM(size), 0) AS bytes FROM preview_shares WHERE sub = ?',
+  )
+    .bind(sub)
+    .all();
+  const first = rows?.results?.[0] ?? {};
+  return {
+    count: Number(first.count) || 0,
+    bytes: Number(first.bytes) || 0,
+    maxCount: MAX_SHARE_COUNT,
+    maxBytes: MAX_SHARE_TOTAL,
+    maxFileBytes: MAX_SHARE_BYTES,
+  };
+}
+
+/** A tiny HTML page for the states before a preview can be rendered. */
+function previewNoticePage(status, title, message, action) {
+  const escape = (value) =>
+    String(value).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const link = action
+    ? `<p><a href="${escape(action.href)}">${escape(action.label)}</a></p>`
+    : '';
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escape(title)} — Freeway</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#0f0f0f;color:#e8e8e8;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}main{width:min(560px,100%);padding:30px;border:1px solid #2c2c2c;border-radius:14px;background:#171717;box-shadow:0 24px 70px #0008}p{color:#b3b3b3}a{color:#fff;font-weight:600}h1{margin:0 0 10px;font-size:24px}</style></head><body><main><h1>${escape(title)}</h1><p>${escape(message)}</p>${link}</main></body></html>`;
+  return new Response(html, {
+    status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'no-referrer',
+      'cache-control': 'private, no-store',
+    },
+  });
+}
+
+// A shared preview is generated code, so it gets the same isolation as the
+// in-page srcdoc frame: scripts may run, but in a unique origin with no cookies,
+// no storage and no access to the host page. Inline styles and scripts are what
+// bundleStatic emits; external HTTPS assets stay allowed as they are in the
+// panel. The page can frame it, but another site cannot.
+const SHARED_PREVIEW_CSP = [
+  'sandbox allow-scripts allow-forms allow-popups',
+  "default-src 'none'",
+  'img-src data: https:',
+  "style-src 'unsafe-inline' https:",
+  "script-src 'unsafe-inline' https:",
+  'font-src data: https:',
+  'media-src data: https:',
+  'connect-src https:',
+  'frame-src https:',
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+].join('; ');
+
+/** Serve one owner-only snapshot, or a small page explaining the lock. */
+export async function servePreview(request, env, user, rawId) {
+  if (!env?.DB || !env?.FILES) {
+    return previewNoticePage(503, 'Preview links are not enabled', 'This deployment is missing its account database or file bucket.');
+  }
+  const id = String(rawId ?? '');
+  if (!SHARE_ID.test(id)) {
+    return previewNoticePage(404, 'Preview not found', 'That preview link is not valid.');
+  }
+  if (!user) {
+    if (!appFor(env).auth) {
+      return previewNoticePage(503, 'Sign-in is not configured', 'This deployment cannot check who owns a preview link.');
+    }
+    const returnTo = `/preview/${id}`;
+    return previewNoticePage(
+      401,
+      'Sign in to view this preview',
+      'This preview is saved in a Freeway account. Sign in with the account that created it.',
+      {
+        href: `/auth/freebuff/signin?returnTo=${encodeURIComponent(returnTo)}`,
+        label: 'Sign in with Freebuff',
+      },
+    );
+  }
+
+  await ensureSchema(env.DB);
+  const found = await env.DB.prepare(
+    'SELECT id, name FROM preview_shares WHERE sub = ? AND id = ?',
+  )
+    .bind(user.sub, id)
+    .all();
+  if (!found?.results?.length) {
+    return previewNoticePage(404, 'Preview not found', 'This preview was removed, or it belongs to another account.');
+  }
+  const object = await env.FILES.get(previewKey(user, id));
+  if (!object) {
+    return previewNoticePage(404, 'Preview not found', 'The saved page is no longer available.');
+  }
+
+  const name = String(found.results[0].name || 'preview.html');
+  const downloadName = name.split('/').pop() || 'preview.html';
+  const headers = {
+    'content-type': 'text/html; charset=utf-8',
+    'content-disposition': `inline; filename="${downloadName}"`,
+    'content-security-policy': SHARED_PREVIEW_CSP,
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'SAMEORIGIN',
+    'cross-origin-resource-policy': 'same-origin',
+    'referrer-policy': 'no-referrer',
+    'cache-control': 'private, no-store',
+  };
+  if (request.method === 'HEAD') return new Response(null, { headers });
+  return new Response(object.body, { headers });
+}
+
+/**
+ * The account-preview API, after authentication. Separate from `handle` so the
+ * ownership rules can be tested without minting a session. `POST` creates or
+ * updates the share for one chat file; `DELETE /:id` revokes it.
+ */
+export async function handlePreviews(request, env, user) {
+  if (!user) return publicError(401, 'sign_in_required', 'Sign in to share a preview.');
+  if (!env?.DB) return publicError(503, 'storage_missing', 'Preview shares need the deployment database.');
+  if (!env?.FILES) return publicError(503, 'files_unavailable', 'Preview shares are not enabled on this deployment.');
+  await ensureSchema(env.DB);
+
+  const url = new URL(request.url);
+  const prefix = '/api/previews/';
+
+  if (url.pathname === '/api/previews') {
+    if (request.method === 'GET') {
+      const rows = await env.DB.prepare(
+        'SELECT id, chat_id, name, size, created_at, updated_at FROM preview_shares WHERE sub = ? ORDER BY updated_at DESC',
+      )
+        .bind(user.sub)
+        .all();
+      const shares = (rows?.results || []).map((row) => ({
+        id: row.id,
+        chat: row.chat_id,
+        name: row.name,
+        size: row.size,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        url: `/preview/${row.id}`,
+      }));
+      return json(
+        { ok: true, shares, usage: await shareUsage(env, user.sub) },
+        200,
+        { 'cache-control': 'private, no-store' },
+      );
+    }
+    if (request.method === 'DELETE') {
+      if (!isSameOriginRequest(request, env.APP_ORIGIN)) {
+        return publicError(403, 'foreign_origin', 'That request came from another site.');
+      }
+      const rows = await env.DB.prepare('SELECT id FROM preview_shares WHERE sub = ?')
+        .bind(user.sub)
+        .all();
+      const ids = (rows?.results || []).map((row) => row.id);
+      await Promise.all(ids.map((id) => env.FILES.delete(previewKey(user, id))));
+      await env.DB.prepare('DELETE FROM preview_shares WHERE sub = ?').bind(user.sub).run();
+      return json({ ok: true, deleted: ids.length }, 200, { 'cache-control': 'private, no-store' });
+    }
+    if (request.method !== 'POST') return publicError(405, 'method', 'Use GET, POST or DELETE.');
+    if (!isSameOriginRequest(request, env.APP_ORIGIN)) {
+      return publicError(403, 'foreign_origin', 'That request came from another site.');
+    }
+    const declared = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > MAX_SHARE_BODY) {
+      return publicError(413, 'preview_too_large', 'That preview is too large to save.');
+    }
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return publicError(400, 'bad_json', 'Request body was not JSON.');
+    }
+    const chatId = String(body?.chat ?? '');
+    if (!CHAT_ID.test(chatId)) return publicError(400, 'bad_chat', 'That chat id is not valid.');
+    const name = cleanShareName(body?.name);
+    if (!name || !/\.(html?|svg|md|markdown)$/i.test(name)) {
+      return publicError(400, 'bad_name', 'Share an HTML, SVG or Markdown file name.');
+    }
+    const html = typeof body?.html === 'string' ? body.html : '';
+    if (!html.trim()) return publicError(400, 'empty_preview', 'That preview has no page content.');
+    const bytes = new TextEncoder().encode(html);
+    if (bytes.byteLength > MAX_SHARE_BYTES) {
+      return publicError(413, 'preview_too_large', 'Preview snapshots are limited to 1.5 MB.');
+    }
+
+    const existing = await env.DB.prepare(
+      'SELECT id, size FROM preview_shares WHERE sub = ? AND chat_id = ? AND name = ?',
+    )
+      .bind(user.sub, chatId, name)
+      .all();
+    const previous = existing?.results?.[0] ?? null;
+    const usage = await shareUsage(env, user.sub);
+    if (!previous && usage.count >= MAX_SHARE_COUNT) {
+      return publicError(413, 'too_many_previews', `Accounts hold up to ${MAX_SHARE_COUNT} preview links.`);
+    }
+    if (usage.bytes - (Number(previous?.size) || 0) + bytes.byteLength > MAX_SHARE_TOTAL) {
+      return publicError(413, 'storage_full', 'That would exceed the 8 MB preview-share limit.');
+    }
+
+    const id = previous?.id || newShareId();
+    const key = previewKey(user, id);
+    await env.FILES.put(key, bytes, { httpMetadata: { contentType: 'text/html; charset=utf-8' } });
+    const updatedAt = Date.now();
+    try {
+      if (previous) {
+        await env.DB.prepare(
+          'UPDATE preview_shares SET size = ?, updated_at = ? WHERE sub = ? AND id = ?',
+        )
+          .bind(bytes.byteLength, updatedAt, user.sub, id)
+          .run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO preview_shares (sub, id, chat_id, name, size, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+          .bind(user.sub, id, chatId, name, bytes.byteLength, updatedAt, updatedAt)
+          .run();
+      }
+    } catch (error) {
+      if (!previous) await env.FILES.delete(key).catch(() => {});
+      throw error;
+    }
+    return json(
+      {
+        ok: true,
+        id,
+        chat: chatId,
+        name,
+        size: bytes.byteLength,
+        url: `/preview/${id}`,
+        updatedAt,
+        usage: await shareUsage(env, user.sub),
+      },
+      previous ? 200 : 201,
+      { 'cache-control': 'private, no-store' },
+    );
+  }
+
+  if (url.pathname.startsWith(prefix)) {
+    if (request.method !== 'DELETE') return publicError(405, 'method', 'Use DELETE.');
+    if (!isSameOriginRequest(request, env.APP_ORIGIN)) {
+      return publicError(403, 'foreign_origin', 'That request came from another site.');
+    }
+    const id = decodeId(url.pathname.slice(prefix.length));
+    if (!id || !SHARE_ID.test(id)) return publicError(400, 'bad_id', 'That preview id is not valid.');
+    await env.FILES.delete(previewKey(user, id));
+    await env.DB.prepare('DELETE FROM preview_shares WHERE sub = ? AND id = ?')
+      .bind(user.sub, id)
+      .run();
+    return json({ ok: true }, 200, { 'cache-control': 'private, no-store' });
+  }
+
+  return publicError(404, 'not_found', 'No such route.');
 }
 
 // ---------------------------------------------------------------- routes
@@ -1257,7 +1712,7 @@ async function handleChat(request, env) {
     } catch {
       payload = null;
     }
-    const detail = String(payload?.error?.message ?? text ?? '').slice(0, 300);
+    const detail = scrubSecrets(String(payload?.error?.message ?? text ?? '')).slice(0, 300);
     const map = {
       401: ['key_rejected', `${attempt.provider.label} rejected the key. Check it and try again.`],
       402: ['no_free_plan', `${attempt.provider.label} wants a paid plan for this key. This app only uses free plans.`],
@@ -1350,6 +1805,7 @@ async function handlePage(request, env) {
   const asset = await env.ASSETS.fetch(request);
   const headers = new Headers(asset.headers);
   headers.set('content-security-policy', PAGE_CSP);
+  headers.set('x-content-type-options', 'nosniff');
   headers.set('x-frame-options', 'DENY');
   headers.set('referrer-policy', 'no-referrer');
   // The page is versioned by this Worker, not by the asset host. A revalidated
@@ -1421,6 +1877,17 @@ async function handle(request, env, ctx) {
             maxFileBytes: MAX_FILE_BYTES,
             maxFiles: MAX_FILE_COUNT,
             maxTotalBytes: MAX_FILE_TOTAL,
+          },
+          // A desktop download link must be stable; a tunnel or a chat preview
+          // host expires and leaves the cloud page pointing at nothing.
+          desktopDownloadUrl: 'https://github.com/zakker111/freeway/releases/latest',
+          // Account preview links need the same two bindings as account files:
+          // D1 for the owner-scoped listing, R2 for the snapshot bytes.
+          previewShares: Boolean(env?.FILES) && Boolean(env?.DB),
+          previewLimits: {
+            maxBytes: MAX_SHARE_BYTES,
+            maxShares: MAX_SHARE_COUNT,
+            maxTotalBytes: MAX_SHARE_TOTAL,
           },
         });
       }
@@ -1526,6 +1993,22 @@ async function handle(request, env, ctx) {
       if (pathname === '/api/files' || pathname.startsWith('/api/files/')) {
         const user = await currentUser(request, env);
         return handleFiles(request, env, user);
+      }
+
+      if (pathname === '/api/previews' || pathname.startsWith('/api/previews/')) {
+        const user = await currentUser(request, env);
+        return handlePreviews(request, env, user);
+      }
+
+      // A shared preview is a real page at this origin, but only for the account
+      // that owns it. A signed-out visitor gets a sign-in page, not the HTML.
+      const previewRoute = /^\/preview\/([^/]+)$/.exec(pathname);
+      if (previewRoute) {
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+          return publicError(405, 'method', 'Use GET.');
+        }
+        const user = await currentUser(request, env);
+        return servePreview(request, env, user, decodeId(previewRoute[1]));
       }
 
       if (pathname === '/api/threads') {
@@ -1638,7 +2121,7 @@ async function handle(request, env, ctx) {
 
       return handlePage(request, env);
     } catch (error) {
-      console.error('worker error', error?.stack ?? error);
+      console.error('worker error', scrubSecrets(String(error?.stack ?? error)));
       return publicError(500, 'internal', 'Something broke on the server. Try again.');
     }
   }

@@ -55,32 +55,42 @@ function collectNames(code, label) {
 const page = read('public/index.html');
 const models = stripModule(read('lib/models.mjs'), 'lib/models.mjs');
 const memory = stripModule(read('lib/memory.mjs'), 'lib/memory.mjs');
+const scaffoldMod = stripModule(read('lib/scaffold.mjs'), 'lib/scaffold.mjs');
+const previewCheckMod = stripModule(read('lib/preview-check.mjs'), 'lib/preview-check.mjs');
 const tools = stripModule(read('lib/tools.mjs'), 'lib/tools.mjs');
+const planMod = stripModule(read('lib/plan.mjs'), 'lib/plan.mjs');
 const toolPrompt = stripModule(read('lib/tool-prompt.mjs'), 'lib/tool-prompt.mjs');
 const chatStore = stripModule(read('lib/store.mjs'), 'lib/store.mjs');
 const redact = stripModule(read('lib/redact.mjs'), 'lib/redact.mjs');
 const workspaceMod = stripModule(read('lib/workspace.mjs'), 'lib/workspace.mjs');
 const previewBridgeMod = stripModule(read('lib/preview-bridge.mjs'), 'lib/preview-bridge.mjs');
 const previewServerMod = stripModule(read('lib/preview-server.mjs'), 'lib/preview-server.mjs');
+const screenshotMod = stripModule(read('lib/screenshot.mjs'), 'lib/screenshot.mjs');
 const secretsMod = stripModule(read('lib/secrets.mjs'), 'lib/secrets.mjs');
 const githubMod = stripModule(read('lib/github.mjs'), 'lib/github.mjs');
 const commandsMod = stripModule(read('lib/commands.mjs'), 'lib/commands.mjs');
+const processesMod = stripModule(read('lib/processes.mjs'), 'lib/processes.mjs');
 const statusMod = stripModule(read('lib/status.mjs'), 'lib/status.mjs');
 const providersMod = stripModule(read('lib/providers.mjs'), 'lib/providers.mjs');
 const app = stripModule(read('app.mjs'), 'app.mjs');
 
 collectNames(models.code, 'lib/models.mjs');
 collectNames(memory.code, 'lib/memory.mjs');
+collectNames(scaffoldMod.code, 'lib/scaffold.mjs');
+collectNames(previewCheckMod.code, 'lib/preview-check.mjs');
 collectNames(tools.code, 'lib/tools.mjs');
+collectNames(planMod.code, 'lib/plan.mjs');
 collectNames(toolPrompt.code, 'lib/tool-prompt.mjs');
 collectNames(chatStore.code, 'lib/store.mjs');
 collectNames(redact.code, 'lib/redact.mjs');
 collectNames(workspaceMod.code, 'lib/workspace.mjs');
 collectNames(previewBridgeMod.code, 'lib/preview-bridge.mjs');
 collectNames(previewServerMod.code, 'lib/preview-server.mjs');
+collectNames(screenshotMod.code, 'lib/screenshot.mjs');
 collectNames(secretsMod.code, 'lib/secrets.mjs');
 collectNames(githubMod.code, 'lib/github.mjs');
 collectNames(commandsMod.code, 'lib/commands.mjs');
+collectNames(processesMod.code, 'lib/processes.mjs');
 collectNames(statusMod.code, 'lib/status.mjs');
 collectNames(providersMod.code, 'lib/providers.mjs');
 collectNames(app.code, 'app.mjs');
@@ -131,6 +141,8 @@ function mergeImports(lines) {
 const imports = mergeImports([
   ...models.imports,
   ...memory.imports,
+  ...scaffoldMod.imports,
+  ...previewCheckMod.imports,
   ...tools.imports,
   ...toolPrompt.imports,
   ...chatStore.imports,
@@ -138,9 +150,11 @@ const imports = mergeImports([
   ...workspaceMod.imports,
   ...previewBridgeMod.imports,
   ...previewServerMod.imports,
+  ...screenshotMod.imports,
   ...secretsMod.imports,
     ...githubMod.imports,
     ...commandsMod.imports,
+    ...processesMod.imports,
     ...statusMod.imports,
     ...providersMod.imports,
     ...app.imports,
@@ -165,9 +179,21 @@ ${models.code}
 
 ${memory.code}
 
+/* ------------------------------------------------------- lib/scaffold.mjs */
+
+${scaffoldMod.code}
+
+/* -------------------------------------------------- lib/preview-check.mjs */
+
+${previewCheckMod.code}
+
 /* ---------------------------------------------------------- lib/tools.mjs */
 
 ${tools.code}
+
+/* ----------------------------------------------------------- lib/plan.mjs */
+
+${planMod.code}
 
 /* ---------------------------------------------------- lib/tool-prompt.mjs */
 
@@ -189,6 +215,10 @@ ${previewBridgeMod.code}
 
 ${previewServerMod.code}
 
+/* ---------------------------------------------------- lib/screenshot.mjs */
+
+${screenshotMod.code}
+
 /* -------------------------------------------------------- lib/secrets.mjs */
 
 ${secretsMod.code}
@@ -200,6 +230,10 @@ ${githubMod.code}
 /* ------------------------------------------------------ lib/commands.mjs */
 
 ${commandsMod.code}
+
+/* ----------------------------------------------------- lib/processes.mjs */
+
+${processesMod.code}
 
 /* --------------------------------------------------------- lib/status.mjs */
 

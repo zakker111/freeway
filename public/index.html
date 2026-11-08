@@ -1088,6 +1088,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <title>Freeway</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171717'/%3E%3Cpath d='M18 20h28v7H26v6h16v7H26v12h-8z' fill='%23f2f0ed'/%3E%3C/svg%3E" />
     <style>
       /* -------------------------------------------------------------- tokens
          One dark palette in black, grey and soft white: a near-black page,
@@ -1123,6 +1124,7 @@
         --shadow-md: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .55);
         --shadow-lg: 0 24px 70px rgba(0, 0, 0, .65);
         --radius: 12px;
+        --content: 860px;
         --mono: "Cascadia Code", ui-monospace, Consolas, monospace;
       }
       * { box-sizing: border-box; }
@@ -1134,7 +1136,7 @@
           var(--bg);
         color: var(--text);
         font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
-        font-size: clamp(14.5px, 0.2vw + 13.8px, 16.5px);
+        font-size: clamp(15px, 0.25vw + 14.2px, 16.8px);
         display: flex;
         flex-direction: row;
         height: 100vh;
@@ -1142,6 +1144,9 @@
         overflow: hidden;
         -webkit-font-smoothing: antialiased;
       }
+      /* The chat column grows with a laptop screen, but stops before the line
+         length becomes hard to scan. Phones keep the full width. */
+      @media (min-width: 1200px) { :root { --content: 1040px; } }
       ::selection { background: var(--accent-soft); color: var(--accent-strong); }
       /* Thin, quiet scrollbars so long transcripts do not grow a second column. */
       * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -1233,7 +1238,7 @@
         scrollbar-gutter: stable;
       }
       .wrap {
-        max-width: 860px; width: 100%; margin: 0 auto;
+        max-width: var(--content); width: 100%; margin: 0 auto;
         display: flex; flex-direction: column; gap: clamp(16px, 2.2vw, 26px);
       }
 
@@ -1308,6 +1313,10 @@
       }
       .tool-chip b { color: var(--text); font-weight: 600; }
       .tool-chip.failed { border-style: dashed; color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
+      .tool-shot {
+        display: block; width: min(100%, 640px); height: auto; margin: 8px 0 2px;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2);
+      }
 
       .actions { display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
       .msg:hover .actions, .msg:focus-within .actions { opacity: 1; }
@@ -1359,7 +1368,76 @@
         padding: 12px clamp(12px, 3vw, 22px) calc(14px + env(safe-area-inset-bottom));
         position: relative; z-index: 5;
       }
-      .composer { max-width: 860px; width: 100%; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      .mode-bar {
+        max-width: var(--content); margin: 0 auto 10px; display: flex; align-items: center; gap: 10px;
+        flex-wrap: wrap;
+      }
+      .mode-switch {
+        display: inline-flex; padding: 3px; gap: 2px; flex: 0 0 auto;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2);
+      }
+      .mode-btn {
+        min-width: 62px; padding: 5px 12px; border: 1px solid transparent; border-radius: 7px;
+        background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 650;
+        box-shadow: none;
+      }
+      .mode-btn:hover { color: var(--text); background: var(--surface-3); }
+      .mode-btn.active { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-strong); }
+      .mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .mode-hint { flex: 1; min-width: 180px; font-size: 11.5px; color: var(--dim); line-height: 1.4; }
+      .plan-card {
+        border: 1px solid var(--accent-line); border-radius: 14px; background: var(--surface-2);
+        padding: 16px 18px; margin: 0 0 18px; box-shadow: var(--shadow-sm);
+      }
+      .plan-kicker { font-size: 10.5px; letter-spacing: .09em; color: var(--accent-strong); font-weight: 700; }
+      .plan-goal { margin: 5px 0 12px; font-size: 17px; line-height: 1.4; color: var(--text); }
+      .plan-label {
+        margin: 13px 0 4px; font-size: 10.5px; letter-spacing: .07em;
+        text-transform: uppercase; color: var(--dim); font-weight: 650;
+      }
+      .plan-list { margin: 0; padding-left: 19px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+      .plan-list li { margin: 2px 0; }
+      .plan-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+      .plan-step {
+        border-left: 2px solid var(--line); padding: 1px 0 1px 11px;
+      }
+      .plan-step.active { border-left-color: var(--accent); }
+      .plan-step.done { border-left-color: #59b980; opacity: .85; }
+      .plan-step-head { display: flex; gap: 7px; align-items: baseline; }
+      .plan-mark { width: 14px; flex: 0 0 14px; color: var(--dim); font-size: 12px; }
+      .plan-step.done .plan-mark { color: #59b980; }
+      .plan-step.active .plan-mark { color: var(--accent-strong); }
+      .plan-step-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+      .plan-step p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+      .plan-step .plan-file { color: var(--dim); font-family: var(--mono); font-size: 11.5px; }
+      .plan-actions { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+      .plan-actions button { min-height: 36px; padding: 0 13px; font-size: 12.5px; }
+      .composer { max-width: var(--content); width: 100%; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      .attach {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        min-height: 50px; padding: 0 14px; flex: 0 0 auto; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 12px;
+        background: var(--surface-2); color: var(--muted);
+        font-size: 13.5px; font-weight: 600; line-height: 1; user-select: none;
+        box-shadow: var(--shadow-sm);
+        transition: border-color .15s, background .15s, color .15s;
+      }
+      .attach:hover { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-strong); }
+      .attach:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .attach-icon { font-size: 18px; line-height: 1; }
+      /* The image button is the one people miss, so it carries the accent. */
+      .attach-image { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-strong); padding: 0 16px; }
+      .attach-image .attach-icon { font-size: 21px; }
+      @media (max-width: 700px) {
+        body { font-size: 16px; }
+        .attach { padding: 0 11px; }
+        .attach-label { display: none; }
+        .attach-image { padding: 0 13px; }
+        /* Keep the message box readable when the controls no longer fit beside it. */
+        .composer { flex-wrap: wrap; }
+        .composer #input { flex: 1 0 100%; }
+        .composer .primary { margin-left: auto; min-height: 46px; }
+      }
       textarea {
         flex: 1; resize: none; min-height: 50px; max-height: 40vh; max-height: 40dvh;
         background: var(--surface); color: var(--text); border: 1px solid var(--line);
@@ -1370,14 +1448,14 @@
       textarea::placeholder { color: var(--dim); }
       textarea:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
       .hint {
-        max-width: 860px; margin: 8px auto 0; display: flex; justify-content: space-between;
+        max-width: var(--content); margin: 8px auto 0; display: flex; justify-content: space-between;
         gap: 12px; font-size: 11.5px; color: var(--dim);
       }
       .status { min-height: 1em; }
       .status:not(:empty) { color: var(--muted); }
 
       .queue-bar {
-        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
+        max-width: var(--content); margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
         font-size: 12px; color: var(--muted); animation: rise .15s ease-out;
       }
       .queue-bar[hidden] { display: none; }
@@ -1385,7 +1463,7 @@
       .queue-bar button { padding: 3px 9px; font-size: 11.5px; }
 
       .image-bar {
-        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
+        max-width: var(--content); margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
         font-size: 12px; color: var(--muted);
       }
       .image-bar[hidden] { display: none; }
@@ -1401,7 +1479,7 @@
       }
 
       .recover-bar {
-        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
+        max-width: var(--content); margin: 0 auto 8px; display: flex; align-items: center; gap: 8px;
         font-size: 12px; color: var(--warn); background: var(--warn-soft);
         border: 1px solid var(--warn-line); border-radius: 10px; padding: 6px 10px;
         animation: rise .15s ease-out;
@@ -1433,7 +1511,8 @@
       #railClose { flex: 0 0 auto; margin-left: auto; }
       .rail-body {
         flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px;
-        padding: 12px; overflow-y: auto;
+        padding: 12px; overflow-y: auto; overscroll-behavior: contain;
+        scroll-padding-block: 12px;
       }
       .rail-body.hidden { display: none; }
       .rail-row { display: flex; align-items: center; gap: 6px; }
@@ -1442,7 +1521,13 @@
         font-family: var(--mono);
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .fs-list { display: flex; flex-direction: column; gap: 2px; }
+      .fs-list {
+        display: flex; flex-direction: column; gap: 2px;
+        flex: 0 0 auto;
+        max-height: 300px; max-height: min(34vh, 300px);
+        overflow-y: auto; overscroll-behavior: contain;
+        padding-right: 2px;
+      }
       .fs-row {
         display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
         padding: 6px 9px; border: 1px solid transparent; border-radius: 8px;
@@ -1506,6 +1591,16 @@
         display: flex; flex-direction: column; gap: 3px;
         margin: 0 -4px; padding: 2px 4px;
       }
+      .thread-empty { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+      .thread-empty .fine { margin: 0; }
+      .thread-empty-new {
+        display: flex; align-items: center; justify-content: center; width: 100%;
+        padding: 8px 12px; color: var(--accent-strong); background: var(--accent-soft);
+        border-color: var(--accent-line);
+      }
+      .thread-empty-new:hover:not(:disabled) {
+        background: var(--surface-2); border-color: var(--accent);
+      }
       .thread-item { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px; }
       .thread-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--line); }
       .thread-item.active {
@@ -1522,12 +1617,33 @@
       .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; }
       .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
       .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
-      #sideBtn { display: inline-flex; }
+      #sideBtn { display: inline-flex; align-items: center; gap: 5px; }
+      #sideBtn .chats-label { font-size: 12px; font-weight: 550; }
+      @media (max-width: 640px) { #sideBtn .chats-label { display: none; } }
       .sidebar.collapsed { display: none; }
       .side-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 14; }
       .side-backdrop:not(.hidden) { display: block; }
 
       /* ---------------------------------------------------------- modals */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+      dialog {
+        width: min(92vw, 500px);
+        background: var(--surface); color: var(--text);
+        border: 1px solid var(--line); border-radius: 16px; padding: 20px;
+        box-shadow: var(--shadow-lg);
+      }
+      dialog::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px); }
+      dialog h2 { margin: 0 0 8px; font-size: 17px; color: var(--text); }
+      dialog p { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
+      dialog input {
+        width: 100%; padding: 9px 11px; background: var(--surface);
+        border: 1px solid var(--line); border-radius: 10px;
+        font-family: var(--mono); font-size: 12.5px;
+      }
+      dialog .row { margin-top: 14px; }
       .overlay {
         position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
         backdrop-filter: blur(2px);
@@ -1571,7 +1687,9 @@
       .modal .foot {
         padding: 13px 18px; border-top: 1px solid var(--line);
         display: flex; gap: 10px; justify-content: flex-end; background: var(--surface-2);
+        flex-wrap: wrap;
       }
+      .modal .foot button { white-space: nowrap; }
       .modal .foot.split { justify-content: space-between; align-items: center; }
 
       .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
@@ -1615,9 +1733,21 @@
       /* --------------------------------------------------------- breakpoints */
       @media (max-width: 1100px) {
         .rail {
-          position: fixed; inset: 0 0 0 auto; z-index: 16; width: min(350px, 90vw);
+          position: fixed; inset: var(--header-h, 0px) 0 0 auto; z-index: 16;
+          width: min(350px, 90vw); height: auto;
+          max-height: calc(100dvh - var(--header-h, 0px));
           box-shadow: var(--shadow-lg);
         }
+      }
+
+      /* On a short laptop the rail must keep the list and the editor usable
+         without making people chase controls below the fold. */
+      @media (max-height: 640px) {
+        .rail-head { padding: 5px 6px; }
+        .rail-body { padding: 9px; gap: 6px; }
+        .fs-list { max-height: 240px; max-height: min(28vh, 240px); }
+        .fs-editor { min-height: 170px; }
+        .fs-editor textarea { min-height: 140px; }
       }
 
       .jump {
@@ -1644,6 +1774,12 @@
       .fallback-log li { margin: 2px 0; overflow-wrap: anywhere; }
       .budget { color: var(--dim); font-size: 11.5px; white-space: nowrap; }
       .budget.warn { color: var(--warn); font-weight: 600; }
+      .build-budget { color: var(--accent-strong); }
+      .build-budget.warn { color: var(--warn); }
+      .build-budget[hidden] { display: none; }
+      .dev-servers { display: inline-flex; align-items: center; gap: 4px; }
+      .dev-servers[hidden] { display: none; }
+      .dev-servers .mini { padding: 1px 6px; font-size: 10.5px; }
 
       @media (max-width: 900px) {
         .sidebar {
@@ -1660,8 +1796,11 @@
         .brand { font-size: 14px; }
         .chip { max-width: 132px; font-size: 12px; padding: 4px 10px; }
         .pill { font-size: 11px; padding: 4px 8px; }
-        header.bar button { padding: 7px 9px; min-height: 36px; font-size: 12.5px; }
-        .bubble { max-width: 95%; }
+        header.bar button { padding: 7px 9px; min-height: 40px; font-size: 12.5px; }
+        /* The policy pill already says free/no-key; cap the duplicate quota text so
+           New, Settings, Preview, Files and Quit stay on one row. */
+        #quota { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bubble { max-width: 100%; }
         .hint { display: none; }
         .modal { max-height: 92dvh; border-radius: 14px; }
         .model-row { flex-wrap: wrap; row-gap: 2px; }
@@ -1685,7 +1824,7 @@
     <aside class="sidebar" id="sidebar" aria-label="Saved chats">
       <div class="side-head">
         <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
-        <button id="sideNew" class="mini" type="button" title="New chat">+</button>
+        <button id="sideNew" class="mini" type="button" title="New chat" aria-label="New chat">+</button>
         <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
       </div>
       <div class="thread-list" id="threadList"></div>
@@ -1695,7 +1834,7 @@
 
     <div class="app-col">
     <header class="bar">
-      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰</button>
+      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
       <div class="brand">Free<span>way</span></div>
       <span class="ver" id="version" title="Running version (also at /api/config)">v…</span>
       <select id="provider" class="prov" title="Provider" aria-label="Provider"></select>
@@ -1704,8 +1843,9 @@
       <div class="spacer"></div>
       <button id="quota" class="pill" title="API key and quota">quota…</button>
       <button id="newChatBtn" class="ghost" title="New chat (Ctrl+Shift+N)">New</button>
-      <button id="settingsBtn" class="ghost" title="Settings">⚙</button>
-      <button id="railBtn" class="ghost" title="Files and secrets">▤</button>
+      <button id="settingsBtn" class="ghost" title="Settings" aria-label="Settings">⚙</button>
+      <button id="quickPreview" class="ghost" type="button" title="Open a working preview">Preview</button>
+      <button id="railBtn" class="ghost" title="Files and secrets" aria-label="Files and secrets">▤</button>
       <button id="quitBtn" class="ghost" title="Stop the app">Quit</button>
     </header>
 
@@ -1732,7 +1872,7 @@
       </div>
     </main>
 
-    <button id="jumpBtn" class="jump hidden" title="Jump to latest">↓</button>
+    <button id="jumpBtn" class="jump hidden" title="Jump to latest" aria-label="Jump to latest">↓</button>
 
     <footer>
       <div class="recover-bar" id="recoverBar" hidden>
@@ -1750,16 +1890,31 @@
         <span class="fine" id="imageName"></span>
         <button class="mini" id="imageRemove" type="button" title="Remove the attached image">Remove</button>
       </div>
+      <div class="mode-bar">
+        <div class="mode-switch" role="group" aria-label="Chat mode">
+          <button id="modePlan" class="mode-btn active" type="button" aria-pressed="true">Plan</button>
+          <button id="modeBuild" class="mode-btn" type="button" aria-pressed="false">Build</button>
+        </div>
+        <span class="mode-hint" id="modeHint">Plan reads the workspace and writes a plan. Nothing is changed.</span>
+      </div>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Message…"></textarea>
-        <label class="mini attach" title="Attach a PNG, JPEG or WebP image">🖼<input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-        <label class="mini attach" title="Attach a text file">📎<input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden></label>
+        <label class="attach attach-image" title="Attach a PNG, JPEG or WebP image">
+          <span class="attach-icon" aria-hidden="true">🖼</span><span class="attach-label">Image</span>
+          <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+        </label>
+        <label class="attach attach-file" title="Attach a text file">
+          <span class="attach-icon" aria-hidden="true">📎</span><span class="attach-label">Attach</span>
+          <input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden />
+        </label>
         <button id="memoryBtn" class="mini" type="button" title="Edit the note sent with this chat">memory</button>
         <button id="sendBtn" class="primary">Send</button>
         <button id="stopBtn" class="ghost" disabled>Stop</button>
       </div>
       <div class="hint">
-        <span id="status" class="status"></span>
+        <span id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></span>
+        <span id="buildBudget" class="budget build-budget" hidden></span>
+        <span id="devServers" class="budget dev-servers" hidden></span>
         <span id="budget" class="budget"></span>
         <span>Enter to send · Shift+Enter newline · Ctrl+K commands · Ctrl+M models · Alt+N new chat</span>
       </div>
@@ -1773,13 +1928,13 @@
         <button class="rail-tab" type="button" data-rail="github">GitHub</button>
         <button class="rail-tab" type="button" data-rail="preview">Preview</button>
         <button class="rail-tab" type="button" data-rail="status">Health</button>
-        <button class="mini" id="railClose" type="button" title="Hide this panel">✕</button>
+        <button class="mini" id="railClose" type="button" title="Hide this panel" aria-label="Hide this panel">✕</button>
       </div>
 
       <div class="rail-body" id="railFiles">
         <div class="rail-row">
-          <button class="mini" id="fsUp" type="button" title="Folder above">↑</button>
-          <button class="mini" id="fsRefresh" type="button" title="Reload">⟳</button>
+          <button class="mini" id="fsUp" type="button" title="Folder above" aria-label="Folder above">↑</button>
+          <button class="mini" id="fsRefresh" type="button" title="Reload files" aria-label="Reload files">⟳</button>
           <button class="mini" id="fsSample" type="button" title="Create a sample page">Sample</button>
           <span class="path" id="fsPath">/</span>
         </div>
@@ -1828,7 +1983,7 @@
 
       <div class="rail-body hidden" id="railStatus">
         <div class="rail-row">
-          <button class="mini" id="stRefresh" type="button" title="Reload">⟳</button>
+          <button class="mini" id="stRefresh" type="button" title="Reload health" aria-label="Reload health">⟳</button>
           <span class="path" id="stSummary">this session</span>
         </div>
         <div class="rail-row"><span class="path">Provider health</span></div>
@@ -1850,6 +2005,7 @@
           <button class="mini" id="pvLoad" type="button">Load</button>
           <button class="mini" id="pvReload" type="button" title="Reload the frame">Reload</button>
           <button class="mini" id="pvOpen" type="button" title="Open in a new tab">Open ↗</button>
+          <button class="mini" id="pvCopy" type="button" title="Copy the preview link to share with the chat">Copy link</button>
         </div>
         <iframe id="pvFrame" class="pv-frame" title="Preview" referrerpolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
@@ -1863,9 +2019,21 @@
       </div>
     </aside>
 
+    <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <dialog id="askDialog" aria-labelledby="askTitle">
+      <h2 id="askTitle">Confirm</h2>
+      <p id="askMessage"></p>
+      <input id="askInput" type="text" autocomplete="off" hidden />
+      <div class="row">
+        <button class="ghost" id="askCancel" type="button">Cancel</button>
+        <button class="primary" id="askOk" type="button">OK</button>
+      </div>
+    </dialog>
+
     <div class="overlay hidden" id="paletteOverlay">
-      <div class="modal palette-modal">
-        <header><strong>Commands</strong><span class="fine">Ctrl+K · Esc closes</span></header>
+      <div class="modal palette-modal" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
+        <header><strong id="paletteTitle">Commands</strong><span class="fine">Ctrl+K · Esc closes</span></header>
         <div class="body">
           <input id="paletteInput" placeholder="Type a command…" autocomplete="off" spellcheck="false" aria-label="Command" />
           <div id="paletteList" class="palette-list" role="listbox" aria-label="Commands"></div>
@@ -1874,7 +2042,7 @@
     </div>
 
     <div class="overlay hidden" id="keyOverlay">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="keyTitle">
         <header><strong id="keyTitle">Connect OpenRouter</strong></header>
         <div class="body">
           <ol class="steps" id="keySteps"></ol>
@@ -1902,8 +2070,8 @@
     </div>
 
     <div class="overlay hidden" id="settingsOverlay">
-      <div class="modal">
-        <header><strong>Settings</strong></header>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <header><strong id="settingsTitle">Settings</strong></header>
         <div class="body">
           <div class="field">
             <label for="sPrompt">System prompt</label>
@@ -1916,12 +2084,16 @@
           </div>
           <div class="field">
             <label for="sMax">Max output tokens</label>
-            <input id="sMax" type="number" min="256" max="4000" step="64" />
+            <input id="sMax" type="number" min="256" max="4000" step="1" />
             <span class="help">Between 256 and 4000. Lower is faster and cheaper.</span>
           </div>
           <div class="field">
             <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
             <span class="help">Clock, exact calculator, public web fetch, workspace files and GitHub, plus allowlisted commands when enabled below. When this is on, the model is told to use the tools instead of guessing. Only sent to models that support tool calling.</span>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="sScreenshot" /> Check the preview with a screenshot</label>
+            <span class="help">On by default. After preview_check passes, a local headless Edge or Chrome can capture the preview for vision-capable models. At most two captures per Build run, and no image is sent when this is off.</span>
           </div>
           <div class="field">
             <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
@@ -1939,12 +2111,18 @@
           </div>
           <div class="field">
             <label class="check"><input type="checkbox" id="sCommands" /> Allow the model to run commands</label>
-            <span class="help">Off by default. Every command still stops at an Allow / Deny card showing the exact arguments.</span>
+            <span class="help">Off by default. Commands still stop at an Allow / Deny card showing the exact arguments, unless Auto-approve Build actions is on.</span>
           </div>
           <div class="field">
             <label for="sAllowlist">Programs it may run</label>
             <input id="sAllowlist" type="text" placeholder="node, npm, git" spellcheck="false" autocomplete="off" />
             <span class="help">Names only, separated by commas. No paths. A name not listed here is refused before anything starts.</span>
+          </div>
+          <div class="field">
+            <label class="check" for="sAutoApprove" title="When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands in every Build workspace without an Allow / Deny card. This applies to every Build workspace until you turn it off. Plan stays read-only. Only use it where you can restore files.">
+              <input type="checkbox" id="sAutoApprove" title="When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands in every Build workspace without an Allow / Deny card. This applies to every Build workspace until you turn it off. Plan stays read-only. Only use it where you can restore files." aria-describedby="sAutoApproveHelp" /> Auto-approve Build actions
+            </label>
+            <span class="help" id="sAutoApproveHelp">Off by default. When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands without an Allow / Deny card. This is a global setting: it applies to every Build workspace until you turn it off. Plan stays read-only, and the workspace folder and program allowlist above still apply. Only use it where you can restore files.</span>
           </div>
           <div class="field">
             <label>Saved chats</label>
@@ -1956,6 +2134,7 @@
               <label class="check"><input type="checkbox" id="importReplace" /> Replace existing</label>
             </div>
             <span class="help">One JSON file with every chat and your settings. Import merges unless you tick replace.</span>
+            <span class="help">Freeway does not update itself. <a href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">Get the latest release ↗</a></span>
             <input id="importFile" type="file" accept="application/json,.json" hidden />
           </div>
           <div class="error-text" id="settingsError"></div>
@@ -1968,8 +2147,8 @@
     </div>
 
     <div class="overlay hidden" id="promptOverlay">
-      <div class="modal">
-        <header><strong>Prompt library</strong></header>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="promptTitle">
+        <header><strong id="promptTitle">Prompt library</strong></header>
         <div class="body">
           <p class="help">Saved in this browser. Click one to put it in the message box.</p>
           <div id="promptList" class="model-list"></div>
@@ -1983,9 +2162,9 @@
     </div>
 
     <div class="overlay hidden" id="picker">
-      <div class="modal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
         <header>
-          <strong>Free models</strong>
+          <strong id="pickerTitle">Free models</strong>
           <div class="spacer"></div>
           <span class="fine" id="pickerCount"></span>
         </header>
@@ -2032,6 +2211,9 @@
         customTitle: "",
         rev: 0,
         draft: null,
+        // New chats start in Plan; a saved chat reopens in the mode it used.
+        mode: "plan",
+        plan: null,
         threads: [],
         // Ids the server matched on message text for the current search. Titles
         // are filtered instantly in the browser; this fills in content matches.
@@ -2044,11 +2226,16 @@
           temperature: null,
           maxTokens: 1200,
           tools: true,
+          screenshotChecks: true,
           allowCommands: false,
           commandAllowlist: "",
+          autoApprove: false,
         },
         rail: false,
         workspace: "",
+        // null = a pre-2.10 chat that still uses the Settings folder;
+        // "" = this chat's own app-managed folder; a path = an explicit project.
+        workspacePath: null,
         fsPath: "",
         fsFile: null,
         ghRepo: "",
@@ -2079,7 +2266,10 @@
               messages: keep,
               model: state.model,
               threadId: state.threadId,
+              workspacePath: state.workspacePath,
               requests: state.requests,
+              mode: state.mode,
+              plan: state.plan,
             }),
           );
           if (state.threadId) localStorage.setItem(ACTIVE_KEY, state.threadId);
@@ -2128,7 +2318,13 @@
               }));
           }
           if (typeof saved.model === "string") state.model = saved.model;
+          if (typeof saved.threadId === "string" && saved.threadId) state.threadId = saved.threadId;
+          if (Object.prototype.hasOwnProperty.call(saved, "workspacePath")) {
+            state.workspacePath = saved.workspacePath === null ? null : String(saved.workspacePath);
+          }
           state.requests = Number(saved.requests) || 0;
+          state.mode = saved.mode === "build" ? "build" : "plan";
+          state.plan = normalizePlan(saved.plan);
         } catch {
           state.messages = [];
         }
@@ -2159,6 +2355,22 @@
         return state.threadId;
       }
 
+      // A new chat belongs in the sidebar before it has messages. Show a local
+      // summary at once, then save the empty thread so it survives a reload.
+      function showEmptyThread() {
+        if (!state.threadId || state.messages.length > 0) return;
+        if (state.threads.some((thread) => thread.id === state.threadId)) return;
+        const now = new Date().toISOString();
+        upsertSummary({
+          id: state.threadId,
+          title: threadTitle(),
+          createdAt: now,
+          updatedAt: now,
+          messages: [],
+        });
+        scheduleSave({ allowEmpty: true });
+      }
+
       function upsertSummary(thread) {
         if (!thread) return;
         const summary = {
@@ -2176,16 +2388,27 @@
 
       // Saves are debounced and carry a snapshot, so switching chats mid-flight
       // still writes the right messages under the right id.
-      function scheduleSave() {
-        if (!state.threadId || state.messages.length === 0) return;
+      function scheduleSave({ allowEmpty = false } = {}) {
+        if (!state.threadId || (!allowEmpty && state.messages.length === 0)) return;
         state.pendingSave = {
           id: state.threadId,
           title: threadTitle(),
           requests: state.requests,
           messages: state.messages.slice(-40),
+          mode: state.mode,
+          plan: state.plan,
+          workspace: state.workspacePath,
         };
         clearTimeout(state.saveTimer);
         state.saveTimer = setTimeout(() => void flushSave(), 500);
+      }
+
+      // A file can be created before the first message. Persist the chat so its
+      // id and workspace survive a restart and the chat is reachable in the list.
+      function scheduleFileOnlySave() {
+        if (!state.threadId || state.messages.length) return;
+        if (state.threads.some((thread) => thread.id === state.threadId)) return;
+        scheduleSave({ allowEmpty: true });
       }
 
       async function flushSave() {
@@ -2201,6 +2424,9 @@
               title: job.title,
               messages: job.messages,
               preview: state.preview,
+              mode: job.mode,
+              plan: job.plan,
+              workspace: job.workspace,
               ifRev: state.rev,
             }),
           });
@@ -2219,16 +2445,21 @@
       // that started from an older copy, so ask which version should win instead
       // of quietly dropping the other one.
       async function resolveStale(job, theirs) {
-        const takeMine = confirm(
+        const takeMine = await askConfirm(
           "This chat changed in another tab or browser.\n\n" +
             `OK: keep this tab (${job.messages.length} messages) and overwrite the other version.\n` +
             "Cancel: load the newer version and drop the changes in this tab.",
+          "This chat changed elsewhere",
+          "Keep this tab",
         );
         if (!takeMine) {
           if (theirs) {
             state.messages = Array.isArray(theirs.messages) ? theirs.messages : [];
             state.rev = Number(theirs.rev) || 0;
             state.draft = theirs.draft ?? null;
+            state.mode = theirs.mode === "build" ? "build" : "plan";
+            state.plan = normalizePlan(theirs.plan);
+            renderMode();
             renderThread();
             renderDraft();
             upsertSummary(theirs);
@@ -2243,6 +2474,8 @@
               title: job.title,
               messages: job.messages,
               preview: state.preview,
+              mode: job.mode,
+              plan: job.plan,
             }),
           });
           state.rev = Number(forced.thread.rev) || 0;
@@ -2303,8 +2536,8 @@
       function projectOf(id) {
         return String(readOrgMap(PROJECTS_KEY)[id] || "").slice(0, 40);
       }
-      function assignProject(id) {
-        const answer = prompt("Project name (blank = Ungrouped)", projectOf(id));
+      async function assignProject(id) {
+        const answer = await askPrompt("Project name (blank = Ungrouped)", projectOf(id), "Move chat");
         if (answer === null) return;
         const name = answer.replace(/\s+/g, " ").trim().slice(0, 40);
         const map = readOrgMap(PROJECTS_KEY);
@@ -2323,11 +2556,12 @@
           ? [{ role: "system", content: `User memory note for this chat (keep following it):\n${note}` }, ...messages]
           : messages;
       }
-      $("memoryBtn").addEventListener("click", () => {
+      $("memoryBtn").addEventListener("click", async () => {
         if (!state.threadId) return setStatus("open a chat first");
-        const answer = prompt(
+        const answer = await askPrompt(
           "Memory note sent with every message in this chat (blank removes it):",
           memoryNoteFor(state.threadId),
+          "Memory note",
         );
         if (answer === null) return;
         const note = answer.trim().slice(0, 4000);
@@ -2365,11 +2599,21 @@
           : "";
 
         if (threads.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "thread-empty";
           const note = document.createElement("p");
           note.className = "fine";
-          note.style.padding = "8px";
           note.textContent = query ? "No chats match that search." : "Saved chats appear here.";
-          list.appendChild(note);
+          empty.appendChild(note);
+          if (!query) {
+            const start = document.createElement("button");
+            start.type = "button";
+            start.className = "thread-empty-new";
+            start.textContent = "Start a new chat";
+            start.addEventListener("click", resetThread);
+            empty.appendChild(start);
+          }
+          list.appendChild(empty);
           return;
         }
 
@@ -2439,17 +2683,29 @@
         if (state.streaming) state.controller?.abort();
         if (!silent) await flushSave();
         const result = await api(`/api/threads/${encodeURIComponent(id)}`);
+        void closePreviewSession(state.threadId);
         clearQueue();
         state.threadId = result.thread.id;
+        state.workspacePath = Object.prototype.hasOwnProperty.call(result.thread, "workspace")
+          ? result.thread.workspace
+          : null;
         state.messages = result.thread.messages;
         state.requests = Number(result.thread.requests) || 0;
         state.rev = Number(result.thread.rev) || 0;
         state.customTitle =
           result.thread.title && result.thread.title !== derivedTitle(state.messages) ? result.thread.title : "";
         state.draft = result.thread.draft ?? null;
+        state.mode = result.thread.mode === "build" ? "build" : "plan";
+        state.plan = normalizePlan(result.thread.plan);
         state.preview = result.thread.preview || "";
+        state.previewEntry = "";
+        state.previewMode = "";
+        state.previewUrl = "";
+        state.localPreview = false;
+        state.pvLoaded = false;
         $("pvUrl").value = state.preview;
-        if (!$("railPreview").classList.contains("hidden")) openPreview();
+        resetFilePanel();
+        applyPreview(state.preview);
         updateBudget();
         try {
           localStorage.setItem(ACTIVE_KEY, state.threadId);
@@ -2462,13 +2718,14 @@
         }
         renderThread();
         renderDraft();
+        renderMode();
         renderThreadList();
         closeSidebar(true);
         $("input").focus();
       }
 
       async function deleteThread(id) {
-        if (!confirm("Delete this chat? This cannot be undone.")) return;
+        if (!(await askConfirm("Delete this chat? This cannot be undone.", "Delete chat", "Delete"))) return;
         try {
           await api(`/api/threads/${encodeURIComponent(id)}`, { method: "DELETE" });
         } catch (error) {
@@ -2477,16 +2734,32 @@
         }
         state.threads = state.threads.filter((t) => t.id !== id);
         if (state.threadId === id) {
-          state.threadId = null;
+          void closePreviewSession(id);
+          state.threadId = newId();
+          state.workspacePath = "";
+          state.fsPath = "";
+          state.fsFile = null;
           state.messages = [];
           state.customTitle = "";
           state.rev = 0;
           state.draft = null;
+          state.mode = "plan";
+          state.plan = null;
+          state.preview = "";
+          state.previewEntry = "";
+          state.previewMode = "";
+          state.previewUrl = "";
+          state.localPreview = false;
+          $("pvUrl").value = "";
+          applyPreview("");
+          resetFilePanel();
           $("recoverBar").hidden = true;
           clearQueue();
           renderThread();
+          renderMode();
           // Otherwise the browser mirror would restore the deleted chat on reload.
           persist();
+          showEmptyThread();
         }
         renderThreadList();
         setStatus("chat deleted");
@@ -2496,7 +2769,7 @@
       // keyboard or hunting for the tiny buttons in the list.
       async function renameCurrentThread() {
         if (!state.threadId) return setStatus("open a chat first");
-        const answer = prompt("Rename this chat", state.customTitle || threadTitle());
+        const answer = await askPrompt("Rename this chat", state.customTitle || threadTitle(), "Rename chat");
         if (answer === null) return;
         const title = answer.replace(/\s+/g, " ").trim().slice(0, 80);
         if (!title) return setStatus("a chat needs a title");
@@ -2591,7 +2864,7 @@
           return;
         }
         const replace = $("importReplace").checked;
-        if (replace && !confirm("Replace every saved chat with the contents of this file?")) return;
+        if (replace && !(await askConfirm("Replace every saved chat with the contents of this file?", "Replace saved chats", "Replace"))) return;
         try {
           const result = await api("/api/import", {
             method: "POST",
@@ -2763,8 +3036,105 @@
         $("jumpBtn").classList.toggle("hidden", !away);
       }
 
+      let askResolve = null;
+
+      function finishAsk(value) {
+        const resolve = askResolve;
+        askResolve = null;
+        const dialog = $("askDialog");
+        if (dialog?.open) dialog.close();
+        if (resolve) resolve(value);
+      }
+
+      function askValue({ title = "Confirm", message = "", value = "", ok = "OK" } = {}) {
+        return new Promise((resolve) => {
+          const dialog = $("askDialog");
+          if (!dialog) return resolve(null);
+          askResolve = resolve;
+          $("askTitle").textContent = title;
+          $("askMessage").textContent = message;
+          const input = $("askInput");
+          input.hidden = value === null;
+          input.value = value == null ? "" : String(value);
+          $("askOk").textContent = ok;
+          dialog.showModal();
+          setTimeout(() => (input.hidden ? $("askOk") : input).focus(), 20);
+        });
+      }
+
+      function askConfirm(message, title = "Confirm", ok = "OK") {
+        return askValue({ title, message, value: null, ok }).then((answer) => answer !== null);
+      }
+
+      function askPrompt(message, value = "", title = "Edit", ok = "Save") {
+        return askValue({ title, message, value, ok });
+      }
+
+      $("askCancel").addEventListener("click", () => finishAsk(null));
+      $("askOk").addEventListener("click", () => {
+        finishAsk($("askInput").hidden ? true : $("askInput").value);
+      });
+      $("askInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          finishAsk($("askInput").value);
+        }
+      });
+      $("askDialog").addEventListener("cancel", (event) => {
+        event.preventDefault();
+        finishAsk(null);
+      });
+
+      // Custom overlays keep focus inside the dialog until Escape or a button
+      // closes it; native <dialog> handles the ask prompt itself.
+      function trapModalFocus(event) {
+        if (event.key !== "Tab") return;
+        const overlay = event.target.closest(".overlay:not(.hidden)");
+        if (!overlay) return;
+        const items = [...overlay.querySelectorAll(
+          "button:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])",
+        )].filter((node) => node.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      document.addEventListener("keydown", trapModalFocus);
+
       function setStatus(text) {
         $("status").textContent = text || "";
+      }
+
+      // A Build turn is a bounded loop. Keep the remaining budget visible while
+      // tools run, and turn it into a clear stop message at either limit.
+      function renderBuildProgress(info) {
+        const el = $("buildBudget");
+        if (!info) {
+          el.hidden = true;
+          el.textContent = "";
+          el.classList.remove("warn");
+          return;
+        }
+        const steps = Math.max(0, Number(info.steps) || 0);
+        const maxSteps = Math.max(1, Number(info.maxSteps) || 40);
+        const elapsed = Math.max(0, Number(info.elapsedMs) || 0);
+        const maxMs = Math.max(1, Number(info.maxMs) || 15 * 60 * 1000);
+        const left = Math.max(0, Math.ceil((maxMs - elapsed) / 1000));
+        const clock = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+        el.hidden = false;
+        if (info.state === "limit") {
+          el.textContent = `Build stopped at ${steps}/${maxSteps} steps · limit reached`;
+          el.classList.add("warn");
+          return;
+        }
+        el.textContent = `Build ${steps}/${maxSteps} · ${clock} left`;
+        el.classList.toggle("warn", steps / maxSteps >= 0.8 || left <= 120);
       }
 
       // What this chat has used so far: free requests (or messages) and the
@@ -2931,19 +3301,231 @@
 
       function renderThread() {
         const thread = $("thread");
-        for (const node of thread.querySelectorAll(".msg")) node.remove();
-        showEmpty(state.messages.length === 0);
+        for (const node of thread.querySelectorAll(".msg, .plan-card")) node.remove();
+        showEmpty(state.messages.length === 0 && !state.plan);
+        renderPlanCard();
         state.messages.forEach((message, index) => thread.appendChild(createMessageNode(message, index)));
         scrollDown(true);
         updateJump();
         updateBudget();
       }
 
+      /* -------------------------------------------------------------- plan */
+
+      const PLAN_STATUSES = ["pending", "active", "done"];
+
+      function normalizePlan(input) {
+        if (!input || typeof input !== "object") return null;
+        const text = (value, limit) => (typeof value === "string" ? value.trim().slice(0, limit) : "");
+        const list = (value, max, limit) =>
+          Array.isArray(value)
+            ? value.map((item) => text(item, limit)).filter(Boolean).slice(0, max)
+            : [];
+        const steps = Array.isArray(input.steps)
+          ? input.steps
+              .slice(0, 12)
+              .map((step) => {
+                const title = text(step?.title, 200);
+                if (!title) return null;
+                return {
+                  title,
+                  detail: text(step.detail, 600),
+                  files: list(step.files, 10, 200),
+                  verify: text(step.verify, 300),
+                  status: PLAN_STATUSES.includes(step.status) ? step.status : "pending",
+                };
+              })
+              .filter(Boolean)
+          : [];
+        const goal = text(input.goal, 500);
+        if (!goal && steps.length === 0) return null;
+        return { goal, assumptions: list(input.assumptions, 8, 300), steps, risks: list(input.risks, 6, 300) };
+      }
+
+      function planMarkdown(plan) {
+        const lines = [`Goal: ${plan.goal}`];
+        if (plan.assumptions.length) lines.push("", "Assumptions:", ...plan.assumptions.map((item) => `- ${item}`));
+        lines.push("", "Steps:");
+        plan.steps.forEach((step, index) => {
+          lines.push(`${index + 1}. ${step.title} [${step.status}]`);
+          if (step.detail) lines.push(`   ${step.detail}`);
+          if (step.files.length) lines.push(`   Files: ${step.files.join(", ")}`);
+          if (step.verify) lines.push(`   Verify: ${step.verify}`);
+        });
+        if (plan.risks.length) lines.push("", "Risks:", ...plan.risks.map((item) => `- ${item}`));
+        return lines.join("\n");
+      }
+
+      function renderMode() {
+        const planning = state.mode !== "build";
+        const planBtn = $("modePlan");
+        const buildBtn = $("modeBuild");
+        if (!planBtn || !buildBtn) return;
+        planBtn.classList.toggle("active", planning);
+        buildBtn.classList.toggle("active", !planning);
+        planBtn.setAttribute("aria-pressed", String(planning));
+        buildBtn.setAttribute("aria-pressed", String(!planning));
+        $("modeHint").textContent = planning
+          ? "Plan is read-only. Ask for a plan, then press Build on the plan card."
+          : "Build can write files and run commands, with approval before each write.";
+        $("input").placeholder = planning ? "Describe what you want planned…" : "Message…";
+      }
+
+      function setMode(mode) {
+        if (state.streaming) {
+          setStatus("stop the answer before switching mode");
+          return;
+        }
+        state.mode = mode === "build" ? "build" : "plan";
+        renderMode();
+        scheduleSave();
+        setStatus(state.mode === "plan" ? "Plan mode: read-only" : "Build mode");
+      }
+
+      function renderPlanCard() {
+        const thread = $("thread");
+        for (const old of thread.querySelectorAll(".plan-card")) old.remove();
+        if (!state.plan) return;
+        const plan = state.plan;
+        const card = document.createElement("section");
+        card.className = "plan-card";
+
+        const kicker = document.createElement("div");
+        kicker.className = "plan-kicker";
+        kicker.textContent = "PLAN · READ-ONLY";
+        const goal = document.createElement("h2");
+        goal.className = "plan-goal";
+        goal.textContent = plan.goal || "Plan";
+        card.append(kicker, goal);
+
+        if (plan.assumptions.length) {
+          const label = document.createElement("div");
+          label.className = "plan-label";
+          label.textContent = "Assumptions";
+          const list = document.createElement("ul");
+          list.className = "plan-list";
+          for (const item of plan.assumptions) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+          }
+          card.append(label, list);
+        }
+
+        const stepsLabel = document.createElement("div");
+        stepsLabel.className = "plan-label";
+        stepsLabel.textContent = `Steps (${plan.steps.filter((step) => step.status === "done").length}/${plan.steps.length} done)`;
+        const steps = document.createElement("ol");
+        steps.className = "plan-steps";
+        plan.steps.forEach((step, index) => {
+          const item = document.createElement("li");
+          item.className = `plan-step ${step.status}`;
+          const head = document.createElement("div");
+          head.className = "plan-step-head";
+          const mark = document.createElement("span");
+          mark.className = "plan-mark";
+          mark.textContent = step.status === "done" ? "✓" : step.status === "active" ? "◐" : "○";
+          const title = document.createElement("span");
+          title.className = "plan-step-title";
+          title.textContent = `${index + 1}. ${step.title}`;
+          head.append(mark, title);
+          item.appendChild(head);
+          if (step.detail) {
+            const detail = document.createElement("p");
+            detail.textContent = step.detail;
+            item.appendChild(detail);
+          }
+          if (step.files.length) {
+            const files = document.createElement("p");
+            files.className = "plan-file";
+            files.textContent = `Files: ${step.files.join(", ")}`;
+            item.appendChild(files);
+          }
+          if (step.verify) {
+            const verify = document.createElement("p");
+            verify.className = "plan-file";
+            verify.textContent = `Verify: ${step.verify}`;
+            item.appendChild(verify);
+          }
+          steps.appendChild(item);
+        });
+        card.append(stepsLabel, steps);
+
+        if (plan.risks.length) {
+          const label = document.createElement("div");
+          label.className = "plan-label";
+          label.textContent = "Risks";
+          const list = document.createElement("ul");
+          list.className = "plan-list";
+          for (const item of plan.risks) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+          }
+          card.append(label, list);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "plan-actions";
+        const build = document.createElement("button");
+        build.type = "button";
+        build.className = "primary";
+        build.textContent = "Build this plan";
+        build.disabled = state.streaming;
+        build.addEventListener("click", buildApprovedPlan);
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "ghost";
+        copy.textContent = "Copy plan";
+        copy.addEventListener("click", copyPlan);
+        actions.append(build, copy);
+        card.appendChild(actions);
+
+        thread.insertBefore(card, thread.firstChild);
+      }
+
+      function buildApprovedPlan() {
+        if (!state.plan) return setStatus("ask for a plan first");
+        if (state.streaming) return;
+        state.mode = "build";
+        renderMode();
+        scheduleSave();
+        void send({
+          text:
+            "Build this plan exactly as written. Call update_plan_step after each step so the plan card shows progress, and verify before calling a step done.\n\n" +
+            planMarkdown(state.plan),
+        });
+      }
+
+      async function copyPlan() {
+        if (!state.plan) return;
+        try {
+          await navigator.clipboard.writeText(planMarkdown(state.plan));
+          setStatus("plan copied");
+        } catch {
+          setStatus("could not copy the plan");
+        }
+      }
+
       /* -------------------------------------------------------------- rail */
 
       const RAIL_KEY = "openrouter.rail.v1";
 
+      // The fixed rail sits below the header, whose height changes when the
+      // provider/model controls wrap. Without this it covers Preview and the
+      // other header actions on narrow windows.
+      function syncHeaderHeight() {
+        const bar = document.querySelector("header.bar");
+        if (bar) document.documentElement.style.setProperty("--header-h", `${bar.offsetHeight}px`);
+      }
+
+      if (typeof ResizeObserver === 'function') {
+        const watchedHeader = document.querySelector("header.bar");
+        if (watchedHeader) new ResizeObserver(syncHeaderHeight).observe(watchedHeader);
+      }
+
       function railOpen(open) {
+        if (open) syncHeaderHeight();
         state.rail = open;
         $("rail").classList.toggle("hidden", !open);
         try {
@@ -2992,11 +3574,24 @@
         try {
           await api("/api/fs/write", {
             method: "POST",
-            body: JSON.stringify({ path: "sample/index.html", content: SAMPLE_HTML }),
+            body: JSON.stringify({
+              path: "sample/index.html",
+              content: SAMPLE_HTML,
+              chat: state.threadId,
+              workspace: state.workspacePath,
+            }),
           });
+          // Save the chat after the first file lands, so a failure on the
+          // stylesheet cannot leave sample/index.html without a chat id.
+          scheduleFileOnlySave();
           await api("/api/fs/write", {
             method: "POST",
-            body: JSON.stringify({ path: "sample/style.css", content: SAMPLE_STYLE }),
+            body: JSON.stringify({
+              path: "sample/style.css",
+              content: SAMPLE_STYLE,
+              chat: state.threadId,
+              workspace: state.workspacePath,
+            }),
           });
           state.fsPath = "sample";
           await refreshFiles();
@@ -3008,10 +3603,55 @@
         }
       }
 
+      // One click from the header: reopen the generated page when the chat
+      // already has one, otherwise show the in-memory starter.
+      async function quickPreview() {
+        railOpen(true);
+        showRailTab("preview");
+        const found = await openPreview();
+        if (found || state.localPreview || state.preview) return;
+        // Show the starter without writing sample files: a brand-new chat
+        // stays genuinely empty until the user asks for Files → Sample.
+        showLocalPreview(SAMPLE_PREVIEW, "sample (in memory)");
+        previewNote("This sample is in memory. Files → Sample saves it into this chat's workspace.");
+      }
+
+      // Every file request names the chat and its workspace policy. Older
+      // chats omit the workspace parameter and keep using the Settings folder.
+      function fsParams() {
+        const chat = state.threadId ? `&chat=${encodeURIComponent(state.threadId)}` : "";
+        const workspace =
+          state.workspacePath === ""
+            ? "&workspace="
+            : state.workspacePath
+              ? `&workspace=${encodeURIComponent(state.workspacePath)}`
+              : "";
+        return chat + workspace;
+      }
+
+      function closePreviewSession(chatId) {
+        if (!chatId) return Promise.resolve();
+        return api("/api/preview/close", {
+          method: "POST",
+          body: JSON.stringify({ chatId }),
+        }).catch(() => {});
+      }
+
+      // Switching chat or creating a new one must not leave the previous
+      // chat's editor, file name or buffer on screen.
+      function resetFilePanel() {
+        state.fsPath = "";
+        state.fsFile = null;
+        $("fsContent").value = "";
+        $("fsFileName").textContent = "No file selected";
+        $("fsEditor").classList.add("hidden");
+        if (state.rail) void refreshFiles();
+      }
+
       async function refreshFiles() {
         const list = $("fsList");
         try {
-          const data = await api(`/api/fs?path=${encodeURIComponent(state.fsPath || ".")}`);
+          const data = await api(`/api/fs?path=${encodeURIComponent(state.fsPath || ".")}${fsParams()}`);
           $("fsHint").hidden = true;
           $("fsPath").textContent = `/${data.path}`;
           list.textContent = "";
@@ -3055,14 +3695,22 @@
         }
       }
 
+      function revealFileEditor({ focus = true } = {}) {
+        const editor = $("fsEditor");
+        editor.classList.remove("hidden");
+        if (!$("railFiles").classList.contains("hidden")) {
+          editor.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+        if (focus) $("fsContent").focus({ preventScroll: true });
+      }
+
       async function openFile(filePath) {
         try {
-          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}${fsParams()}`);
           state.fsFile = file.path;
           $("fsFileName").textContent = `/${file.path}`;
           $("fsContent").value = file.content;
-          $("fsEditor").classList.remove("hidden");
-          $("fsContent").focus();
+          revealFileEditor();
         } catch (error) {
           setStatus(error.message);
         }
@@ -3072,11 +3720,11 @@
       // carries its path, so no extra "make a preview" turn is needed.
       async function loadEditorFile(filePath) {
         try {
-          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+          const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}${fsParams()}`);
           state.fsFile = file.path;
           $("fsFileName").textContent = `/${file.path}`;
           $("fsContent").value = file.content;
-          $("fsEditor").classList.remove("hidden");
+          revealFileEditor({ focus: false });
           return file;
         } catch {
           return null;
@@ -3093,7 +3741,7 @@
             const content =
               typeof entryContent === "string"
                 ? entryContent
-                : (await api(`/api/fs/read?path=${encodeURIComponent(filePath)}`)).content;
+                : (await api(`/api/fs/read?path=${encodeURIComponent(filePath)}${fsParams()}`)).content;
             if (typeof entryContent !== "string") await loadEditorFile(filePath);
             showLocalPreview(
               FreewayPreview.renderMarkdown(content, { title: filePath }),
@@ -3103,17 +3751,18 @@
             previewNote(
               `Previewing ${filePath} as Markdown. Raw HTML is escaped; relative links and images stay relative and may not resolve.`,
             );
+            return true;
           } catch (error) {
             showPreviewFailure(error);
+            return false;
           }
-          return;
         }
         if (!/\.(html?|svg)$/i.test(filePath)) {
           let packageJson = null;
           if (/\.(ts|tsx|jsx|scss|sass|less|vue|svelte|astro)$/i.test(filePath)) {
             try {
               packageJson = JSON.parse(
-                (await api("/api/fs/read?path=package.json")).content,
+                (await api(`/api/fs/read?path=package.json${fsParams()}`)).content,
               );
             } catch {
               packageJson = null;
@@ -3126,7 +3775,7 @@
               packageJson,
             }),
           );
-          return;
+          return false;
         }
         const localHost =
           location.hostname === "127.0.0.1" || location.hostname === "localhost";
@@ -3135,12 +3784,17 @@
           try {
             const served = await api("/api/preview/serve", {
               method: "POST",
-              body: JSON.stringify({ entry: filePath, host: location.hostname }),
+              body: JSON.stringify({
+                entry: filePath,
+                host: location.hostname,
+                chatId: state.threadId,
+                workspace: state.workspacePath,
+              }),
             });
             await loadEditorFile(served.entry);
             showServedPreview(served.url, served.entry);
             setStatus(`previewing /${served.entry}`);
-            return;
+            return true;
           } catch (error) {
             fallbackReason = error?.message || "local server unavailable";
           }
@@ -3154,7 +3808,7 @@
             entry: filePath,
             entryContent: typeof entryContent === "string" ? entryContent : undefined,
             readFile: async (path) =>
-              (await api(`/api/fs/read?path=${encodeURIComponent(path)}`)).content,
+              (await api(`/api/fs/read?path=${encodeURIComponent(path)}${fsParams()}`)).content,
           });
           if (typeof entryContent !== "string") await loadEditorFile(filePath);
           showLocalPreview(result.html, result.entry, result.warnings);
@@ -3163,8 +3817,10 @@
               `Static preview (${fallbackReason}). Linked assets are inlined; modules and fetch need the local server.`,
             );
           }
+          return true;
         } catch (error) {
           showPreviewFailure(error);
+          return false;
         }
       }
 
@@ -3173,9 +3829,15 @@
         try {
           const result = await api("/api/fs/write", {
             method: "POST",
-            body: JSON.stringify({ path: state.fsFile, content: $("fsContent").value }),
+            body: JSON.stringify({
+              path: state.fsFile,
+              content: $("fsContent").value,
+              chat: state.threadId,
+              workspace: state.workspacePath,
+            }),
           });
           setStatus(`saved /${result.path}`);
+          scheduleFileOnlySave();
           refreshFiles();
           if (/\.(html?|svg|md|markdown)$/i.test(result.path)) {
             await previewWorkspaceFile(result.path);
@@ -3205,7 +3867,7 @@
             remove.textContent = "✕";
             remove.title = `Delete ${secret.name}`;
             remove.addEventListener("click", async () => {
-              if (!confirm(`Delete the secret ${secret.name}?`)) return;
+              if (!(await askConfirm(`Delete the secret ${secret.name}?`, "Delete secret", "Delete"))) return;
               try {
                 await api(`/api/secrets?name=${encodeURIComponent(secret.name)}`, { method: "DELETE" });
                 refreshSecrets();
@@ -3496,10 +4158,61 @@
         return true;
       }
 
-      function openPreview() {
-        if (state.localPreview) return;
-        if (state.preview) applyPreview(state.preview);
-        else applyPreview("");
+      let previewOpening = null;
+
+      // The server scans the active chat workspace, not the app's folder, so a
+      // reloaded chat can reopen its generated page instead of an empty frame.
+      async function findPreviewEntry() {
+        const params = fsParams();
+        const found = await api(`/api/fs/preview-entry${params ? `?${params.slice(1)}` : ""}`);
+        return found?.entry || "";
+      }
+
+      // A reloaded chat has files but no in-memory selection. Ask the workspace
+      // for its best entry instead of dropping back to an empty URL. The promise
+      // is shared because the tab click and the header button both call this.
+      async function openPreview() {
+        if (state.localPreview) return true;
+        if (state.preview) {
+          applyPreview(state.preview);
+          return true;
+        }
+        if (previewOpening) return previewOpening;
+        previewOpening = (async () => {
+          const page = /\.(html?|svg|md|markdown)$/i;
+          const candidates = [];
+          const add = (value) => {
+            if (value && page.test(value) && !candidates.includes(value)) candidates.push(value);
+          };
+          // The remembered entry is fastest, but it can be stale after a rename
+          // or delete. Try it first, then fall through to a fresh workspace scan.
+          add(state.previewEntry);
+          add(state.fsFile);
+          let attempted = false;
+          for (const entry of candidates) {
+            attempted = true;
+            if (await previewWorkspaceFile(entry)) return true;
+            if (state.previewEntry === entry) state.previewEntry = "";
+          }
+          let entry = "";
+          try {
+            entry = await findPreviewEntry();
+          } catch {
+            // A workspace with no page is an empty Preview, not a crash.
+          }
+          if (entry && !candidates.includes(entry)) {
+            attempted = true;
+            if (await previewWorkspaceFile(entry)) return true;
+          }
+          // If a real entry was tried and failed, keep its error card. Replacing
+          // it with the in-memory sample would hide the reason Preview broke.
+          if (attempted) return true;
+          if (!state.localPreview && !state.preview) applyPreview("");
+          return false;
+        })().finally(() => {
+          previewOpening = null;
+        });
+        return previewOpening;
       }
 
       function showLocalPreview(html, label, warnings) {
@@ -3508,7 +4221,7 @@
         state.localPreview = true;
         state.previewMode = "static";
         state.previewUrl = "";
-        state.previewEntry = label;
+        state.previewEntry = /\.(html?|svg|md|markdown)$/i.test(label) && !/\(in memory\)/i.test(label) ? label : "";
         state.preview = "";
         clearTimeout(state.pvTimer);
         clearPreviewFailure();
@@ -3523,6 +4236,79 @@
         // The write may have happened while the rail was closed; make the result visible.
         railOpen(true);
         showRailTab("preview");
+      }
+
+      // A dev server has its own origin; the workspace file server is not
+      // involved. Same sandbox as a served preview, different explanation.
+      function showDevServerPreview(url, label) {
+        previewMonitor.clear();
+        previewMonitor.setEnabled(true);
+        state.localPreview = true;
+        state.previewMode = "server";
+        state.previewEntry = "";
+        state.previewUrl = url;
+        state.preview = "";
+        state.pvLoaded = false;
+        clearTimeout(state.pvTimer);
+        clearPreviewFailure();
+        const frame = $("pvFrame");
+        frame.setAttribute("sandbox", PV_SERVER_SANDBOX);
+        frame.removeAttribute("srcdoc");
+        frame.style.display = "";
+        frame.src = url;
+        $("pvUrl").value = "";
+        previewNote(
+          `Previewing ${label} from its dev server. It keeps running until you stop it in the bar under the composer.`,
+        );
+        railOpen(true);
+        showRailTab("preview");
+      }
+
+      // Managed dev servers outlive the turn that started them, so the composer
+      // keeps a small Open/Stop bar for them.
+      async function refreshDevServers() {
+        const el = $("devServers");
+        try {
+          const data = await api("/api/processes");
+          const active = (data.processes || []).filter(
+            (proc) => proc.status === "running" || proc.status === "starting",
+          );
+          el.textContent = "";
+          el.hidden = active.length === 0;
+          for (const proc of active) {
+            const open = document.createElement("button");
+            open.type = "button";
+            open.className = "mini";
+            open.textContent = proc.port ? `:${proc.port}` : proc.id;
+            open.title = proc.url
+              ? `Open ${proc.url} in Preview`
+              : `${proc.id} has no port yet — ask for process_logs`;
+            open.addEventListener("click", () => {
+              if (proc.url) showDevServerPreview(proc.url, `${proc.program} on port ${proc.port}`);
+              else setStatus(`${proc.id} has not printed a port yet`);
+            });
+            const stop = document.createElement("button");
+            stop.type = "button";
+            stop.className = "mini";
+            stop.textContent = "✕";
+            stop.title = `Stop ${proc.id}`;
+            stop.addEventListener("click", async () => {
+              stop.disabled = true;
+              try {
+                await api("/api/processes/stop", {
+                  method: "POST",
+                  body: JSON.stringify({ id: proc.id }),
+                });
+              } catch (error) {
+                setStatus(error.message);
+              }
+              await refreshDevServers();
+            });
+            el.append(open, stop);
+          }
+        } catch {
+          el.hidden = true;
+        }
       }
 
       // Served previews get a real origin, so relative modules, fetch and
@@ -3549,6 +4335,30 @@
         );
         railOpen(true);
         showRailTab("preview");
+      }
+
+      // The AI gets this same URL through preview_link; the button makes it one
+      // click away for the user without retyping or hunting through the chat.
+      function previewLinkForFrame() {
+        return state.previewMode === "server" && state.previewUrl ? state.previewUrl : "";
+      }
+
+      async function copyPreviewLink() {
+        const url = previewLinkForFrame();
+        if (!url) {
+          previewNote(
+            "This preview has no standalone link yet. Open an HTML or SVG workspace page first, or ask the model for the preview link.",
+          );
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          previewNote(`Preview link copied: ${url}`);
+          setStatus("preview link copied");
+        } catch {
+          // Clipboard access can be blocked; keep the link selectable instead.
+          previewNote(`Preview link: ${url}`);
+        }
       }
 
       async function savePreview() {
@@ -3670,6 +4480,23 @@
           detail.textContent = `/${args.path ?? "?"}  ·  ${content.length} characters\n\n${
             content.length > 400 ? `${content.slice(0, 400)}\n…` : content
           }`;
+        } else if (event.name === "scaffold_project") {
+          const files = Array.isArray(event.files) ? event.files : [];
+          const title = typeof args.title === "string" ? args.title : "Untitled";
+          detail.textContent =
+            `Create a static site "${title}" in /${args.folder || "."}\n\n` +
+            (files.length ? files.map((file) => `+ /${file}`).join("\n") : "+ three files") +
+            "\n\nNo existing file is overwritten. The page opens in Preview when it is written.";
+        } else if (event.name === "start_process") {
+          const list = Array.isArray(args.args) ? args.args : [];
+          detail.textContent =
+            `$ ${[args.program || "?", ...list].join(" ")}` +
+            (args.cwd ? `\n\nin /${args.cwd}` : "\n\nin the workspace root") +
+            "\n\nStarts in the background and keeps running after this turn, until you stop it or quit the app." +
+            "\nThe program must already be on the command allowlist. Its port opens in Preview.";
+        } else if (event.name === "stop_process") {
+          const id = typeof args.id === "string" && args.id ? args.id : "every managed process";
+          detail.textContent = `Stop ${id} and free its port. Already stopped processes are left alone.`;
         } else if (event.name === "run_tests") {
           const list = Array.isArray(args.args) ? args.args : ["test"];
           detail.textContent =
@@ -4291,6 +5118,7 @@
 
         state.streaming = true;
         state.controller = new AbortController();
+        renderBuildProgress(null);
         state.requests += 1;
         updateBudget();
         // Switching chats mid-answer must not push this turn into the new one.
@@ -4316,7 +5144,9 @@
               messages: recentImages(withMemoryNote(state.messages), 2),
               model: state.model,
               threadId: requestThread,
+              workspace: state.workspacePath,
               provider: activeProviderId,
+              mode: state.mode,
             }),
             signal: state.controller.signal,
           });
@@ -4376,6 +5206,15 @@
                       false,
                     );
                   }
+                  if (event.build) {
+                    renderBuildProgress({
+                      state: "running",
+                      steps: 0,
+                      maxSteps: event.build.maxSteps,
+                      elapsedMs: 0,
+                      maxMs: event.build.maxMs,
+                    });
+                  }
                 } else if (event.type === "retry") {
                   const elsewhere =
                     event.fromProvider && event.toProvider && event.fromProvider !== event.toProvider;
@@ -4399,6 +5238,24 @@
                 } else if (event.type === "model") {
                   model = event.model;
                   addMeta(node, `answered by ${event.model}`, false);
+                } else if (event.type === "plan") {
+                  state.plan = normalizePlan(event.plan);
+                  renderPlanCard();
+                  scheduleSave();
+                  setStatus("plan ready — review it, then press Build");
+                } else if (event.type === "plan_step") {
+                  const step = state.plan?.steps?.[Number(event.index)];
+                  if (step && PLAN_STATUSES.includes(event.status)) {
+                    step.status = event.status;
+                    renderPlanCard();
+                    scheduleSave();
+                  }
+                } else if (event.type === "auto_approve") {
+                  log.push(`Auto-approved ${event.name} without a confirmation card.`);
+                  addMeta(node, `auto-approved ${event.name}`, false);
+                  setStatus(`auto-approved ${event.name}`);
+                } else if (event.type === "build") {
+                  renderBuildProgress(event);
                 } else if (event.type === "tool") {
                   toolsUsed.push({ name: event.name, preview: event.preview, ok: event.ok });
                   toolRow.textContent = "";
@@ -4410,11 +5267,45 @@
                     toolRow.appendChild(chip);
                   }
                   if (!toolRow.isConnected) node.insertBefore(toolRow, bubble);
+                  if (event.screenshot) {
+                    const shot = document.createElement("img");
+                    shot.className = "tool-shot";
+                    shot.src = event.screenshot;
+                    shot.alt = `Screenshot of ${event.screenshotEntry || "the local preview"}`;
+                    shot.loading = "lazy";
+                    node.insertBefore(shot, bubble);
+                  }
                   setStatus(`ran ${event.name}`);
+                  if (event.process) {
+                    refreshDevServers();
+                    if (event.ok !== false && event.url) {
+                      showDevServerPreview(
+                        event.url,
+                        `${event.process.program} on port ${event.process.port}`,
+                      );
+                    }
+                  }
                   if (event.ok !== false && event.path) {
+                    scheduleFileOnlySave();
                     if (/\.(html?|svg|md|markdown)$/i.test(event.path)) previewWorkspaceFile(event.path);
                     else if (state.previewEntry && /\.(css|js|mjs|svg)$/i.test(event.path)) {
                       previewWorkspaceFile(state.previewEntry);
+                    }
+                  }
+                  // Show the link even when the model forgets to repeat it in
+                  // its answer: every write of a page carries one now.
+                  if (event.previewUrl) {
+                    const link = document.createElement("a");
+                    link.className = "fine";
+                    link.href = event.previewUrl;
+                    link.target = "_blank";
+                    link.rel = "noreferrer";
+                    link.textContent = `Preview link: ${event.previewUrl}`;
+                    node.insertBefore(link, bubble);
+                    // "Show it to me" should also open the panel, not only print
+                    // the address.
+                    if (event.name === "preview_link" && event.previewEntry) {
+                      previewWorkspaceFile(event.previewEntry);
                     }
                   }
                 } else if (event.type === "command") {
@@ -4496,7 +5387,10 @@
           $("sendBtn").title = "";
           $("stopBtn").disabled = true;
           bubble.classList.remove("streaming");
+          renderBuildProgress(null);
           updateQueueBar();
+          // The Build button was disabled while this answer streamed.
+          renderPlanCard();
 
           const stillHere = state.threadId === requestThread;
           if (stillHere && answer.trim()) {
@@ -4642,10 +5536,21 @@
       function branchAt(index) {
         if (state.streaming) return;
         if (!state.messages[index]) return;
+        void closePreviewSession(state.threadId);
         state.messages = state.messages.slice(0, index + 1).map((message) => ({ ...message }));
-        state.threadId = null;
+        state.threadId = newId();
+        state.workspacePath = "";
         state.rev = 0;
         state.customTitle = "";
+        state.preview = "";
+        state.previewEntry = "";
+        state.previewMode = "";
+        state.previewUrl = "";
+        state.localPreview = false;
+        renderBuildProgress(null);
+        $("pvUrl").value = "";
+        applyPreview("");
+        resetFilePanel();
         persist();
         renderThread();
         setStatus("branched into a new chat — send a message to save it");
@@ -4675,29 +5580,41 @@
 
       function resetThread() {
         if (state.streaming) state.controller?.abort();
+        void closePreviewSession(state.threadId);
         clearAttachment();
         void flushSave();
         clearQueue();
+        // A stable id from the moment New is pressed gives the chat its own
+        // folder before the first message is saved, and gives the first save
+        // the same id the files already use.
+        state.threadId = newId();
+        state.workspacePath = "";
         state.messages = [];
-        state.threadId = null;
         state.customTitle = "";
         state.requests = 0;
         state.rev = 0;
         state.draft = null;
+        state.mode = "plan";
+        state.plan = null;
         state.preview = "";
         state.previewEntry = "";
         state.previewMode = "";
         state.previewUrl = "";
         state.localPreview = false;
         $("pvUrl").value = "";
-        // A new chat must not keep showing the previous chat's preview.
-        if (!$("railPreview").classList.contains("hidden")) applyPreview("");
+        // A new chat must not keep showing the previous chat's preview or
+        // file buffer.
+        applyPreview("");
+        resetFilePanel();
         $("recoverBar").hidden = true;
         setStatus("");
         renderThread();
+        renderMode();
         renderThreadList();
         updateBudget();
         persist();
+        // Start the sidebar entry now; sending a message updates this same id.
+        showEmptyThread();
         closeSidebar(true);
         // New Chat also forgets which models were rate-limited this session.
         api("/api/session/reset", { method: "POST" }).catch(() => {});
@@ -4766,11 +5683,13 @@
         $("sTemp").value = state.settings.temperature ?? "";
         $("sMax").value = state.settings.maxTokens ?? 1200;
         $("sTools").checked = state.settings.tools !== false;
+        $("sScreenshot").checked = state.settings.screenshotChecks !== false;
         $("sLog").checked = state.settings.showLog !== false;
         $("sCap").value = state.settings.requestCap ?? 0;
         $("sWorkspace").value = state.workspace || "";
         $("sCommands").checked = state.settings.allowCommands === true;
         $("sAllowlist").value = state.settings.commandAllowlist || "";
+        $("sAutoApprove").checked = state.settings.autoApprove === true;
         $("settingsError").textContent = "";
         $("settingsOverlay").classList.remove("hidden");
         $("sPrompt").focus();
@@ -4801,10 +5720,12 @@
           temperature: parsed,
           maxTokens,
           tools: $("sTools").checked,
+          screenshotChecks: $("sScreenshot").checked,
           showLog: $("sLog").checked,
           requestCap,
           allowCommands: $("sCommands").checked,
           commandAllowlist: $("sAllowlist").value,
+          autoApprove: $("sAutoApprove").checked,
         };
         $("settingsError").textContent = "";
         try {
@@ -4830,6 +5751,7 @@
 
       async function boot() {
         restore();
+        renderMode();
 
         const config = await api("/api/config").catch(() => null);
         if (config?.settings) state.settings = config.settings;
@@ -4867,7 +5789,20 @@
           } catch {
             /* stay on a new chat */
           }
+        } else if (!state.threadId || state.workspacePath === null) {
+          // A first run (or an old empty draft) has no saved chat to open.
+          // Give it a managed workspace now, not on the first file request.
+          if (!state.threadId) state.threadId = newId();
+          state.workspacePath = "";
+          state.fsPath = "";
+          state.fsFile = null;
+          applyPreview("");
+          resetFilePanel();
         }
+
+        // A first-run or recovered draft must be visible in the sidebar before
+        // the first message, not only after a send or a file write.
+        if (state.messages.length === 0) showEmptyThread();
 
         if (config && (!config.hasKey || (config.requiresAccount && !config.hasAccount))) {
           showKeyOverlay(
@@ -4883,6 +5818,8 @@
         renderThreadList();
         updateBudget();
         autoGrow();
+        // A dev server can still be running from an earlier turn.
+        void refreshDevServers();
 
         if (state.messages.length === 0) $("input").focus();
       }
@@ -5083,6 +6020,8 @@
       $("settingsBtn").addEventListener("click", openSettings);
       $("settingsCancel").addEventListener("click", () => $("settingsOverlay").classList.add("hidden"));
       $("settingsSave").addEventListener("click", saveSettings);
+      $("modePlan").addEventListener("click", () => setMode("plan"));
+      $("modeBuild").addEventListener("click", () => setMode("build"));
       $("newChatBtn").addEventListener("click", resetThread);
       $("sideNew").addEventListener("click", resetThread);
       $("sideBtn").addEventListener("click", toggleSidebar);
@@ -5156,6 +6095,7 @@
 
       $("scroll").addEventListener("scroll", updateJump);
 
+      $("quickPreview").addEventListener("click", quickPreview);
       $("railBtn").addEventListener("click", () => railOpen($("rail").classList.contains("hidden")));
       $("railClose").addEventListener("click", () => railOpen(false));
       for (const tab of document.querySelectorAll(".rail-tab")) {
@@ -5196,6 +6136,7 @@
           previewNote("Load an address first.");
         }
       });
+      $("pvCopy").addEventListener("click", copyPreviewLink);
       $("pvUrl").addEventListener("keydown", (event) => {
         if (event.key === "Enter") savePreview();
       });
@@ -5213,7 +6154,7 @@
       });
 
       $("quitBtn").addEventListener("click", async () => {
-        if (!confirm("Stop the app? This tab will stop working until you start it again.")) return;
+        if (!(await askConfirm("Stop the app? This tab will stop working until you start it again.", "Stop Freeway", "Stop"))) return;
         await api("/api/quit", { method: "POST" }).catch(() => {});
         document.body.innerHTML =
           '<div style="margin:auto;padding:40px;text-align:center;color:var(--muted)">App stopped. You can close this tab.</div>';
@@ -5366,6 +6307,7 @@
       const input = $("input");
       input.addEventListener("input", autoGrow);
       window.addEventListener("resize", autoGrow);
+        window.addEventListener("resize", syncHeaderHeight);
       input.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
         event.preventDefault();

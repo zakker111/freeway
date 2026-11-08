@@ -8,7 +8,7 @@
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import worker, { PROVIDERS as CLOUD_PROVIDERS, handleFiles } from './dist/worker.mjs';
+import worker, { PROVIDERS as CLOUD_PROVIDERS, handleFiles, handlePreviews, servePreview, cleanThread } from './dist/worker.mjs';
 import { PROVIDERS as DESKTOP_PROVIDERS, isAllowedModel, freePlanLabel, limitLines } from '../lib/providers.mjs';
 
 const ORIGIN = 'https://chat.example';
@@ -109,6 +109,11 @@ const mock = http.createServer(async (req, res) => {
         ...(failed.retryAfter ? { 'retry-after': failed.retryAfter } : {}),
       });
       res.end(JSON.stringify({ error: { message: `mock failure ${failed.status}` } }));
+      return;
+    }
+    if (chatMode === 'echo-key') {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: `Incorrect API key provided: ${KEY}` } }));
       return;
     }
     if (chatMode === 'rate') {
@@ -262,6 +267,12 @@ async function main() {
     assert.equal(config.guard.turnTokens, 1024);
     assert.ok(config.guard.perVisitorPerDay >= 1);
     assert.equal(config.guard.originFence, true);
+    assert.equal(config.previewShares, true);
+    assert.equal(
+      config.desktopDownloadUrl,
+      'https://github.com/zakker111/freeway/releases/latest',
+      'the cloud desktop link is not a stable release URL',
+    );
     assert.equal(JSON.stringify(config).includes(KEY), false, 'the key leaked into /api/config');
   });
 
@@ -329,6 +340,36 @@ async function main() {
     } finally {
       chatFailures.clear();
     }
+  });
+
+  await check('an upstream key echo is scrubbed from the chat error', async () => {
+    chatMode = 'echo-key';
+    chatCalls.length = 0;
+    try {
+      const response = await request(envWith(), { body: chatBody });
+      assert.equal(response.status, 401);
+      const body = await response.json();
+      assert.equal(JSON.stringify(body).includes(KEY), false, 'the upstream key reached the browser');
+      assert.match(body.detail, /sk-or-\[redacted\]/);
+    } finally {
+      chatMode = 'ok';
+    }
+  });
+
+  await check('the cloud page is nosniff and framed by nobody', async () => {
+    const env = envWith({
+      ASSETS: {
+        async fetch() {
+          return new Response('<!doctype html><title>Freeway</title>', {
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          });
+        },
+      },
+    });
+    const response = await request(env, { path: '/', method: 'GET', origin: null, ip: null });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.match(response.headers.get('content-security-policy') ?? '', /frame-ancestors 'none'/);
   });
 
   await check('a key error is not retried', async () => {
@@ -690,6 +731,51 @@ async function main() {
     assert.equal(empty.files.length, 0);
   });
 
+  await check('account files belong to one chat', async () => {
+    const env = envWith();
+    const user = { sub: 'user-chat-files' };
+    const put = (chat, name, body) =>
+      handleFiles(
+        new Request(`${ORIGIN}/api/files/${name}${chat ? `?chat=${chat}` : ''}`, {
+          method: 'PUT',
+          headers: { origin: ORIGIN, 'content-type': 'text/plain' },
+          body,
+        }),
+        env,
+        user,
+      );
+    const list = async (chat, extra = '') =>
+      (await handleFiles(new Request(`${ORIGIN}/api/files?chat=${chat}${extra}`), env, user)).json();
+
+    assert.equal((await put('chat-alpha-1', 'alpha.txt', 'alpha')).status, 201);
+    assert.equal((await put('chat-beta-1', 'beta.txt', 'beta')).status, 201);
+
+    const alpha = await list('chat-alpha-1');
+    const beta = await list('chat-beta-1');
+    assert.deepEqual(alpha.files.map((file) => file.name), ['alpha.txt']);
+    assert.deepEqual(beta.files.map((file) => file.name), ['beta.txt']);
+    assert.equal(alpha.usage.count, 2, 'usage must cover both chats');
+    assert.equal((await handleFiles(new Request(`${ORIGIN}/api/files/alpha.txt?chat=chat-beta-1`), env, user)).status, 404);
+
+    // A 2.9 account file is claimed once by the first existing chat opened.
+    assert.equal((await put('', 'legacy.txt', 'legacy')).status, 201);
+    const claimed = await list('chat-gamma-1', '&claim=1');
+    assert.deepEqual(claimed.files.map((file) => file.name), ['legacy.txt']);
+    const legacy = await (await handleFiles(new Request(`${ORIGIN}/api/files`), env, user)).json();
+    assert.equal(legacy.files.length, 0, 'the legacy row should move into the chat, not be copied twice');
+
+    const removed = await handleFiles(
+      new Request(`${ORIGIN}/api/files/alpha.txt?chat=chat-alpha-1`, {
+        method: 'DELETE',
+        headers: { origin: ORIGIN },
+      }),
+      env,
+      user,
+    );
+    assert.equal(removed.status, 200);
+    assert.deepEqual((await list('chat-beta-1')).files.map((file) => file.name), ['beta.txt']);
+  });
+
   await check('account file writes are fenced and validated', async () => {
     const env = envWith();
     const user = { sub: 'user-c' };
@@ -739,6 +825,202 @@ async function main() {
 
     const noBucket = await handleFiles(new Request(ORIGIN + '/api/files'), envWith({ FILES: undefined }), user);
     assert.equal(noBucket.status, 503);
+  });
+
+  await check('account preview links open on another signed-in device and stay private', async () => {
+    const env = envWith();
+    const user = { sub: 'user-preview-share' };
+    const html = '<!doctype html><html><body><h1>shared preview</h1></body></html>';
+    const create = (body) =>
+      handlePreviews(
+        new Request(ORIGIN + '/api/previews', {
+          method: 'POST',
+          headers: { origin: ORIGIN, 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+        env,
+        user,
+      );
+
+    const first = await create({ chat: 'chat-share-1', name: 'sample/index.html', html });
+    assert.equal(first.status, 201);
+    const shared = await first.json();
+    assert.match(shared.id, /^[a-f0-9]{32}$/);
+    assert.equal(shared.url, `/preview/${shared.id}`);
+    assert.equal(shared.name, 'sample/index.html');
+    assert.equal(shared.chat, 'chat-share-1');
+    assert.equal(shared.size, new TextEncoder().encode(html).byteLength);
+
+    const listed = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', { headers: { accept: 'application/json' } }),
+      env,
+      user,
+    );
+    assert.equal(listed.status, 200);
+    const list = await listed.json();
+    assert.equal(list.shares.length, 1);
+    assert.equal(list.shares[0].id, shared.id);
+    assert.equal(list.shares[0].url, shared.url);
+    const otherList = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', { headers: { accept: 'application/json' } }),
+      env,
+      { sub: 'user-other' },
+    );
+    assert.equal((await otherList.json()).shares.length, 0, 'another account saw the list');
+
+    // The owner's second browser (same subject) can read the rendered page.
+    const page = await servePreview(new Request(ORIGIN + shared.url), env, user, shared.id);
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-type'), /text\/html/);
+    assert.match(page.headers.get('content-security-policy'), /sandbox/);
+    assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'self'/);
+    assert.match(page.headers.get('content-disposition'), /filename="index.html"/);
+    assert.equal(await page.text(), html);
+
+    // Another account sees nothing, and a signed-out visitor is asked to sign in.
+    const other = await servePreview(new Request(ORIGIN + shared.url), env, { sub: 'user-other' }, shared.id);
+    assert.equal(other.status, 404);
+    const signedOut = await servePreview(
+      new Request(ORIGIN + shared.url),
+      envWith({ FREEBUFF_CLIENT_ID: 'client-id', FREEBUFF_ISSUER: 'https://issuer.example' }),
+      null,
+      shared.id,
+    );
+    assert.equal(signedOut.status, 401);
+    assert.match(await signedOut.text(), /Sign in to view this preview/);
+
+    // Re-sharing the same chat file updates in place and keeps the link stable.
+    const updatedHtml = '<!doctype html><h1>updated preview</h1>';
+    const second = await create({ chat: 'chat-share-1', name: 'sample/index.html', html: updatedHtml });
+    assert.equal(second.status, 200);
+    assert.equal((await second.json()).id, shared.id);
+    const updatedPage = await servePreview(new Request(ORIGIN + shared.url), env, user, shared.id);
+    assert.equal(await updatedPage.text(), updatedHtml);
+
+    // Writes are fenced and names cannot escape the share namespace.
+    const foreign = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', {
+        method: 'POST',
+        headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
+        body: JSON.stringify({ chat: 'chat-share-1', name: 'index.html', html }),
+      }),
+      env,
+      user,
+    );
+    assert.equal(foreign.status, 403);
+    const traversal = await create({ chat: 'chat-share-1', name: '../secret.html', html });
+    assert.equal(traversal.status, 400);
+    const tooLarge = await create({ chat: 'chat-share-1', name: 'big.html', html: 'x'.repeat(1_500_001) });
+    assert.equal(tooLarge.status, 413);
+
+    // Revoking removes both the row and the snapshot.
+    const revoked = await handlePreviews(
+      new Request(`${ORIGIN}/api/previews/${shared.id}`, { method: 'DELETE', headers: { origin: ORIGIN } }),
+      env,
+      user,
+    );
+    assert.equal(revoked.status, 200);
+    const gone = await servePreview(new Request(ORIGIN + shared.url), env, user, shared.id);
+    assert.equal(gone.status, 404);
+  });
+
+  await check('shared preview links can be revoked all at once', async () => {
+    const env = envWith();
+    const user = { sub: 'user-preview-revoke-all' };
+    const html = '<!doctype html><h1>bulk revoke</h1>';
+    const create = (name) =>
+      handlePreviews(
+        new Request(ORIGIN + '/api/previews', {
+          method: 'POST',
+          headers: { origin: ORIGIN, 'content-type': 'application/json' },
+          body: JSON.stringify({ chat: 'chat-bulk-1', name, html }),
+        }),
+        env,
+        user,
+      );
+    assert.equal((await create('one.html')).status, 201);
+    assert.equal((await create('two.html')).status, 201);
+    const before = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', { headers: { accept: 'application/json' } }),
+      env,
+      user,
+    );
+    assert.equal((await before.json()).shares.length, 2);
+    const revoked = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', { method: 'DELETE', headers: { origin: ORIGIN } }),
+      env,
+      user,
+    );
+    assert.equal(revoked.status, 200);
+    assert.equal((await revoked.json()).deleted, 2);
+    const after = await handlePreviews(
+      new Request(ORIGIN + '/api/previews', { headers: { accept: 'application/json' } }),
+      env,
+      user,
+    );
+    assert.equal((await after.json()).shares.length, 0);
+  });
+
+  await check('deleting an account file revokes its preview link', async () => {
+    const env = envWith();
+    const user = { sub: 'user-preview-delete' };
+    const chat = 'chat-delete-1';
+    const name = 'page.html';
+    const html = '<!doctype html><h1>delete me</h1>';
+    assert.equal(
+      (await handleFiles(
+        new Request(`${ORIGIN}/api/files/${name}?chat=${chat}`, {
+          method: 'PUT',
+          headers: { origin: ORIGIN, 'content-type': 'text/html' },
+          body: html,
+        }),
+        env,
+        user,
+      )).status,
+      201,
+    );
+    const created = await (
+      await handlePreviews(
+        new Request(ORIGIN + '/api/previews', {
+          method: 'POST',
+          headers: { origin: ORIGIN, 'content-type': 'application/json' },
+          body: JSON.stringify({ chat, name, html }),
+        }),
+        env,
+        user,
+      )
+    ).json();
+    assert.equal(
+      (await handleFiles(
+        new Request(`${ORIGIN}/api/files/${name}?chat=${chat}`, {
+          method: 'DELETE',
+          headers: { origin: ORIGIN },
+        }),
+        env,
+        user,
+      )).status,
+      200,
+    );
+    assert.equal(
+      (await servePreview(new Request(`${ORIGIN}/preview/${created.id}`), env, user, created.id)).status,
+      404,
+    );
+  });
+
+  await check('a file-only chat survives the cloud thread cleaner', async () => {
+    const thread = cleanThread({ id: 'file-only-1', title: 'New chat', messages: [] });
+    assert.ok(thread, 'the cleaner rejected a file-only chat');
+    assert.deepEqual(thread.messages, []);
+  });
+
+  await check('a 200-message chat survives the cloud thread cleaner', async () => {
+    const messages = Array.from({ length: 200 }, (_, index) => ({
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `message ${index}`,
+    }));
+    const thread = cleanThread({ id: 'long-thread-1', title: 'Long chat', messages });
+    assert.ok(thread, 'the cleaner rejected a chat the page keeps');
+    assert.equal(thread.messages.length, 200);
   });
 
   mock.close();

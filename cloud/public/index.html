@@ -1126,6 +1126,7 @@
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
         --shadow-md: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .55);
         --shadow-lg: 0 24px 70px rgba(0, 0, 0, .65);
+        --content: 860px;
         --mono: "Cascadia Code", ui-monospace, Consolas, monospace;
       }
       * { box-sizing: border-box; }
@@ -1137,12 +1138,16 @@
           var(--bg);
         color: var(--text);
         font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-size: clamp(15px, 0.25vw + 14.2px, 16.8px);
         display: flex;
         flex-direction: column;
         height: 100dvh;
         overflow: hidden;
         -webkit-font-smoothing: antialiased;
       }
+      /* Match the desktop reading width: comfortable on a laptop, full width
+         on a phone. */
+      @media (min-width: 1200px) { :root { --content: 1040px; } }
       ::selection { background: var(--accent-soft); color: var(--accent-strong); }
       * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
       *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -1310,7 +1315,7 @@
       }
 
       main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: clamp(16px, 2.6vw, 30px) clamp(12px, 3vw, 20px) 8px; }
-      .wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(16px, 2.2vw, 26px); }
+      .wrap { max-width: var(--content); margin: 0 auto; display: flex; flex-direction: column; gap: clamp(16px, 2.2vw, 26px); }
 
       .empty { color: var(--muted); text-align: center; margin: clamp(14px, 5vh, 56px) auto 0; max-width: 56ch; }
       .empty h1 { font-size: clamp(21px, 2.4vw, 27px); color: var(--text); margin: 0 0 10px; font-weight: 650; letter-spacing: -.2px; }
@@ -1389,9 +1394,34 @@
         position: relative;
         z-index: 5;
       }
-      .composer { max-width: 860px; margin: 0 auto; display: flex; gap: 9px; align-items: flex-end; }
+      .composer { max-width: var(--content); margin: 0 auto; display: flex; gap: 9px; align-items: flex-end; }
+      .attach {
+        display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        min-height: 50px; padding: 0 14px; flex: 0 0 auto; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 12px;
+        background: var(--surface-2); color: var(--muted);
+        font-size: 13.5px; font-weight: 600; line-height: 1; user-select: none;
+        box-shadow: var(--shadow-sm);
+        transition: border-color .15s, background .15s, color .15s;
+      }
+      .attach:hover { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-strong); }
+      .attach:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .attach-icon { font-size: 18px; line-height: 1; }
+      /* The image button is the one people miss, so it carries the accent. */
+      .attach-image { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-strong); padding: 0 16px; }
+      .attach-image .attach-icon { font-size: 21px; }
+      @media (max-width: 700px) {
+        body { font-size: 16px; }
+        .attach { padding: 0 11px; }
+        .attach-label { display: none; }
+        .attach-image { padding: 0 13px; }
+        /* Keep the message box readable when the controls no longer fit beside it. */
+        .composer { flex-wrap: wrap; }
+        .composer #input { flex: 1 0 100%; }
+        .composer .primary { margin-left: auto; min-height: 46px; }
+      }
       .image-bar {
-        max-width: 860px; margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
+        max-width: var(--content); margin: 0 auto 8px; display: flex; align-items: center; gap: 10px;
         font-size: 12px; color: var(--muted);
       }
       .image-bar[hidden] { display: none; }
@@ -1421,8 +1451,26 @@
       }
       textarea#input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
       textarea#input::placeholder { color: var(--dim); }
-      .hint { max-width: 860px; margin: 7px auto 0; font-size: 11.5px; color: var(--dim); display: flex; gap: 10px; flex-wrap: wrap; }
+      .hint { max-width: var(--content); margin: 7px auto 0; font-size: 11.5px; color: var(--dim); display: flex; gap: 10px; flex-wrap: wrap; }
 
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+      #shareList {
+        display: flex; flex-direction: column; gap: 2px;
+        max-height: min(40vh, 380px); overflow-y: auto; overscroll-behavior: contain;
+      }
+      .share-row {
+        display: flex; align-items: center; gap: 6px;
+        border-bottom: 1px solid var(--line); padding: 6px 2px;
+      }
+      .share-row:last-child { border-bottom: 0; }
+      .share-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .share-name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .share-meta { color: var(--dim); font-size: 11px; }
+      .share-actions { display: flex; flex: 0 0 auto; gap: 2px; }
+      .share-actions button { padding: 4px 6px; font-size: 11px; }
       dialog {
         background: var(--surface);
         color: var(--text);
@@ -1481,7 +1529,7 @@
       .notice b { color: var(--accent-strong); font-weight: 600; }
       .notice a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
       .banner {
-        max-width: 860px;
+        max-width: var(--content);
         margin: 0 auto 10px;
         border: 1px solid var(--warn-line);
         background: var(--warn-soft);
@@ -1509,6 +1557,9 @@
       }
       .sidebar.hidden { display: none; }
       body.docked { padding-left: 268px; }
+      #sideBtn { display: inline-flex; align-items: center; gap: 5px; }
+      #sideBtn .chats-label { font-size: 12px; font-weight: 550; }
+      @media (max-width: 640px) { #sideBtn .chats-label { display: none; } }
       .side-head { display: flex; gap: 8px; align-items: center; }
       .side-head input { flex: 1; min-width: 0; }
       .side-head .mini { padding: 6px 11px; font-size: 15px; line-height: 1; }
@@ -1516,6 +1567,16 @@
         flex: 1; min-height: 0; overflow-y: auto;
         display: flex; flex-direction: column; gap: 3px;
         margin: 0 -4px; padding: 2px 4px;
+      }
+      .thread-empty { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+      .thread-empty .fine { margin: 0; }
+      .thread-empty-new {
+        display: flex; align-items: center; justify-content: center; width: 100%;
+        padding: 8px 12px; color: var(--accent-strong); background: var(--accent-soft);
+        border-color: var(--accent-line);
+      }
+      .thread-empty-new:hover:not(:disabled) {
+        background: var(--surface-2); border-color: var(--accent);
       }
       .thread-item { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px; }
       .thread-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--line); }
@@ -1546,9 +1607,9 @@
 
       .rail {
         position: fixed;
-        top: 0;
+        top: var(--header-h, 0px);
         right: 0;
-        height: 100dvh;
+        height: calc(100dvh - var(--header-h, 0px));
         width: min(94vw, 420px);
         background: var(--surface);
         border-left: 1px solid var(--line);
@@ -1568,7 +1629,11 @@
       .health-row .open { flex: none; width: auto; padding: 0; border: 0; background: transparent; white-space: normal; overflow: visible; text-overflow: clip; font-size: 12px; }
       .health-row .open:hover { background: transparent; border-color: transparent; }
       .health-row .fine { font-size: 11.5px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
-      .rail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px; }
+      .rail-body {
+        flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+        scroll-padding-block: 12px;
+        padding: 12px; display: flex; flex-direction: column; gap: 9px;
+      }
       .rail-body[hidden] { display: none; }
       .rail input, .rail textarea {
         width: 100%;
@@ -1584,6 +1649,12 @@
       .rail input[type="checkbox"] { width: auto; margin: 0; padding: 0; accent-color: var(--accent); flex: 0 0 auto; }
       .rail a { color: var(--accent-strong); text-underline-offset: 2px; }
       .rail .row { margin-top: 4px; }
+      #fileList, #accountFileList, #secretList {
+        flex: 0 0 auto;
+        max-height: 300px; max-height: min(34vh, 300px);
+        overflow-y: auto; overscroll-behavior: contain;
+        padding-right: 2px;
+      }
       .file-row { display: flex; gap: 6px; align-items: center; }
       .file-row .open { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 1px solid transparent; padding: 4px 6px; box-shadow: none; }
       .file-row .open:hover { border-color: var(--accent-line); background: var(--accent-soft); }
@@ -1599,11 +1670,20 @@
 
       @media (max-width: 560px) {
         .ver { display: none; }
+        .bubble { max-width: 100%; }
         .accountSlot .who { display: none; }
         select#model { max-width: 100%; order: 5; flex: 1 1 100%; }
         .modelBtn { max-width: min(64vw, 320px); }
-        header button { min-height: 36px; }
+        header button { min-height: 40px; }
         .hint { font-size: 11px; }
+      }
+      @media (max-height: 640px) {
+        .rail-head { padding: 5px 6px; }
+        .rail-body { padding: 9px; gap: 7px; }
+        #fileList, #accountFileList, #secretList {
+          max-height: 240px; max-height: min(28vh, 240px);
+        }
+        #fileBody { min-height: 120px; }
       }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
@@ -1620,7 +1700,7 @@
     <aside class="sidebar" id="sidebar" aria-label="Saved chats">
       <div class="side-head">
         <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
-        <button id="sideNew" class="mini" type="button" title="New chat">+</button>
+        <button id="sideNew" class="mini" type="button" title="New chat" aria-label="New chat">+</button>
         <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
       </div>
       <div class="thread-list" id="threadList"></div>
@@ -1629,7 +1709,7 @@
     <div class="side-backdrop hidden" id="sideBackdrop"></div>
 
     <header>
-      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰</button>
+      <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
       <div class="brand">Free<span>way</span></div>
       <span class="ver" id="ver">v…</span>
       <select id="provider" title="Provider" aria-label="Provider"></select>
@@ -1654,8 +1734,9 @@
       <button class="pill" id="quota" type="button" title="API key">quota unavailable</button>
       <div id="accountSlot" class="accountSlot"></div>
       <button class="ghost" id="clearBtn" type="button" title="New chat (Alt+N)">New</button>
-      <button class="ghost" id="settingsBtn" type="button" title="Settings">⚙</button>
-      <button class="ghost" id="railBtn" type="button" title="Files and secrets">▤</button>
+      <button class="ghost" id="settingsBtn" type="button" title="Settings" aria-label="Settings">⚙</button>
+      <button class="ghost" id="quickPreview" type="button" title="Open a working preview">Preview</button>
+      <button class="ghost" id="railBtn" type="button" title="Files and secrets" aria-label="Files and secrets">▤</button>
       <button class="ghost" id="quitBtn" type="button" title="Stop this tab">Quit</button>
     </header>
 
@@ -1664,7 +1745,7 @@
       All ten hosted providers work here; OVHcloud needs no key and the rest take one, with Cloudflare also needing an Account ID.
       Upload text or HTML, preview it in a sandbox, or sign in to keep a synced copy.
       Commands and real disk folders need the desktop app (v<span class="desktopVer">…</span>):
-      <a href="https://pv-3c245e2ecaef-a687c140-8db4-40ec-986b-1d2e1bdfbcee.style.dev" target="_blank" rel="noreferrer">open it ↗</a>.
+      <a id="desktopLink" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">download the current build ↗</a>.
       A Worker has no disk and cannot run your files or commands.
     </div>
 
@@ -1674,8 +1755,9 @@
         <button class="rail-tab" type="button" data-rail="secrets">Secrets</button>
         <button class="rail-tab" type="button" data-rail="github">GitHub</button>
         <button class="rail-tab" type="button" data-rail="preview">Preview</button>
+        <button class="rail-tab" type="button" data-rail="shares">Shares</button>
         <button class="rail-tab" type="button" data-rail="status">Health</button>
-        <button class="ghost mini" type="button" id="railClose" style="margin-left:auto" title="Close panels">×</button>
+        <button class="ghost mini" type="button" id="railClose" style="margin-left:auto" title="Close panels" aria-label="Close panels">×</button>
       </div>
 
       <div class="rail-body" id="railFiles">
@@ -1707,7 +1789,7 @@
           <button class="ghost mini" type="button" id="accountRefresh">refresh</button>
           <button class="ghost mini" type="button" id="accountSave">save editor</button>
         </div>
-        <p class="fine" id="accountNote">Checking whether account files are enabled…</p>
+        <p class="fine" id="filesAccountNote">Checking whether account files are enabled…</p>
         <div id="accountFileList"></div>
       </div>
 
@@ -1730,20 +1812,40 @@
       <div class="rail-body" id="railPreview" hidden>
         <p class="fine">
           Sandboxed iframe. Preview an HTML file you saved, or a public address. Many sites refuse to
-          be embedded; if the frame stays blank, open it in a new tab.
+          be embedded; if the frame stays blank, open it in a new tab. Signed in, <b>copy link</b>
+          saves a snapshot to your account that opens on your other devices; <b>share link</b> does
+          that immediately.
         </p>
         <div class="file-row">
           <input id="previewUrl" placeholder="https://example.com" autocomplete="off" aria-label="Preview URL" />
           <button class="mini" type="button" id="previewGo">go</button>
         </div>
-        <p class="fine" id="previewNote">Nothing previewed yet.</p>
+        <p class="fine" id="previewNote" role="status" aria-live="polite">Nothing previewed yet.</p>
         <div id="previewError" hidden></div>
         <div id="previewProblems" class="preview-problems" hidden>
           <p class="fine" id="previewProblemsTitle"></p>
           <ul id="previewProblemsList"></ul>
         </div>
-        <a class="fine" id="previewOpen" href="#" target="_blank" rel="noreferrer" hidden>open in a new tab ↗</a>
+        <div class="row" style="gap:8px;align-items:center">
+          <a class="fine" id="previewOpen" href="#" target="_blank" rel="noreferrer" hidden>open in a new tab ↗</a>
+          <button class="mini" type="button" id="previewCopy" hidden>copy link</button>
+          <button class="mini" type="button" id="previewShare" hidden title="Save this preview to your account and copy a link that opens on your other devices">share link</button>
+        </div>
         <iframe id="previewFrame" title="Preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" style="display:none;width:100%;height:58vh;border:1px solid var(--line-2);border-radius:8px;background:#fff"></iframe>
+      </div>
+
+      <div class="rail-body" id="railShares" hidden>
+        <p class="fine">
+          <b>Account preview links.</b> These snapshots are owner-only: a device signed into this
+          account can open them, and revoking one stops it immediately. The source file stays in
+          this browser.
+        </p>
+        <div class="row" style="justify-content:flex-start">
+          <button class="ghost mini" type="button" id="sharesRefresh">refresh</button>
+          <button class="ghost mini" type="button" id="sharesRevokeAll">revoke all</button>
+        </div>
+        <p class="fine" id="sharesNote" role="status" aria-live="polite">Checking account previews…</p>
+        <div id="shareList" role="list"></div>
       </div>
 
       <div class="rail-body" id="railStatus" hidden>
@@ -1774,7 +1876,7 @@
           <p class="fine">When workspace tools are enabled in Settings, the model is told to use them on browser files; writes still ask first. The desktop app (v<span class="desktopVer">…</span>) reads real files and runs commands. Your key stays in this tab.</p>
         </div>
       </div>
-      <div id="bannerSlot"></div>
+      <div id="bannerSlot" role="status" aria-live="polite"></div>
     </main>
 
     <footer>
@@ -1785,8 +1887,14 @@
       </div>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Message…"></textarea>
-        <label class="mini" title="Attach a PNG, JPEG or WebP image">🖼<input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-        <label class="mini" title="Attach a text file">📎<input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden></label>
+        <label class="attach attach-image" title="Attach a PNG, JPEG or WebP image">
+          <span class="attach-icon" aria-hidden="true">🖼</span><span class="attach-label">Image</span>
+          <input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+        </label>
+        <label class="attach attach-file" title="Attach a text file">
+          <span class="attach-icon" aria-hidden="true">📎</span><span class="attach-label">Attach</span>
+          <input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden />
+        </label>
         <button id="memoryBtn" class="mini" type="button" title="Edit the note sent with this chat">memory</button>
         <button class="primary" id="send">Send</button>
         <button class="ghost" id="stop" disabled>Stop</button>
@@ -1800,14 +1908,16 @@
       </div>
     </footer>
 
-    <dialog id="paletteDialog">
-      <h2>Commands</h2>
+    <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <dialog id="paletteDialog" aria-labelledby="paletteTitle">
+      <h2 id="paletteTitle">Commands</h2>
       <p>Everything the header can do. Ctrl+K opens this; Ctrl+M is the model picker.</p>
       <input id="paletteInput" placeholder="Type a command…" autocomplete="off" spellcheck="false" aria-label="Command" />
       <div id="paletteList" class="palette-list" role="listbox" aria-label="Commands"></div>
     </dialog>
 
-    <dialog id="keyDialog">
+    <dialog id="keyDialog" aria-labelledby="keyTitle">
       <h2 id="keyTitle">OpenRouter key</h2>
       <p id="keyNote">
         This deployment has no server key, so the page asks for yours. It is kept in this tab only
@@ -1834,8 +1944,8 @@
       </div>
     </dialog>
 
-    <dialog id="promptDialog">
-      <h2>Saved prompts</h2>
+    <dialog id="promptDialog" aria-labelledby="promptTitle">
+      <h2 id="promptTitle">Saved prompts</h2>
       <p>Kept in this browser only. Click one to drop it into the composer.</p>
       <div class="promptList" id="promptList"></div>
       <div class="row">
@@ -1844,8 +1954,8 @@
       </div>
     </dialog>
 
-    <dialog id="settingsDialog">
-      <h2>Settings</h2>
+    <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle">Settings</h2>
       <p>Applied to every request from this tab.</p>
       <div id="accountRow" class="accountRow">
         <span class="fine" id="accountNote">Checking sign-in…</span>
@@ -1871,6 +1981,16 @@
       <div class="row">
         <button class="ghost" id="settingsCancel">Cancel</button>
         <button class="primary" id="settingsSave">Save</button>
+      </div>
+    </dialog>
+
+    <dialog id="askDialog" aria-labelledby="askTitle">
+      <h2 id="askTitle">Confirm</h2>
+      <p id="askMessage"></p>
+      <input id="askInput" type="text" autocomplete="off" hidden />
+      <div class="row">
+        <button class="ghost" id="askCancel" type="button">Cancel</button>
+        <button class="primary" id="askOk" type="button">OK</button>
       </div>
     </dialog>
 
@@ -1905,6 +2025,15 @@
         accountFilesEnabled: false,
         accountFilesError: '',
         fileLimits: null,
+        previewLink: '',
+        previewName: '',
+        previewShare: null,
+        previewShares: [],
+        previewSharesUsage: null,
+        previewSharesEnabled: false,
+        previewSharesLoaded: false,
+        previewSharesError: '',
+        desktopDownloadUrl: 'https://github.com/zakker111/freeway/releases/latest',
       };
 
       const keyFor = (id = state.provider) => sessionStorage.getItem(KEY_PREFIX + id) || '';
@@ -2065,6 +2194,62 @@
           : hasKey()
             ? `${providerInfo().label} · key held by this deployment.`
             : `${providerInfo().label} · press “key” to paste one.`;
+      }
+
+      let askResolve = null;
+
+      function finishAsk(value) {
+        const resolve = askResolve;
+        askResolve = null;
+        const dialog = $('askDialog');
+        if (dialog?.open) dialog.close();
+        if (resolve) resolve(value);
+      }
+
+      function askValue({ title = 'Confirm', message = '', value = '', ok = 'OK' } = {}) {
+        return new Promise((resolve) => {
+          const dialog = $('askDialog');
+          if (!dialog) return resolve(null);
+          askResolve = resolve;
+          $('askTitle').textContent = title;
+          $('askMessage').textContent = message;
+          const input = $('askInput');
+          input.hidden = value === null;
+          input.value = value == null ? '' : String(value);
+          $('askOk').textContent = ok;
+          dialog.showModal();
+          setTimeout(() => (input.hidden ? $('askOk') : input).focus(), 20);
+        });
+      }
+
+      function askConfirm(message, title = 'Confirm', ok = 'OK') {
+        return askValue({ title, message, value: null, ok }).then((answer) => answer !== null);
+      }
+
+      function askPrompt(message, value = '', title = 'Edit', ok = 'Save') {
+        return askValue({ title, message, value, ok });
+      }
+
+      $('askCancel').addEventListener('click', () => finishAsk(null));
+      $('askOk').addEventListener('click', () => {
+        finishAsk($('askInput').hidden ? true : $('askInput').value);
+      });
+      $('askInput').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finishAsk($('askInput').value);
+        }
+      });
+      $('askDialog').addEventListener('cancel', (event) => {
+        event.preventDefault();
+        finishAsk(null);
+      });
+
+      function announce(text) {
+        const live = $('live');
+        if (!live) return;
+        live.textContent = '';
+        setTimeout(() => { live.textContent = String(text || ''); }, 20);
       }
 
       function banner(text, actionLabel, action) {
@@ -2303,9 +2488,28 @@
             },
           },
         },
+        {
+          type: 'function',
+          function: {
+            name: 'preview_link',
+            description:
+              'Return the link that opens a saved HTML, SVG or Markdown page. When signed in, save a snapshot to the account so the link opens on any signed-in device; otherwise it is a browser link. Use it when the user asks for the preview link, or asks to see a page you built.',
+            parameters: {
+              type: 'object',
+              properties: {
+                path: {
+                  type: 'string',
+                  description:
+                    'Saved file in the browser workspace. Defaults to the best page available.',
+                },
+              },
+              required: [],
+            },
+          },
+        },
       ];
 
-      function runTool(name, args) {
+      async function runTool(name, args) {
         const files = readFiles();
         if (name === 'list_files') return Object.keys(files).sort().join('\n') || '(empty workspace)';
         if (name === 'read_file') {
@@ -2316,8 +2520,55 @@
           if (content.length > 200000) return 'Refused: file would exceed 200,000 characters.';
           files[args.path] = content;
           writeFiles(files);
+          invalidatePreviewShare();
           renderFiles();
-          return `Wrote ${args.path} (${content.length} chars).`;
+          const written = String(args.path ?? '');
+          // Every page write carries its link, so the model can show it without
+          // having to make a second tool call. A signed-in account gets a
+          // cross-device snapshot; otherwise this stays a browser link.
+          let link = '';
+          if (/\.(html?|svg)$/i.test(written)) {
+            let href = previewLinkFor(written);
+            if (state.previewSharesEnabled && state.user) {
+              try {
+                href = (await sharePreview(written)).url;
+              } catch {
+                /* keep the browser link when the account snapshot fails */
+              }
+            }
+            link = `\n\nPreview link: ${href}`;
+          }
+          // A page the model just wrote should be visible, not only stored.
+          if (/\.(html?|svg|md|markdown)$/i.test(written)) {
+            previewSavedHtml(written).catch(() => {});
+          }
+          return `Wrote ${args.path} (${content.length} chars).${link}`;
+        }
+        if (name === 'preview_link') {
+          const target = String(args.path || args.entry || findSavedPreview() || '').trim();
+          if (!target) return 'No page is saved yet. Write an HTML, SVG or Markdown file first.';
+          if (!/\.(html?|svg|md|markdown)$/i.test(target)) {
+            return `${target} is not a page. Use an .html, .svg or .md file.`;
+          }
+          if (!(target in files)) return `No such file: ${target}`;
+          // "Show it to me" should not only return a URL; open the panel too.
+          previewSavedHtml(target).catch(() => {});
+          let href = previewLinkFor(target);
+          let note = 'It reopens the saved file in the Preview panel in this browser.';
+          if (state.previewSharesEnabled && state.user) {
+            try {
+              href = (await sharePreview(target)).url;
+              note = 'It is saved to your account and opens on any device where you sign in.';
+            } catch {
+              /* account sharing is unavailable; the browser link still works */
+            }
+          } else if (state.previewSharesEnabled) {
+            note = 'It reopens the saved file in this browser. Sign in to make a link that opens on your other devices.';
+          }
+          return (
+            `Preview link for ${target}:\n${href}\n\n` +
+            `Give this exact link to the user. ${note}`
+          );
         }
         return `Unknown tool: ${name}`;
       }
@@ -2433,7 +2684,7 @@
                 args = {};
               }
               const allowed = name === 'write_file' ? await askTool(name, args) : true;
-              results.push(`${name}(${JSON.stringify(args)}) -> ${allowed ? runTool(name, args) : 'DENIED by the user'}`);
+              results.push(`${name}(${JSON.stringify(args)}) -> ${allowed ? await runTool(name, args) : 'DENIED by the user'}`);
             }
             convo.push({ role: 'user', content: 'TOOL RESULTS\n' + results.join('\n') });
           }
@@ -2505,7 +2756,11 @@
           try { await navigator.clipboard.writeText(message.content); button.textContent = 'Copied'; setTimeout(() => (button.textContent = 'Copy'), 1200); } catch { button.textContent = 'Select it'; }
         } else if (button.dataset.act === 'branch') {
           state.messages = state.messages.slice(0, index + 1).map((item) => ({ ...item }));
-          state.threadId = null;
+          state.threadId = newId();
+          setActiveThread(state.threadId);
+          clearPreview();
+          resetFileEditor();
+          renderFiles();
           saveThread();
           $('thread').innerHTML = '';
           state.messages.forEach((item, at) => {
@@ -2527,7 +2782,7 @@
           send();
         } else if (button.dataset.act === 'edit') {
           if (message.role !== 'user') return;
-          const next = prompt('Edit your message', message.content);
+          const next = await askPrompt('Edit your message', message.content, 'Edit message');
           if (next === null || !next.trim()) return;
           state.messages = state.messages.slice(0, index);
           saveThread();
@@ -2738,7 +2993,8 @@
       }
 
       // ------------------------------------------------------------- panels
-      const FILES_KEY = 'orc.files';
+      const FILES_KEY = 'orc.files.v2';
+      const LEGACY_FILES_KEY = 'orc.files';
       const SECRETS_KEY = 'orc.secrets';
       const INCLUDE_KEY = 'orc.include';
       const SETTINGS_KEY = 'orc.settings';
@@ -2752,31 +3008,41 @@
         }
       }
 
-      // The workspace used to be one localStorage string, capped around 5 MB and
-      // rewritten on every save. Keep the map in memory for the synchronous tool
-      // path and persist it to IndexedDB; the old key is copied forward once.
-      let localFiles = readJsonStore(localStorage, FILES_KEY, {});
+      // Files belong to the chat, not to the whole tab. A record is keyed by
+      // the chat id, so New Chat starts with no files and switching back
+      // restores exactly the old chat's map. The old global map is kept as a
+      // legacy namespace until a saved chat claims it.
+      let fileNamespaces = {};
       let fileDb = null;
       let fileWriteTimer = null;
+      const workspaceKey = () => state.threadId || 'draft';
 
-      const readFiles = () => localFiles;
+      const readFiles = () => fileNamespaces[workspaceKey()] || {};
       const writeFiles = (map) => {
-        localFiles = map;
+        // A file can be created before the first message. Give it a real chat
+        // id before storing the namespace, otherwise a reload would look for a
+        // saved chat that does not exist and orphan these files.
+        if (!state.threadId && Object.keys(map).length) {
+          state.threadId = newIdForSave();
+          setActiveThread(state.threadId);
+        }
+        fileNamespaces[workspaceKey()] = map;
         if (!fileDb) {
           try {
-            localStorage.setItem(FILES_KEY, JSON.stringify(map));
+            localStorage.setItem(FILES_KEY, JSON.stringify(fileNamespaces));
           } catch {
             /* browser storage is full; the in-memory copy still works */
           }
-          return;
+        } else {
+          clearTimeout(fileWriteTimer);
+          fileWriteTimer = setTimeout(() => saveFileDb().catch(() => {}), 120);
         }
-        clearTimeout(fileWriteTimer);
-        fileWriteTimer = setTimeout(() => saveFileDb().catch(() => {}), 120);
+        saveFileOnlyThread();
       };
 
       function openFileDb() {
         return new Promise((resolve, reject) => {
-          const request = indexedDB.open('freeway-files', 1);
+          const request = indexedDB.open('freeway-files', 2);
           request.onupgradeneeded = () => {
             if (!request.result.objectStoreNames.contains('files')) {
               request.result.createObjectStore('files');
@@ -2804,29 +3070,83 @@
 
       function saveFileDb() {
         if (!fileDb) return Promise.resolve();
-        const snapshot = localFiles;
+        const snapshot = fileNamespaces;
         return new Promise((resolve, reject) => {
           const tx = fileDb.transaction('files', 'readwrite');
           const store = tx.objectStore('files');
           store.clear();
-          for (const [name, body] of Object.entries(snapshot)) store.put(String(body), name);
+          for (const [chatId, map] of Object.entries(snapshot)) {
+            store.put(JSON.stringify(map), `workspace:${chatId}`);
+          }
           tx.oncomplete = () => resolve();
           tx.onerror = () => reject(tx.error);
           tx.onabort = () => reject(tx.error);
         });
       }
 
+      // A saved chat that predates per-chat files adopts the old browser
+      // workspace once. A new chat deliberately does not.
+      function claimLegacyFiles(chatId) {
+        if (!chatId || !fileNamespaces.legacy) return false;
+        if (Object.keys(fileNamespaces[chatId] || {}).length) return false;
+        fileNamespaces[chatId] = { ...fileNamespaces.legacy };
+        delete fileNamespaces.legacy;
+        if (!fileDb) {
+          try {
+            localStorage.setItem(FILES_KEY, JSON.stringify(fileNamespaces));
+          } catch {
+            /* the in-memory copy is still correct */
+          }
+        } else {
+          clearTimeout(fileWriteTimer);
+          fileWriteTimer = setTimeout(() => saveFileDb().catch(() => {}), 120);
+        }
+        return true;
+      }
+
       async function initLocalFiles() {
-        if (!('indexedDB' in window)) return;
+        // Read both the 2.x global map and the new namespaced map. Values that
+        // are strings are file contents from 2.9; values that are objects are
+        // per-chat maps from this version.
+        const legacy = {};
+        for (const key of [LEGACY_FILES_KEY, FILES_KEY]) {
+          const saved = readJsonStore(localStorage, key, {});
+          for (const [name, value] of Object.entries(saved)) {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+              fileNamespaces[name] = value;
+            } else if (typeof value === 'string') {
+              legacy[name] = value;
+            }
+          }
+        }
+        if (!('indexedDB' in window)) {
+          if (Object.keys(legacy).length) fileNamespaces.legacy = legacy;
+          return;
+        }
         try {
           fileDb = await openFileDb();
           const stored = await readAllStored(fileDb);
-          if (Object.keys(stored).length) localFiles = stored;
-          else if (Object.keys(localFiles).length) await saveFileDb();
-          // The copy-forward succeeded; the old string is no longer authoritative.
-          if (Object.keys(localFiles).length) localStorage.removeItem(FILES_KEY);
+          for (const [key, value] of Object.entries(stored)) {
+            if (key.startsWith('workspace:')) {
+              const chatId = key.slice('workspace:'.length);
+              try {
+                const map = JSON.parse(value);
+                if (map && typeof map === 'object' && !Array.isArray(map)) fileNamespaces[chatId] = map;
+              } catch {
+                /* ignore one corrupt namespace, keep the others */
+              }
+            } else {
+              // A 2.9 IndexedDB record is a single global filename.
+              legacy[key] = value;
+            }
+          }
+          if (Object.keys(legacy).length) fileNamespaces.legacy = { ...(fileNamespaces.legacy || {}), ...legacy };
+          if (Object.keys(fileNamespaces).length) await saveFileDb();
+          localStorage.removeItem(LEGACY_FILES_KEY);
+          localStorage.removeItem(FILES_KEY);
         } catch {
           fileDb = null;
+          if (Object.keys(legacy).length) fileNamespaces.legacy = legacy;
         }
       }
       const readSecrets = () => readJsonStore(sessionStorage, SECRETS_KEY, {});
@@ -2936,11 +3256,62 @@
         map['sample/index.html'] = SAMPLE_HTML;
         map['sample/style.css'] = SAMPLE_STYLE;
         writeFiles(map);
+        invalidatePreviewShare();
         $('fileName').value = 'sample/index.html';
         $('fileBody').value = SAMPLE_HTML;
         renderFiles();
         showPreview(SAMPLE_PREVIEW, 'sample/index.html');
         banner('Sample page created. Preview uses an inlined copy of style.css.', 'close', () => {});
+      }
+
+      // Pick the same kind of entry the desktop workspace prefers: a real
+      // index page first, then other HTML, SVG or Markdown. Cloud files live in
+      // browser storage, so a reload can reopen the generated page without a
+      // server-side scan.
+      function previewFileScore(file) {
+        const parts = file.split('/');
+        const name = parts[parts.length - 1].toLowerCase();
+        const dot = name.lastIndexOf('.');
+        const ext = dot >= 0 ? name.slice(dot) : '';
+        let score = (parts.length - 1) * 10;
+        if (ext === '.html') score -= 20;
+        else if (ext === '.htm') score -= 19;
+        else if (ext === '.svg') score += 20;
+        else score += 50;
+        if (!/^index\./.test(name)) score += 15;
+        if (file === 'index.html') score -= 5;
+        if (parts[0] === 'public') score -= 3;
+        return score;
+      }
+
+      function findSavedPreview() {
+        const map = readFiles();
+        return (
+          Object.keys(map)
+            .filter((name) => /\.(html?|svg|md|markdown)$/i.test(name))
+            .filter((name) => !name.split('/').some((part) => part.startsWith('.') || part === 'node_modules'))
+            .sort((a, b) => previewFileScore(a) - previewFileScore(b) || a.localeCompare(b))[0] || ''
+        );
+      }
+
+      // One click from the header: reopen the current frame, then the best saved
+      // page, then a working sample instead of an empty Preview tab.
+      async function quickPreview() {
+        $('rail').hidden = false;
+        switchRail('preview');
+        const frame = $('previewFrame');
+        if (frame.getAttribute('srcdoc') || frame.getAttribute('src')) return;
+        const entry = findSavedPreview();
+        if (entry) {
+          // If the saved page is broken, keep its error card visible instead of
+          // covering it with the sample.
+          await previewSavedHtml(entry);
+          return;
+        }
+        // One click still shows a working page, but it stays in memory: a new
+        // chat must not silently gain sample files in its workspace.
+        showPreview(SAMPLE_PREVIEW, 'sample (in memory)');
+        banner('Sample shown in memory. Files → Sample saves it into this chat.', 'close', () => {});
       }
 
       function filePath() {
@@ -2954,11 +3325,15 @@
         if (!(name in map)) {
           map[name] = '';
           writeFiles(map);
+          invalidatePreviewShare();
         }
         $('fileBody').value = map[name];
         renderFiles();
       };
-      async function previewSavedHtml(name, body) {
+      // Build the same self-contained document the Preview panel shows. The
+      // account share uploads this exact HTML, so a linked stylesheet or module
+      // cannot go missing on another device.
+      async function buildPreviewDocument(name, body) {
         const map = readFiles();
         if (typeof body === 'string') map[name] = body;
         let packageJson = null;
@@ -2968,42 +3343,229 @@
           packageJson = null;
         }
         if (/\.(md|markdown)$/i.test(name)) {
-          try {
-            showPreview(
-              FreewayPreview.renderMarkdown(
-                typeof body === 'string' ? body : map[name] || '',
-                { title: name },
-              ),
-              name,
-              [],
-              'markdown',
-            );
-            return true;
-          } catch (error) {
-            showPreviewFailure(error);
-            return false;
-          }
+          return {
+            html: FreewayPreview.renderMarkdown(
+              typeof body === 'string' ? body : map[name] || '',
+              { title: name },
+            ),
+            label: name,
+            warnings: [],
+            kind: 'markdown',
+          };
         }
         if (!/\.(html?|svg)$/i.test(name)) {
-          showPreviewFailure(
-            FreewayPreview.classify({ entry: name, host: { cloud: true }, packageJson }),
-          );
-          return false;
+          throw FreewayPreview.classify({ entry: name, host: { cloud: true }, packageJson });
         }
+        const result = await FreewayPreview.bundleStatic({
+          entry: name,
+          entryContent: typeof body === 'string' ? body : undefined,
+          readFile: (path) => map[path],
+          packageJson,
+        });
+        return { html: result.html, label: result.entry, warnings: result.warnings, kind: 'page' };
+      }
+
+      async function previewSavedHtml(name, body) {
         try {
-          const result = await FreewayPreview.bundleStatic({
-            entry: name,
-            entryContent: typeof body === 'string' ? body : undefined,
-            readFile: (path) => map[path],
-            packageJson,
-          });
-          showPreview(result.html, result.entry, result.warnings);
+          const result = await buildPreviewDocument(name, body);
+          showPreview(result.html, result.label, result.warnings, result.kind, name);
           return true;
         } catch (error) {
           showPreviewFailure(error);
           return false;
         }
       }
+
+      function invalidatePreviewShare() {
+        state.previewShare = null;
+      }
+
+      // A saved snapshot gets an account-owned URL. Re-sharing the same chat file
+      // updates the existing row, so the link stays stable while its contents
+      // move forward.
+      async function sharePreview(name) {
+        const target = String(name || state.previewName || '').trim();
+        if (!target) throw new Error('Preview a saved page first.');
+        if (!state.previewSharesEnabled) throw new Error('Account preview links are not enabled on this deployment.');
+        if (!state.user) throw new Error('Sign in to create a link that opens on your other devices.');
+        if (!state.threadId) saveThread({ allowEmpty: true });
+        const built = await buildPreviewDocument(target);
+        const res = await fetch('/api/previews', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ chat: state.threadId, name: target, html: built.html }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || `Sharing returned ${res.status}.`);
+        const url = new URL(data.url, location.origin).href;
+        setPreviewLink(target, url);
+        state.previewShare = {
+          ...(state.previewShare || {}),
+          id: data.id,
+          name: target,
+          url,
+          size: data.size,
+          updatedAt: data.updatedAt,
+        };
+        state.previewShares = [
+          state.previewShare,
+          ...(state.previewShares || []).filter((share) => share.id !== data.id),
+        ];
+        state.previewSharesUsage = data.usage || state.previewSharesUsage;
+        renderPreviewShares();
+        announce(`Account preview link ready for ${target}.`);
+        return { ...data, url };
+      }
+
+      function shareDate(value) {
+        const stamp = Number(value);
+        if (!Number.isFinite(stamp)) return '';
+        return new Date(stamp).toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+
+      async function copyShareLink(url) {
+        try {
+          await navigator.clipboard.writeText(url);
+          announce('Preview link copied.');
+        } catch {
+          banner(`Preview link: ${url}`, 'close', () => {});
+        }
+      }
+
+      function renderPreviewShares() {
+        const list = $('shareList');
+        if (!list) return;
+        list.innerHTML = '';
+        const note = $('sharesNote');
+        if (!state.previewSharesEnabled) {
+          note.textContent = 'Account preview links are not enabled on this deployment.';
+          return;
+        }
+        if (!state.user) {
+          note.textContent = 'Sign in to save and manage preview links that open on your other devices.';
+          return;
+        }
+        if (state.previewSharesError) {
+          note.textContent = state.previewSharesError;
+          return;
+        }
+        const usage = state.previewSharesUsage;
+        const count = state.previewShares.length;
+        note.textContent = count
+          ? `${count} link${count === 1 ? '' : 's'} · ${Math.ceil((usage?.bytes || 0) / 1024)} KB of ${Math.round((usage?.maxBytes || 8 * 1024 * 1024) / 1024 / 1024)} MB`
+          : 'No account preview links yet. Preview a saved page and press share link.';
+        for (const share of state.previewShares) {
+          const row = el('div', 'share-row');
+          row.setAttribute('role', 'listitem');
+          const main = el('div', 'share-main');
+          main.append(el('span', 'share-name', share.name));
+          const meta = [shareDate(share.updatedAt), share.size ? `${Math.ceil(share.size / 1024)} KB` : '']
+            .filter(Boolean)
+            .join(' · ');
+          main.append(el('span', 'share-meta', meta));
+          const actions = el('div', 'share-actions');
+          const open = el('button', 'mini', 'open');
+          open.type = 'button';
+          open.title = `Open ${share.name} in a new tab`;
+          open.onclick = () => window.open(new URL(share.url, location.origin).href, '_blank', 'noopener');
+          const copy = el('button', 'mini', 'copy');
+          copy.type = 'button';
+          copy.title = `Copy the link for ${share.name}`;
+          copy.onclick = () => copyShareLink(new URL(share.url, location.origin).href);
+          const revoke = el('button', 'mini', '×');
+          revoke.type = 'button';
+          revoke.title = `Revoke the link for ${share.name}`;
+          revoke.onclick = () => revokePreviewShare(share);
+          actions.append(open, copy, revoke);
+          row.append(main, actions);
+          list.append(row);
+        }
+      }
+
+      async function loadPreviewShares() {
+        if (!state.previewSharesEnabled) {
+          renderPreviewShares();
+          return;
+        }
+        if (!state.user) {
+          state.previewShares = [];
+          state.previewSharesUsage = null;
+          renderPreviewShares();
+          return;
+        }
+        try {
+          const res = await fetch('/api/previews', { headers: { accept: 'application/json' } });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || `Shares returned ${res.status}.`);
+          state.previewShares = Array.isArray(data.shares) ? data.shares : [];
+          state.previewSharesUsage = data.usage || null;
+          state.previewSharesError = '';
+          state.previewSharesLoaded = true;
+        } catch (error) {
+          state.previewShares = [];
+          state.previewSharesUsage = null;
+          state.previewSharesError = error.message;
+        }
+        renderPreviewShares();
+      }
+
+      async function revokePreviewShare(share) {
+        if (!(await askConfirm(`Revoke the preview link for ${share.name}? The file stays in this browser.`, 'Revoke preview link', 'Revoke'))) {
+          return;
+        }
+        try {
+          const res = await fetch(`/api/previews/${encodeURIComponent(share.id)}`, {
+            method: 'DELETE',
+            headers: { origin: location.origin },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || `Revoke returned ${res.status}.`);
+          state.previewShares = state.previewShares.filter((row) => row.id !== share.id);
+          if (state.previewShare?.id === share.id || state.previewShare?.url === new URL(share.url, location.origin).href) {
+            state.previewShare = null;
+          }
+          // Revoking the link that is currently previewed must also drop the
+          // account URL from the copy field; the local #preview= link still works.
+          if (state.previewName === share.name) setPreviewLink(state.previewName);
+          renderPreviewShares();
+          banner(`Revoked the preview link for ${share.name}.`, 'close', () => {});
+          announce(`Preview link for ${share.name} revoked.`);
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      async function revokeAllPreviewShares() {
+        if (!state.previewShares.length) return banner('There are no preview links to revoke.', 'close', () => {});
+        if (!(await askConfirm(`Revoke all ${state.previewShares.length} account preview links? The source files stay in this browser.`, 'Revoke all preview links', 'Revoke all'))) {
+          return;
+        }
+        try {
+          const res = await fetch('/api/previews', {
+            method: 'DELETE',
+            headers: { origin: location.origin },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || `Revoke returned ${res.status}.`);
+          state.previewShares = [];
+          state.previewSharesUsage = null;
+          state.previewShare = null;
+          if (state.previewName) setPreviewLink(state.previewName);
+          renderPreviewShares();
+          banner('All account preview links revoked.', 'close', () => {});
+          announce('All account preview links revoked.');
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        }
+      }
+
+      $('sharesRefresh').onclick = () => loadPreviewShares();
+      $('sharesRevokeAll').onclick = () => revokeAllPreviewShares();
 
       $('fileSave').onclick = async () => {
         const name = filePath();
@@ -3013,6 +3575,7 @@
         const map = readFiles();
         map[name] = body;
         writeFiles(map);
+        invalidatePreviewShare();
         renderFiles();
         const previewed = await previewSavedHtml(name, body);
         banner(previewed ? 'Saved and previewed in this browser.' : 'Saved in this browser; see the preview panel.', 'close', () => {});
@@ -3023,6 +3586,7 @@
         if (!(name in map)) return banner('That file is not saved.', 'close', () => {});
         delete map[name];
         writeFiles(map);
+        invalidatePreviewShare();
         $('fileBody').value = '';
         renderFiles();
       };
@@ -3060,6 +3624,7 @@
         }
         if (!added) return;
         writeFiles(map);
+        invalidatePreviewShare();
         renderFiles();
         if (previewName) {
           $('fileName').value = previewName;
@@ -3097,12 +3662,21 @@
       };
 
       // ------------------------------------------------------- account files
-      function accountEnabled() {
-        return state.accountFilesEnabled && Boolean(state.user);
+      // Account files are scoped to the chat that is open. A request without a
+      // chat id is the 2.9 account namespace, used only until an old chat
+      // claims it.
+      function accountQuery(extra = {}) {
+        const params = new URLSearchParams();
+        if (state.threadId) params.set('chat', state.threadId);
+        for (const [key, value] of Object.entries(extra)) {
+          if (value !== undefined && value !== null && value !== '') params.set(key, value);
+        }
+        const text = params.toString();
+        return text ? `?${text}` : '';
       }
 
       function setAccountNote(text) {
-        const note = $('accountNote');
+        const note = $('filesAccountNote');
         if (note) note.textContent = text;
       }
 
@@ -3130,7 +3704,7 @@
             : 'Loading account files…',
         );
         if (!state.accountFiles.length) {
-          list.append(el('p', 'fine', 'No account files yet — upload one above.'));
+          list.append(el('p', 'fine', 'No account files in this chat yet — upload one above.'));
           return;
         }
         for (const file of state.accountFiles) {
@@ -3148,19 +3722,19 @@
             row.append(preview);
           }
           const download = el('a', 'mini', '↓');
-          download.href = `/api/files/${encodeURIComponent(file.name)}`;
+          download.href = `/api/files/${encodeURIComponent(file.name)}${accountQuery()}`;
           download.download = file.name;
           download.title = 'Download';
           const remove = el('button', 'mini', '×');
           remove.type = 'button';
-          remove.title = 'Delete from your account';
+          remove.title = 'Delete from this chat';
           remove.onclick = () => deleteAccountFile(file.name);
           row.append(download, remove);
           list.append(row);
         }
       }
 
-      async function loadAccountFiles() {
+      async function loadAccountFiles({ claim = false } = {}) {
         if (!state.accountFilesEnabled) {
           renderAccountFiles();
           return;
@@ -3172,7 +3746,9 @@
           return;
         }
         try {
-          const res = await fetch('/api/files', { headers: { accept: 'application/json' } });
+          const res = await fetch(`/api/files${accountQuery(claim ? { claim: '1' } : {})}`, {
+            headers: { accept: 'application/json' },
+          });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.message || `Files returned ${res.status}.`);
           state.accountFiles = Array.isArray(data.files) ? data.files : [];
@@ -3188,11 +3764,11 @@
 
       async function openAccountFile(name) {
         try {
-          const res = await fetch(`/api/files/${encodeURIComponent(name)}`);
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}${accountQuery()}`);
           if (!res.ok) throw new Error(`Could not open ${name}.`);
           $('fileName').value = name;
           $('fileBody').value = await res.text();
-          banner(`Opened ${name}. “save editor” writes it back to your account.`, 'close', () => {});
+          banner(`Opened ${name}. “save editor” writes it back to this chat.`, 'close', () => {});
         } catch (error) {
           banner(error.message, 'close', () => {});
         }
@@ -3200,7 +3776,7 @@
 
       async function previewAccountFile(name) {
         try {
-          const res = await fetch(`/api/files/${encodeURIComponent(name)}`);
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}${accountQuery()}`);
           if (!res.ok) throw new Error(`Could not open ${name}.`);
           const text = await res.text();
           if (/\.(md|markdown)$/i.test(name)) {
@@ -3209,22 +3785,28 @@
               name,
               [],
               'markdown',
+              '',
             );
             return;
           }
-          showPreview(text, name);
+          showPreview(text, name, undefined, undefined, '');
         } catch (error) {
           banner(error.message, 'close', () => {});
         }
       }
 
       async function deleteAccountFile(name) {
-        if (!confirm(`Delete ${name} from your account?`)) return;
+        if (!(await askConfirm(`Delete ${name} from this chat?`, 'Delete account file', 'Delete'))) return;
         try {
-          const res = await fetch(`/api/files/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          const res = await fetch(`/api/files/${encodeURIComponent(name)}${accountQuery()}`, { method: 'DELETE' });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.message || `Delete returned ${res.status}.`);
+          if (state.previewName === name && state.previewShare?.name === name) {
+            state.previewShare = null;
+            setPreviewLink(name);
+          }
           await loadAccountFiles();
+          if (state.user) void loadPreviewShares();
           banner(`Deleted ${name}.`, 'close', () => {});
         } catch (error) {
           banner(error.message, 'close', () => {});
@@ -3234,7 +3816,7 @@
       async function saveToAccount(name, body, type = 'text/plain') {
         const clean = String(name || '').trim();
         if (!clean) throw new Error('Name the file first.');
-        const res = await fetch(`/api/files/${encodeURIComponent(clean)}`, {
+        const res = await fetch(`/api/files/${encodeURIComponent(clean)}${accountQuery()}`, {
           method: 'PUT',
           headers: { 'content-type': type },
           body,
@@ -3259,7 +3841,7 @@
                 ? 'text/markdown'
                 : 'text/plain',
           );
-          banner(`Saved ${name} to your account.`, 'close', () => {});
+          banner(`Saved ${name} to this chat's account files.`, 'close', () => {});
         } catch (error) {
           banner(error.message, 'close', () => {});
         }
@@ -3282,7 +3864,7 @@
             banner(`${file.name}: ${error.message}`, 'close', () => {});
           }
         }
-        if (saved) banner(`Uploaded ${saved} file${saved === 1 ? '' : 's'} to your account.`, 'close', () => {});
+        if (saved) banner(`Uploaded ${saved} file${saved === 1 ? '' : 's'} to this chat's account files.`, 'close', () => {});
       });
 
       function renderSecrets() {
@@ -3373,11 +3955,86 @@
         }
       }
 
+      // A preview link is this tab reopened at a saved file. The file stays in
+      // this browser, so the link works on this device after a reload; it is not
+      // a public share and it does not upload anything.
+      function previewLinkFor(name) {
+        const target = String(name || '').trim().replace(/^\/+/, '');
+        return `${location.origin}${location.pathname || '/'}#preview=${encodeURIComponent(target)}`;
+      }
+
+      function setPreviewLink(name, accountUrl) {
+        const target = String(name || '').trim();
+        if (accountUrl) {
+          state.previewShare = { name: target, url: String(accountUrl) };
+        } else if (!target || (state.previewShare && state.previewShare.name !== target)) {
+          state.previewShare = null;
+        }
+        state.previewName = target;
+        const shared = state.previewShare && state.previewShare.name === target
+          ? state.previewShare.url
+          : '';
+        state.previewLink = target ? shared || previewLinkFor(target) : '';
+        const copy = $('previewCopy');
+        if (copy) copy.hidden = !state.previewLink;
+        const share = $('previewShare');
+        if (share) share.hidden = !(target && state.previewSharesEnabled && state.user);
+        try {
+          // Keep the address bar on the browser link even when the copy link is
+          // account-backed; opening a /preview/<id> URL would leave the app.
+          history.replaceState(null, '', target ? previewLinkFor(target) : location.pathname || '/');
+        } catch {
+          /* history can be restricted in a sandboxed or embedded tab */
+        }
+      }
+
+      function previewFromHash() {
+        const match = /(?:^#|&)preview=([^&]+)/.exec(location.hash || '');
+        if (!match) return '';
+        try {
+          return decodeURIComponent(match[1]);
+        } catch {
+          return '';
+        }
+      }
+
+      // A copied link carries the file in #preview=; reopen it instead of
+      // dropping the user on an empty Preview panel.
+      async function openPreviewFromHash(only = previewFromHash()) {
+        const name = String(only || '').trim();
+        if (!name) return false;
+        const files = readFiles();
+        if (!(name in files)) {
+          $('previewNote').textContent = `That preview link points at ${name}, which is not saved in this chat.`;
+          return false;
+        }
+        $('fileName').value = name;
+        $('fileBody').value = files[name];
+        return previewSavedHtml(name);
+      }
+
       function clearPreviewFailure() {
         const box = $('previewError');
         if (!box) return;
         box.hidden = true;
         box.textContent = '';
+      }
+
+      // Preview belongs to the chat. Clear both the frame and its state before
+      // another chat can inherit a page that was loaded in the old one.
+      function clearPreview() {
+        previewMonitor.clear();
+        previewMonitor.setEnabled(false);
+        const frame = $('previewFrame');
+        frame.removeAttribute('src');
+        frame.removeAttribute('srcdoc');
+        frame.style.display = 'none';
+        clearPreviewFailure();
+        $('previewNote').textContent = '';
+        $('previewOpen').hidden = true;
+        const copy = $('previewCopy');
+        if (copy) copy.hidden = true;
+        setPreviewLink('');
       }
 
       function showPreviewFailure(error) {
@@ -3390,6 +4047,9 @@
         clearPreviewFailure();
         $('previewNote').textContent = '';
         $('previewOpen').hidden = true;
+        const copy = $('previewCopy');
+        if (copy) copy.hidden = true;
+        setPreviewLink('');
         const box = $('previewError');
         box.innerHTML = FreewayPreview.renderError(error);
         box.hidden = false;
@@ -3400,7 +4060,7 @@
       // Uploaded HTML renders with srcdoc in a sandbox WITHOUT allow-same-origin.
       // That keeps a generated page away from the session cookie, localStorage and
       // this page's own /api routes.
-      function showPreview(html, label, warnings, kind) {
+      function showPreview(html, label, warnings, kind, targetName) {
         previewMonitor.clear();
         previewMonitor.setEnabled(true);
         const frame = $('previewFrame');
@@ -3414,6 +4074,10 @@
             ? `Previewing ${label} as Markdown. Raw HTML is escaped; relative links and images stay relative.`
             : `Previewing ${label}. Linked local CSS and JS are inlined; external images and fonts may be blocked.${extra}`;
         $('previewOpen').hidden = true;
+        // Only a real saved page has a link to copy; the sample is in memory.
+        const target = targetName === '' ? '' : String(targetName || label || '').trim();
+        const saved = Boolean(target) && /\.(html?|svg|md|markdown)$/i.test(target) && !/\(in memory\)/i.test(target);
+        setPreviewLink(saved ? target : '');
         $('rail').hidden = false;
         switchRail('preview');
       }
@@ -3439,6 +4103,70 @@
         link.href = url.href;
         link.textContent = 'open in a new tab ↗';
         link.hidden = false;
+        const copy = $('previewCopy');
+        if (copy) copy.hidden = true;
+        state.previewLink = '';
+        state.previewName = '';
+        state.previewShare = null;
+        const share = $('previewShare');
+        if (share) share.hidden = true;
+        try {
+          history.replaceState(null, '', location.pathname || '/');
+        } catch {
+          /* ignore restricted history */
+        }
+      };
+
+      $('previewCopy').onclick = async () => {
+        const target = state.previewName;
+        if (!target) return;
+        const button = $('previewCopy');
+        button.disabled = true;
+        try {
+          if (state.previewSharesEnabled && state.user &&
+              (!state.previewShare || state.previewShare.name !== target)) {
+            $('previewNote').textContent = 'Saving this preview to your account…';
+            await sharePreview(target);
+          }
+          await navigator.clipboard.writeText(state.previewLink);
+          const shared = state.previewShare && state.previewShare.name === target;
+          $('previewNote').textContent = shared
+            ? `Account preview link copied — it opens on any device where you sign in: ${state.previewLink}`
+            : `Preview link copied. It opens in this browser; sign in to make an account link: ${state.previewLink}`;
+        } catch (error) {
+          if (state.previewLink) {
+            try {
+              await navigator.clipboard.writeText(state.previewLink);
+            } catch {
+              /* clipboard permissions can be refused */
+            }
+            $('previewNote').textContent = `Preview link: ${state.previewLink}`;
+          } else {
+            banner(error.message, 'close', () => {});
+          }
+        } finally {
+          button.disabled = false;
+        }
+      };
+
+      $('previewShare').onclick = async () => {
+        const target = state.previewName;
+        if (!target) return;
+        const button = $('previewShare');
+        button.disabled = true;
+        try {
+          const shared = await sharePreview(target);
+          try {
+            await navigator.clipboard.writeText(shared.url);
+          } catch {
+            /* still show the link when the clipboard is refused */
+          }
+          $('previewNote').textContent = `Account preview link ready — it opens on any device where you sign in: ${shared.url}`;
+        } catch (error) {
+          banner(error.message, 'close', () => {});
+        } finally {
+          button.disabled = false;
+        }
       };
 
       function renderStatus() {
@@ -3677,7 +4405,20 @@
         status: 'railStatus',
       };
 
+      // Keep the fixed rail below the header instead of covering Preview and
+      // the other actions when the header wraps on a narrow screen.
+      function syncHeaderHeight() {
+        const bar = document.querySelector('header');
+        if (bar) document.documentElement.style.setProperty('--header-h', `${bar.offsetHeight}px`);
+      }
+
+      if (typeof ResizeObserver === 'function') {
+        const watchedHeader = document.querySelector('header');
+        if (watchedHeader) new ResizeObserver(syncHeaderHeight).observe(watchedHeader);
+      }
+
       function switchRail(tab) {
+        syncHeaderHeight();
         for (const button of document.querySelectorAll('[data-rail]')) {
           button.classList.toggle('active', button.dataset.rail === tab);
         }
@@ -3686,6 +4427,7 @@
           renderFiles();
           if (state.accountFilesEnabled) loadAccountFiles();
         }
+        if (tab === 'shares') loadPreviewShares();
         if (tab === 'secrets') renderSecrets();
         if (tab === 'status') {
           renderStatus();
@@ -3693,6 +4435,7 @@
         }
       }
 
+      $('quickPreview').onclick = quickPreview;
       $('railBtn').onclick = () => {
         if ($('rail').hidden) {
           $('rail').hidden = false;
@@ -4005,14 +4748,26 @@
 
       // ------------------------------------------------------------- history
       const THREADS_KEY = 'orc.threads';
+      const ACTIVE_KEY = 'orc.activeThread.v1';
+      const NEW_CHAT = 'new';
+
+      // Signed-in chats are namespaced by account. A shared browser must not
+      // inherit the previous account's conversations, and a guest chat must not
+      // silently become part of whichever account signs in next.
+      function threadKeyFor(sub) {
+        return sub ? `${THREADS_KEY}.${encodeURIComponent(sub)}` : THREADS_KEY;
+      }
+      function threadsKey() {
+        return threadKeyFor(state.user?.sub || '');
+      }
 
       // A renamed chat keeps its name. The override is tied to the chat id, so a
       // new chat cannot inherit it and only the renamed one reads it again.
       let titleOverride = { id: '', title: '' };
 
-      function readThreads() {
+      function readThreads(key = threadsKey()) {
         try {
-          const value = JSON.parse(localStorage.getItem(THREADS_KEY) || '[]');
+          const value = JSON.parse(localStorage.getItem(key) || '[]');
           return Array.isArray(value)
             ? value.filter((thread) => thread && typeof thread.id === 'string' && Array.isArray(thread.messages))
             : [];
@@ -4021,22 +4776,84 @@
         }
       }
 
-      function saveThread() {
-        if (!state.messages.length) return;
+      function writeThreads(threads, key = threadsKey()) {
+        try {
+          localStorage.setItem(key, JSON.stringify(threads.slice(0, 200)));
+          return true;
+        } catch {
+          // Private mode or a full quota must not stop the conversation; the
+          // account copy is still written when signed in.
+          return false;
+        }
+      }
+
+      function mergeThreads(key, incoming) {
+        const byId = new Map();
+        for (const thread of [...readThreads(key), ...(Array.isArray(incoming) ? incoming : [])]) {
+          if (!thread || typeof thread.id !== 'string' || !Array.isArray(thread.messages)) continue;
+          const seen = byId.get(thread.id);
+          if (!seen || (thread.updatedAt || 0) > (seen.updatedAt || 0)) byId.set(thread.id, thread);
+        }
+        const merged = [...byId.values()]
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+          .slice(0, 200);
+        writeThreads(merged, key);
+        return merged;
+      }
+
+      // 2.9.0 and earlier wrote every chat to one key. Move that cache into the
+      // right account, or claim guest chats on first sign-in, then remove the
+      // un-namespaced copy so a later account cannot inherit it.
+      function migrateLegacyThreads(before, now) {
+        if (!now) return;
+        const legacy = readThreads(THREADS_KEY);
+        if (!legacy.length) return;
+        const target = now === before ? threadKeyFor(now) : before ? threadKeyFor(before) : threadKeyFor(now);
+        mergeThreads(target, legacy);
+        try {
+          localStorage.removeItem(THREADS_KEY);
+        } catch {
+          /* storage blocked; the copy is still safe */
+        }
+      }
+
+      function setActiveThread(id) {
+        try {
+          localStorage.setItem(ACTIVE_KEY, id);
+        } catch {
+          /* storage blocked; opening a chat still works */
+        }
+      }
+      function activeThreadId() {
+        try {
+          return localStorage.getItem(ACTIVE_KEY) || '';
+        } catch {
+          return '';
+        }
+      }
+
+      function newIdForSave() {
+        return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      }
+
+      function saveThread({ allowEmpty = false } = {}) {
+        // A chat with files but no messages is still a saved chat. Without this
+        // exception a reload cannot find the id that owns its browser files.
+        // New Chat passes allowEmpty so the entry exists before its first turn.
+        if (!state.messages.length && !Object.keys(readFiles()).length && !allowEmpty) return;
         // Saving a chat must not read browser pin state. Pins are a view
         // preference, and a missing pin helper must never break a tool write.
-        const threads = readThreads()
+        const key = threadsKey();
+        const threads = readThreads(key)
           .slice()
           .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         const now = Date.now();
-        const id =
-          state.threadId ||
-          (typeof crypto.randomUUID === 'function'
-            ? crypto.randomUUID()
-            : 't' + now.toString(36) + Math.random().toString(36).slice(2, 8));
+        const id = state.threadId || newIdForSave();
         state.threadId = id;
         const firstUser = state.messages.find((message) => message.role === 'user');
-        const derived = (firstUser?.content || 'Untitled chat').replace(/\s+/g, ' ').trim().slice(0, 60);
+        const derived = (firstUser?.content || 'New chat').replace(/\s+/g, ' ').trim().slice(0, 60);
         const title = titleOverride.id === id && titleOverride.title ? titleOverride.title : derived;
         const next = [
           { id, title, provider: state.provider, model: state.model, messages: state.messages, updatedAt: now },
@@ -4045,24 +4862,42 @@
           .sort((a, b) => b.updatedAt - a.updatedAt)
           // Keep every chat the server keeps; 30 used to hide older history here.
           .slice(0, 200);
-        localStorage.setItem(THREADS_KEY, JSON.stringify(next));
-        pushThread(next[0]);
+        writeThreads(next, key);
+        setActiveThread(id);
+        renderHistory();
+        void pushThread(next[0]);
+      }
+
+      // Save the chat record the first time a draft gets files. Later writes
+      // only update the file namespace; the chat already exists.
+      function saveFileOnlyThread() {
+        if (state.messages.length || !state.threadId) return;
+        if (!Object.keys(readFiles()).length) return;
+        if (readThreads().some((thread) => thread.id === state.threadId)) return;
+        saveThread();
       }
 
       function deleteThread(id) {
         const next = readThreads().filter((thread) => thread.id !== id);
-        localStorage.setItem(THREADS_KEY, JSON.stringify(next));
-        if (state.threadId === id) state.threadId = null;
+        writeThreads(next);
+        delete fileNamespaces[id];
+        if (fileDb) {
+          clearTimeout(fileWriteTimer);
+          fileWriteTimer = setTimeout(() => saveFileDb().catch(() => {}), 120);
+        }
+        if (state.threadId === id) {
+          startNewChat({ quiet: true });
+        }
         if (titleOverride.id === id) titleOverride = { id: '', title: '' };
         forgetThread(id);
         renderHistory();
       }
 
       // Palette actions, so a chat can be renamed or removed from Ctrl+K.
-      function renameCurrentThread() {
+      async function renameCurrentThread() {
         if (!state.threadId) return banner('Open a chat first.', 'close', () => {});
         const current = readThreads().find((thread) => thread.id === state.threadId);
-        const answer = prompt('Rename this chat', current?.title || 'Untitled chat');
+        const answer = await askPrompt('Rename this chat', current?.title || 'Untitled chat', 'Rename chat');
         if (answer === null) return;
         const title = answer.replace(/\s+/g, ' ').trim().slice(0, 60);
         if (!title) return banner('A chat needs a title.', 'close', () => {});
@@ -4092,12 +4927,21 @@
         } catch {
           state.user = null;
         }
-        renderAccount();
         // Say it once, on the way back from the sign-in redirect: silently
         // switching where chats are stored is how this looked broken.
         const before = localStorage.getItem('orc.signedin') || '';
         const now = state.user ? state.user.sub : '';
+        migrateLegacyThreads(before, now);
         localStorage.setItem('orc.signedin', now);
+        renderAccount();
+        if (now) loadPreviewShares();
+        else {
+          state.previewShares = [];
+          state.previewSharesUsage = null;
+          state.previewShare = null;
+          if (state.previewName) setPreviewLink(state.previewName);
+          renderPreviewShares();
+        }
         if (now && now !== before) {
           const who = state.user.email || state.user.name;
           banner(
@@ -4177,8 +5021,8 @@
       }
 
       function pushThread(thread) {
-        if (!state.user || !thread) return;
-        fetch('/api/threads/' + encodeURIComponent(thread.id), {
+        if (!state.user || !thread) return Promise.resolve();
+        return fetch('/api/threads/' + encodeURIComponent(thread.id), {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -4202,17 +5046,23 @@
           if (!res.ok) return;
           const data = await res.json();
           const remote = Array.isArray(data.threads) ? data.threads : [];
-          if (!remote.length) return;
-          const byId = new Map();
-          for (const thread of [...readThreads(), ...remote]) {
-            if (!thread || typeof thread.id !== 'string' || !Array.isArray(thread.messages)) continue;
-            const seen = byId.get(thread.id);
-            if (!seen || (thread.updatedAt || 0) > (seen.updatedAt || 0)) byId.set(thread.id, thread);
+          const local = readThreads();
+          const remoteById = new Map(remote.map((thread) => [thread.id, thread]));
+
+          // Remote wins only when it is newer; otherwise the local copy is the
+          // one that has edits this browser has not uploaded yet.
+          mergeThreads(threadsKey(), [...local, ...remote]);
+          renderHistory();
+
+          const uploads = local.filter((thread) => {
+            const seen = remoteById.get(thread.id);
+            return !seen || (thread.updatedAt || 0) > (seen.updatedAt || 0);
+          });
+          // Small batches, so the first sign-in after a long local history does
+          // not open hundreds of parallel requests against D1.
+          for (let start = 0; start < uploads.length; start += 4) {
+            await Promise.all(uploads.slice(start, start + 4).map(pushThread));
           }
-          const merged = [...byId.values()]
-            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-            .slice(0, 200); // matches the server's ceiling, so nothing is hidden
-          localStorage.setItem(THREADS_KEY, JSON.stringify(merged));
           renderHistory();
         } catch {
           /* offline: the browser copy still works */
@@ -4255,8 +5105,8 @@
           ? [{ role: 'system', content: `User memory note for this chat (keep following it):\n${note}` }, ...messages]
           : messages;
       }
-      function assignProject(id) {
-        const answer = prompt('Project name (blank = Ungrouped)', projectOf(id));
+      async function assignProject(id) {
+        const answer = await askPrompt('Project name (blank = Ungrouped)', projectOf(id), 'Move chat');
         if (answer === null) return;
         const name = answer.replace(/\s+/g, ' ').trim().slice(0, 40);
         const map = readOrgMap(PROJECTS_KEY);
@@ -4265,9 +5115,9 @@
         renderHistory();
         banner(name ? `Moved to ${name}.` : 'Moved to Ungrouped.', 'close', () => {});
       }
-      $('memoryBtn').addEventListener('click', () => {
+      $('memoryBtn').addEventListener('click', async () => {
         if (!state.threadId) return banner('Open a chat first.', 'close', () => {});
-        const answer = prompt('Memory note sent with every message in this chat (blank removes it):', memoryNoteFor(state.threadId));
+        const answer = await askPrompt('Memory note sent with every message in this chat (blank removes it):', memoryNoteFor(state.threadId), 'Memory note');
         if (answer === null) return;
         const note = answer.trim().slice(0, 4000);
         const map = readOrgMap(NOTES_KEY);
@@ -4304,15 +5154,26 @@
         const count = $('threadCount');
         if (count) count.textContent = all.length === 1 ? '1 chat' : `${all.length} chats`;
         if (!threads.length) {
-          list.append(
+          const empty = el('div', 'thread-empty');
+          empty.append(
             el(
               'p',
               'fine',
               query
                 ? 'No chat matches that search.'
-                : 'No saved chats yet — send a message and it lands here.',
+                : 'No saved chats yet.',
             ),
           );
+          if (!query) {
+            const start = el('button', 'thread-empty-new', 'Start a new chat');
+            start.type = 'button';
+            start.onclick = () => {
+              startNewChat();
+              closeSidebar(true);
+            };
+            empty.append(start);
+          }
+          list.append(empty);
           return;
         }
         let activeProject;
@@ -4400,6 +5261,12 @@
           0,
         );
         state.threadId = thread.id;
+        setActiveThread(thread.id);
+        claimLegacyFiles(thread.id);
+        clearPreview();
+        resetFileEditor();
+        renderFiles();
+        if (state.accountFilesEnabled) loadAccountFiles({ claim: true });
         const firstUser = thread.messages.find(
           (message) => message.role === 'user' && typeof message.content === 'string',
         );
@@ -4420,6 +5287,35 @@
         setHints();
         scrollDown();
         $('input').focus();
+      }
+
+      async function restoreActiveChat() {
+        const threads = readThreads();
+        const last = activeThreadId();
+        if (last && last !== NEW_CHAT) {
+          const target = threads.find((thread) => thread.id === last);
+          if (target) {
+            await loadThread(target.id).catch(() => {});
+            return;
+          }
+          // New Chat created an id before the first message was saved. Keep it
+          // so the empty workspace and its files survive a reload.
+          state.threadId = last;
+          state.messages = [];
+          clearPreview();
+          resetFileEditor();
+          renderFiles();
+          if (state.accountFilesEnabled) loadAccountFiles();
+          // The id was created before the first message; save it now so it is
+          // a real sidebar entry and survives the reload.
+          saveThread({ allowEmpty: true });
+          return;
+        }
+        if (threads.length) {
+          await loadThread(threads[0].id).catch(() => {});
+          return;
+        }
+        startNewChat({ quiet: true });
       }
 
       $('historyBtn').onclick = () => openSidebar();
@@ -4444,17 +5340,7 @@
           if (!res.ok) return;
           const data = await res.json();
           const remote = Array.isArray(data.threads) ? data.threads : [];
-          if (!remote.length) return;
-          const byId = new Map();
-          for (const thread of [...readThreads(), ...remote]) {
-            if (!thread || typeof thread.id !== 'string' || !Array.isArray(thread.messages)) continue;
-            const seen = byId.get(thread.id);
-            if (!seen || (thread.updatedAt || 0) > (seen.updatedAt || 0)) byId.set(thread.id, thread);
-          }
-          const merged = [...byId.values()]
-            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-            .slice(0, 200);
-          localStorage.setItem(THREADS_KEY, JSON.stringify(merged));
+          mergeThreads(threadsKey(), remote);
           renderHistory();
         } catch {
           /* offline: the local search already ran */
@@ -4688,11 +5574,15 @@
       function applyProvider(id) {
         saveThread();
         state.provider = id;
-        state.threadId = null;
+        state.threadId = newId();
+        setActiveThread(state.threadId);
         localStorage.setItem('orc.provider', id);
         // Conversations are provider-specific: a Groq model cannot continue an
-        // OpenRouter thread.
+        // OpenRouter thread. Files are per chat as well.
         state.messages = [];
+        clearPreview();
+        resetFileEditor();
+        renderFiles();
         $('thread').innerHTML = '';
         const hello = el('div', 'empty');
         hello.id = 'hello';
@@ -4701,6 +5591,9 @@
         hello.append(suggestRow());
         $('thread').append(hello);
         setHints();
+        // A provider switch starts a fresh chat; list it before the first turn
+        // just like the New Chat button does.
+        saveThread({ allowEmpty: true });
         loadModels().catch(() => {});
       }
 
@@ -4742,8 +5635,8 @@
         state.stopRequested = true;
         if (state.abort) state.abort.abort();
       };
-      $('quitBtn').onclick = () => {
-        if (!confirm('Stop this tab? Reload to start again.')) return;
+      $('quitBtn').onclick = async () => {
+        if (!(await askConfirm('Stop this tab? Reload to start again.', 'Stop this tab', 'Stop'))) return;
         state.stopRequested = true;
         if (state.abort) state.abort.abort();
         state.busy = false;
@@ -4886,12 +5779,29 @@
         }
       });
 
-      $('clearBtn').onclick = () => {
+      function newId() {
+        return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      }
+
+      function resetFileEditor() {
+        $('fileName').value = '';
+        $('fileBody').value = '';
+      }
+
+      // A new chat gets a stable id and an empty file namespace immediately.
+      // The old chat is saved first, so its files and transcript stay intact.
+      function startNewChat({ quiet = false } = {}) {
         if (state.busy && state.abort) state.abort.abort();
+        if (state.messages.length || Object.keys(readFiles()).length) saveThread();
         clearAttachment();
-        saveThread();
-        state.threadId = null;
+        state.threadId = newId();
+        setActiveThread(state.threadId);
         state.messages = [];
+        state.stats = { requests: 0, ok: 0, failed: 0, lastMs: 0, lastModel: '', tokensIn: 0, tokensOut: 0 };
+        clearPreview();
+        resetFileEditor();
         $('thread').innerHTML = '';
         const hello = el('div', 'empty');
         hello.id = 'hello';
@@ -4901,15 +5811,22 @@
             'p',
             '',
             state.user
-              ? 'Same free-only rule, fresh slate. Signed-in chats are saved to your account.'
-              : 'Same free-only rule, fresh slate. Nothing is stored server-side.',
+              ? 'Same free-only rule, fresh slate. This chat has its own files.'
+              : 'Same free-only rule, fresh slate. This chat has its own files, stored in this browser.',
           ),
         );
         hello.append(suggestRow());
         $('thread').append(hello);
-        banner('');
+        renderFiles();
+        if (state.accountFilesEnabled) loadAccountFiles();
+        banner(quiet ? '' : 'New chat — this workspace is empty.', 'close', () => {});
         setHints();
-      };
+        // New Chat is a real sidebar entry immediately, not after the first
+        // message or file. Sending updates this same thread id.
+        saveThread({ allowEmpty: true });
+      }
+
+      $('clearBtn').onclick = () => startNewChat();
 
       $('imageFile').addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
@@ -4926,8 +5843,15 @@
         }
       });
 
+      window.addEventListener('hashchange', () => {
+        const name = previewFromHash();
+        if (name) openPreviewFromHash(name);
+      });
+
       // --------------------------------------------------------------- boot
       (async function boot() {
+        // Read the hash before restoring the chat: switching chats clears it.
+        const initialPreview = previewFromHash();
         try {
           const res = await fetch('/api/config');
           const cfg = await res.json();
@@ -4937,6 +5861,10 @@
           state.guard = cfg.guard || null;
           state.budget = null;
           state.accountFilesEnabled = cfg.accountFiles === true;
+          state.previewSharesEnabled = cfg.previewShares === true;
+          state.desktopDownloadUrl = cfg.desktopDownloadUrl || state.desktopDownloadUrl;
+          const desktopLink = $('desktopLink');
+          if (desktopLink) desktopLink.href = state.desktopDownloadUrl;
           state.fileLimits = cfg.fileLimits || null;
           state.provider = localStorage.getItem('orc.provider') || cfg.defaultProvider || 'openrouter';
           if (!state.providers.some((provider) => provider.id === state.provider)) {
@@ -4969,6 +5897,8 @@
         if (state.user) await syncThreads();
         setHints();
         await loadModels();
+        await restoreActiveChat();
+        if (initialPreview) await openPreviewFromHash(initialPreview);
         await refreshQuota();
         await refreshBudget();
         applySidebarPreference();

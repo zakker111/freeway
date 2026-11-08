@@ -3,6 +3,7 @@
 // Binds to 127.0.0.1 only: the API key never leaves this process.
 
 import http from 'node:http';
+import { isIP } from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -12,6 +13,7 @@ import { gzipSync } from 'node:zlib';
 import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, toUpstreamMessage } from './lib/models.mjs';
 import { compactMessages } from './lib/memory.mjs';
 import { TOOL_DEFINITIONS, runTool, parseTextToolCalls } from './lib/tools.mjs';
+import { normalizePlan, PLAN_TOOL_NAMES } from './lib/plan.mjs';
 import { withToolInstruction } from './lib/tool-prompt.mjs';
 import {
   PROVIDERS,
@@ -19,7 +21,6 @@ import {
   keyFor,
   accountFor,
   keyTail,
-  baseUrlFor,
   modelsUrl,
   chatUrl,
   headersFor,
@@ -30,10 +31,13 @@ import {
 import { openStore } from './lib/store.mjs';
 import { scrubSecrets } from './lib/redact.mjs';
 import { createWorkspace } from './lib/workspace.mjs';
+import { scaffoldLayout } from './lib/scaffold.mjs';
 import { createPreviewServer } from './lib/preview-server.mjs';
+import { captureScreenshot, screenshotAllowed } from './lib/screenshot.mjs';
 import { openSecrets } from './lib/secrets.mjs';
 import { createGithub } from './lib/github.mjs';
 import { createCommandRunner, parseAllowlist } from './lib/commands.mjs';
+import { createProcessManager, processLimits } from './lib/processes.mjs';
 import { createStatusLog } from './lib/status.mjs';
 
 // import.meta.dirname and AbortSignal.any need Node 20.11. Without this check an
@@ -64,6 +68,65 @@ function isLoopback(host) {
     host === '0:0:0:0:0:0:0:1' ||
     host.startsWith('127.')
   );
+}
+
+/** Parse a Host header without accepting userinfo, paths or whitespace. */
+function requestHost(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || /[\s/\\]/.test(raw)) return null;
+  try {
+    const parsed = new URL(`http://${raw}`);
+    if (parsed.username || parsed.password) return null;
+    return {
+      name: parsed.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase(),
+      host: parsed.host.toLowerCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Loopback, an IP literal, or an explicitly configured reverse-proxy host. */
+function hostAllowed(value) {
+  const parsed = requestHost(value);
+  if (!parsed) return false;
+  if (isLoopback(parsed.name) || isIP(parsed.name) !== 0) return true;
+  if (ALLOWED_HOSTS.has(parsed.name)) return true;
+  const configured = HOST.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+  return !['0.0.0.0', '::'].includes(configured) && parsed.name === configured;
+}
+
+/**
+ * A browser mutation must come from this exact origin. Requests from a native
+ * client (curl, the CLI suite) have no Origin but still need the per-run token.
+ * A cross-site fetch is refused even if it somehow learned that token.
+ */
+function sameOrigin(req) {
+  if (String(req.headers['sec-fetch-site'] ?? '').toLowerCase() === 'cross-site') return false;
+  const origin = req.headers.origin;
+  if (origin === undefined) return true;
+  if (String(origin).toLowerCase() === 'null') return false;
+  let parsed;
+  try {
+    parsed = new URL(String(origin));
+  } catch {
+    return false;
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  const target = requestHost(req.headers.host);
+  return Boolean(target && parsed.host.toLowerCase() === target.host);
+}
+
+function requireTrustedRequest(req, res) {
+  if (!hostAllowed(req.headers.host)) {
+    sendJson(res, 403, { error: 'Requests must come from the local Freeway page.' });
+    return false;
+  }
+  if (MUTATING_METHODS.has(req.method) && !sameOrigin(req)) {
+    sendJson(res, 403, { error: 'That request did not come from the local Freeway page.' });
+    return false;
+  }
+  return true;
 }
 
 function parseArgs(argv) {
@@ -146,17 +209,36 @@ Environment:
 const cli = parseArgs(process.argv.slice(2));
 const HOST = cli.host ?? envHost() ?? DEFAULT_HOST;
 const PORT = cli.port ?? envPort() ?? DEFAULT_PORT;
+// A reverse proxy or tunnel may present a public hostname. It has to be named
+// explicitly; accepting every Host header would let a DNS-rebinding page read
+// the app token from the HTML and drive the local API.
+const ALLOWED_HOSTS = new Set(
+  (process.env.FREEWAY_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+);
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.8.4';
+const VERSION = '2.17.0';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
 const CHAT_BODY_LIMIT = 1_500_000;
 const MAX_INPUT_CHARS = 60_000;
 const MAX_ATTEMPTS = 3;
-const MAX_TOOL_ROUNDS = 3;
+// A model may call one tool per round. The round cap is therefore as large as
+// the Build step budget; Plan keeps its original small cap.
+const MAX_TOOL_ROUNDS = 40;
+const PLAN_TOOL_ROUNDS = 3;
 const MAX_TOOL_CALLS = 4;
+// A Build turn is a small agent loop, not an unlimited one. These two limits
+// bound both the number of tool calls and the wall-clock time the user waits.
+const MAX_BUILD_STEPS = 40;
+const MAX_BUILD_MS = 15 * 60 * 1000;
+// A screenshot is an escalation after the text check, not a per-edit ritual.
+const MAX_SCREENSHOTS = 2;
 const CATALOG_TTL_MS = 60 * 60 * 1000;
 const UPSTREAM_TIMEOUT_MS = 120_000;
 
@@ -172,21 +254,108 @@ const DEFAULT_SETTINGS = {
   maxTokens: DEFAULT_MAX_TOKENS,
   tools: true,
   showLog: true,
+  screenshotChecks: true,
   requestCap: 0,
   // Running programs is the sharpest tool in the app, so it is off until the
   // user turns it on and lists the programs by name.
   allowCommands: false,
   commandAllowlist: '',
+  // Off by default. Turning this on is an explicit trust decision: Build may
+  // write and run allowlisted commands without an Allow / Deny card. Plan mode
+  // never reaches this path, and the workspace/allowlist checks still apply.
+  autoApprove: false,
 };
 
 let catalog = { models: [], fetchedAt: 0 };
 let htmlCache = null;
-// Started on the first workspace preview and reused for every file in it.
+// One loopback preview server, pinned to the chat that opened it. Opening a
+// preview in another chat closes the old server first, so its token and
+// workspace cannot be reused by the next chat.
 let previewServer = null;
+let previewOwner = '';
 
-function localPreviewServer() {
-  previewServer ??= createPreviewServer({ getWorkspace: workspace, appPort: PORT });
+function previewKey(chatId, requested) {
+  return `${chatId || 'legacy'}:${requested === undefined ? 'legacy' : requested || 'managed'}`;
+}
+
+function localPreviewServer(chatId, requested) {
+  const key = previewKey(chatId, requested);
+  if (previewServer && previewOwner === key) return previewServer;
+  void previewServer?.close();
+  previewServer = createPreviewServer({
+    getWorkspace: () => workspaceFor(chatId, requested),
+    appPort: PORT,
+  });
+  previewOwner = key;
   return previewServer;
+}
+
+function closePreviewServer(chatId = null) {
+  if (!previewServer) return;
+  if (chatId && !previewOwner.startsWith(`${chatId}:`)) return;
+  const closing = previewServer;
+  previewServer = null;
+  previewOwner = '';
+  void closing.close();
+}
+
+/** The page a write produced, when that page can be served on its own. */
+function previewPageFrom(outcome, name, input) {
+  if (!outcome?.ok) return '';
+  const candidate =
+    name === 'scaffold_project'
+      ? outcome.path
+      : name === 'write_file' || name === 'apply_patch'
+        ? input?.path
+        : '';
+  return typeof candidate === 'string' && /\.(html?|svg)$/i.test(candidate) ? candidate : '';
+}
+
+/**
+ * Open one workspace page on the loopback preview server and return the exact
+ * URL. Models cannot open a browser, so this tool is how they hand the user a
+ * link they can click without having to find the Preview panel first.
+ */
+async function previewLinkFor(entry, chatId = null, requested = undefined) {
+  const sandbox = workspaceFor(chatId, requested);
+  if (!sandbox.isReady) {
+    return {
+      ok: false,
+      content: 'Error: No workspace folder is set. Ask the user to choose one in Settings.',
+    };
+  }
+  const wanted = String(entry ?? '').trim() || sandbox.findPreviewEntry() || '';
+  if (!wanted) {
+    return {
+      ok: false,
+      content: 'Error: No HTML or SVG page is available to preview. Write one first.',
+    };
+  }
+  if (!/\.(html?|svg)$/i.test(wanted)) {
+    return {
+      ok: false,
+      content:
+        `Error: /${wanted} is not an HTML or SVG page, so it cannot be served on its own. ` +
+        'Markdown opens inside the Preview panel instead.',
+    };
+  }
+  try {
+    const file = sandbox.readAsset(wanted);
+    // Pinned to this chat, like the Preview panel: a link from another chat is
+    // not allowed to keep serving its files after a switch.
+    const preview = localPreviewServer(chatId, requested);
+    const served = await preview.open(file.path, { host: '127.0.0.1' });
+    return {
+      ok: true,
+      entry: served.entry,
+      url: served.url,
+      content:
+        `Preview link for /${served.entry}:\n${served.url}\n\n` +
+        'Give this exact link to the user. It opens the page in a new tab on this computer while Freeway is running; the Preview panel also shows it.',
+    };
+  } catch (error) {
+    return { ok: false, content: `Error: ${String(error?.message ?? error)}` };
+  }
 }
 
 /**
@@ -294,8 +463,43 @@ function secrets() {
   return secretsStore;
 }
 
+const CHAT_ID = /^[A-Za-z0-9_-]{6,64}$/;
+
 function workspace() {
   return createWorkspace(loadConfig().workspace ?? '');
+}
+
+// A new chat gets its own folder under the app config, created lazily on the
+// first file operation. Existing chats have no workspace field and keep using
+// the old Settings folder, so upgrading does not hide a project.
+function managedWorkspace(chatId) {
+  if (!CHAT_ID.test(String(chatId ?? ''))) {
+    throw Object.assign(new Error('Missing or invalid chat id.'), { status: 400 });
+  }
+  const dir = path.join(configLocation().dir, 'workspaces', chatId);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  return createWorkspace(dir);
+}
+
+/**
+ * Resolve the workspace for one turn or file request.
+ *
+ * `requested` is the page's workspacePath: undefined means older chats use the
+ * global Settings folder, an empty string means the app-managed chat folder,
+ * and any other string is an explicit project folder. The thread field is the
+ * authority for page-driven requests; this fallback keeps old API clients and
+ * the existing CLI/simulation tests on the legacy folder.
+ */
+function workspaceFor(chatId, requested) {
+  if (typeof requested === 'string' && requested.trim()) return createWorkspace(requested);
+  if (requested === '') return managedWorkspace(chatId);
+  const id = typeof chatId === 'string' && CHAT_ID.test(chatId) ? chatId : null;
+  const thread = id ? store().get(id) : null;
+  if (thread && Object.prototype.hasOwnProperty.call(thread, 'workspace')) {
+    if (thread.workspace) return createWorkspace(thread.workspace);
+    return managedWorkspace(id);
+  }
+  return workspace();
 }
 
 // The GitHub token lives in the secrets store, never in the config file and
@@ -306,13 +510,24 @@ function github() {
 
 // Rebuilt per call so a settings change applies to the next command. With the
 // checkbox off the allowlist is empty, and an empty allowlist refuses everything.
-function commandRunner() {
+function commandRunner(root = loadConfig().workspace ?? '') {
   const settings = loadSettings();
   return createCommandRunner({
-    root: loadConfig().workspace ?? '',
+    root,
     allowlist: settings.allowCommands ? parseAllowlist(settings.commandAllowlist) : [],
   });
 }
+
+// One manager for the whole run: a dev server outlives the turn that started
+// it, so the next turn and the Preview panel can still reach it.
+const processManager = createProcessManager({
+  getRunner: (root) => commandRunner(root || loadConfig().workspace || ''),
+  excludePorts: [PORT],
+});
+
+// Closing the window must not leave a dev server listening with no way to see
+// or stop it. SIGKILL because this runs while the process is exiting.
+process.on('exit', () => processManager.stopAllSync());
 
 // Model-initiated writes park here until the page says yes or no.
 const pendingConfirms = new Map();
@@ -348,6 +563,35 @@ function requestConfirm(res, name, args, signal, extra = {}) {
 }
 
 async function runToolConfirmed(res, name, args, ctx, signal) {
+  // Plan mode is enforced here, not only by the advertised tool list: a model
+  // can still emit a mutating call, and it must be refused before any
+  // confirmation card or workspace write.
+  if (ctx.planMode && !PLAN_TOOL_NAMES.has(name)) {
+    return {
+      ok: false,
+      content: `Error: Plan mode is read-only. \`${name}\` is not available until the user presses Build.`,
+    };
+  }
+  // A stopped or disconnected turn must not start a new action, even when the
+  // user has auto-approved Build. The confirmation path otherwise supplies this
+  // check through its abort listener.
+  if (signal?.aborted) {
+    return { ok: false, content: 'Error: the turn was stopped before this action ran.' };
+  }
+  // Auto-approval is a separate, explicit opt-in. It is checked after the
+  // Plan guard above, so Plan can never inherit it, and every tool still runs
+  // through its normal workspace and command-allowlist checks.
+  const autoApprove = !ctx.planMode && loadSettings().autoApprove === true;
+  const approve = (extra = {}) => {
+    if (!autoApprove) return requestConfirm(res, name, args, signal, extra);
+    sseSend(res, {
+      type: 'auto_approve',
+      name,
+      arguments: JSON.stringify(args),
+      ...extra,
+    });
+    return true;
+  };
   if (name === 'apply_patch') {
     // Build the real diff before asking, so the card shows exactly what will
     // change. previewPatch validates every find and never writes anything.
@@ -360,12 +604,31 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     } catch (error) {
       return { ok: false, content: `Error: ${error?.message ?? error}` };
     }
-    const allowed = await requestConfirm(res, name, args, signal, {
+    const allowed = await approve({
       path: preview.path,
       diff: preview.diff,
     });
     if (!allowed) {
       return { ok: false, content: 'The user declined this patch. Do not retry it without asking first.' };
+    }
+  } else if (name === 'scaffold_project') {
+    let layout;
+    try {
+      layout = scaffoldLayout(args);
+    } catch (error) {
+      return { ok: false, content: `Error: ${error?.message ?? error}` };
+    }
+    const allowed = await approve({
+      path: layout.entry,
+      files: layout.paths,
+    });
+    if (!allowed) {
+      return { ok: false, content: 'The user declined this scaffold. Do not retry it without asking first.' };
+    }
+  } else if (name === 'start_process' || name === 'stop_process') {
+    const allowed = await approve();
+    if (!allowed) {
+      return { ok: false, content: 'The user declined this process action. Do not retry it without asking first.' };
     }
   } else if (
     name === 'write_file' ||
@@ -373,7 +636,7 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     name === 'run_command' ||
     name === 'run_tests'
   ) {
-    const allowed = await requestConfirm(res, name, args, signal);
+    const allowed = await approve();
     if (!allowed) {
       return { ok: false, content: 'The user declined this write. Do not retry it without asking first.' };
     }
@@ -536,10 +799,12 @@ function sanitizeSettings(input = {}) {
   }
   if (typeof input.tools === 'boolean') next.tools = input.tools;
   if (typeof input.showLog === 'boolean') next.showLog = input.showLog;
+  if (typeof input.screenshotChecks === 'boolean') next.screenshotChecks = input.screenshotChecks;
   if (typeof input.allowCommands === 'boolean') next.allowCommands = input.allowCommands;
   if (typeof input.commandAllowlist === 'string') {
     next.commandAllowlist = input.commandAllowlist.slice(0, 300);
   }
+  if (typeof input.autoApprove === 'boolean') next.autoApprove = input.autoApprove;
   if (typeof input.requestCap === 'number' && Number.isFinite(input.requestCap)) {
     next.requestCap = Math.min(Math.max(Math.round(input.requestCap), 0), 1000);
   }
@@ -670,7 +935,9 @@ async function getKeyInfo() {
       return {
         ok: false,
         status: response.status,
-        message: body?.error?.message ?? `HTTP ${response.status}`,
+        // An upstream error can quote the key it rejected. This response is
+        // shown in the page, so scrub it before it leaves the process.
+        message: scrubSecrets(String(body?.error?.message ?? `HTTP ${response.status}`)).slice(0, 300),
       };
     }
     const data = body?.data ?? {};
@@ -682,7 +949,11 @@ async function getKeyInfo() {
       freeDaily: data.free_model_daily_requests ?? null,
     };
   } catch (error) {
-    return { ok: false, reason: 'network', message: String(error?.message ?? error) };
+    return {
+      ok: false,
+      reason: 'network',
+      message: scrubSecrets(String(error?.message ?? error)).slice(0, 300),
+    };
   }
 }
 
@@ -857,7 +1128,19 @@ async function handleChat(req, res) {
   // Where to keep a partial answer if this connection dies mid-stream.
   const draftId =
     typeof body.threadId === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(body.threadId) ? body.threadId : null;
+  const requestedWorkspace =
+    body.workspace === null || typeof body.workspace === 'string' ? body.workspace : undefined;
+  // Tools and commands for this turn must see the same chat folder as the
+  // Files and Preview panels. The page sends workspacePath with every turn;
+  // an older client sends nothing and keeps the legacy Settings folder.
+  const turnWorkspace = workspaceFor(draftId, requestedWorkspace);
   const settings = loadSettings();
+  // Plan is a property of this request, not a page-only hint: the server
+  // removes every mutating tool and runToolConfirmed refuses one if a model
+  // calls it anyway.
+  const mode = body.mode === 'plan' ? 'plan' : 'build';
+  const planMode = mode === 'plan';
+  const roundLimit = planMode ? PLAN_TOOL_ROUNDS : MAX_TOOL_ROUNDS;
   const requested = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : null;
   const estimate = estimateTokens(messages);
 
@@ -930,13 +1213,79 @@ async function handleChat(req, res) {
   // tools are offered and the existing 400-without-tools retry covers a model
   // that turns out not to support them.
   const toolsSupported = provider.id === 'openrouter' ? Boolean(leading && supportsParam(leading, 'tools')) : true;
-  let tools = settings.tools && toolsSupported ? TOOL_DEFINITIONS : [];
-  // Do not advertise run_command unless it could actually work: a workspace
-  // folder, the checkbox, and at least one program on the allowlist.
-  const runner = commandRunner();
-  if (tools.length > 0 && !runner.isReady) {
-    tools = tools.filter((tool) => tool.function.name !== 'run_command');
+  let tools = [];
+  if (planMode) {
+    // Planning cannot happen without these, so Plan mode keeps them even when
+    // the general tool switch is off. Every one reads or describes; Build still
+    // honours the switch.
+    tools = TOOL_DEFINITIONS.filter((tool) => PLAN_TOOL_NAMES.has(tool.function.name));
+  } else if (settings.tools && toolsSupported) {
+    tools = TOOL_DEFINITIONS;
   }
+  // Do not advertise command tools unless they could actually work: a workspace
+  // folder, the checkbox, and at least one program on the allowlist. run_tests
+  // uses the same runner as run_command, so it must disappear under the same
+  // conditions instead of offering a call that can only fail.
+  const runner = commandRunner(turnWorkspace.root ?? '');
+  if (tools.length > 0 && !runner.isReady) {
+    tools = tools.filter(
+      (tool) =>
+        tool.function.name !== 'run_command' &&
+        tool.function.name !== 'run_tests' &&
+        tool.function.name !== 'start_process',
+    );
+  }
+
+  // A screenshot is only useful when every model in the fallback chain can see
+  // it. Otherwise a retry could receive an image it cannot understand. The
+  // pure helper also enforces the switch, Plan mode and the workspace.
+  const screenshotReady = screenshotAllowed({
+    mode,
+    enabled: settings.screenshotChecks !== false,
+    toolsOffered: tools.length > 0,
+    toolsSupported,
+    workspaceReady: turnWorkspace.isReady,
+    providerId: provider.id,
+    chain,
+    models,
+  });
+  if (tools.length > 0 && !screenshotReady) {
+    tools = tools.filter((tool) => tool.function.name !== 'screenshot_preview');
+  }
+
+  let screenshotsTaken = 0;
+  const capturePreview = screenshotReady
+    ? async (input = {}) => {
+        if (screenshotsTaken >= MAX_SCREENSHOTS) {
+          return {
+            ok: false,
+            content: `Screenshot FAILED: at most ${MAX_SCREENSHOTS} captures are allowed in one Build run. Use preview_check or fix the page directly.`,
+          };
+        }
+        const entry =
+          typeof input.entry === 'string' && input.entry.trim() ? input.entry.trim() : 'index.html';
+        // A temporary server keeps the user's Preview panel and its token
+        // untouched, then closes as soon as the capture finishes.
+        const preview = createPreviewServer({ getWorkspace: () => turnWorkspace, appPort: PORT });
+        try {
+          const opened = await preview.open(entry);
+          const shot = await captureScreenshot({ url: opened.url });
+          screenshotsTaken += 1;
+          return {
+            ...shot,
+            ok: true,
+            entry,
+            content:
+              `Captured /${entry} at ${shot.width}×${shot.height} (${Math.round(shot.bytes / 1024)} KB). ` +
+              'The image is attached to the conversation so you can inspect layout, spacing, overflow and contrast.',
+          };
+        } catch (error) {
+          return { ok: false, content: `Screenshot FAILED: ${String(error?.message ?? error)}` };
+        } finally {
+          await preview.close().catch(() => {});
+        }
+      }
+    : undefined;
 
   res.writeHead(200, {
     'content-type': 'text/event-stream; charset=utf-8',
@@ -961,12 +1310,15 @@ async function handleChat(req, res) {
 
   sseSend(res, {
     type: 'meta',
+    mode,
     provider: provider.id,
     chain,
     fallbacks: steps.filter((step) => step.provider.id !== provider.id).map((step) => step.provider.label),
     skipped: coolingIds(),
     tools: tools.map((tool) => tool.function.name),
-    rounds: MAX_TOOL_ROUNDS,
+    screenshots: screenshotReady,
+    rounds: roundLimit,
+    build: mode === 'build' ? { maxSteps: MAX_BUILD_STEPS, maxMs: MAX_BUILD_MS } : null,
     memory: memory.compacted
       ? {
           compacted: memory.compacted,
@@ -1000,11 +1352,34 @@ async function handleChat(req, res) {
 
   let accumulated = '';
   let sawTools = false;
+  let unofferedTools = false;
   let answeredModel = null;
   let lastUsage = null;
   let lastFailure = null;
+  let toolSteps = 0;
+  let budgetStopped = false;
+  const buildStartedAt = Date.now();
+  const sendBuildProgress = (state = 'running') => {
+    if (mode !== 'build') return;
+    sseSend(res, {
+      type: 'build',
+      state,
+      steps: toolSteps,
+      maxSteps: MAX_BUILD_STEPS,
+      elapsedMs: Date.now() - buildStartedAt,
+      maxMs: MAX_BUILD_MS,
+    });
+  };
 
-  for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+  for (let round = 0; round <= roundLimit; round += 1) {
+    if (
+      mode === 'build' &&
+      (toolSteps >= MAX_BUILD_STEPS || Date.now() - buildStartedAt >= MAX_BUILD_MS)
+    ) {
+      budgetStopped = true;
+      sendBuildProgress('limit');
+      break;
+    }
     let roundText = '';
     let roundModel = null;
     let roundUsage = null;
@@ -1109,26 +1484,38 @@ async function handleChat(req, res) {
         // result, so cap the list before it is stored and execute exactly that
         // list. Giving the model a generated id also keeps the assistant call
         // and its result paired when a provider omits the id.
-        roundTools = local.toolCalls
-          .filter((call) => call && call.function?.name)
-          .slice(0, MAX_TOOL_CALLS)
-          .map((call, index) => ({ ...call, id: call.id || `call_${round}_${index}` }));
+        // Never execute a tool call from a response that was not given tools.
+        // A provider can return tool_calls anyway (or reject the tools parameter
+        // and then return one); running it would bypass the user's Tools switch
+        // and, with auto-approve, write without a card.
+        const toolsWereOffered = tools.length > 0;
+        if (!toolsWereOffered && local.toolCalls.length > 0) unofferedTools = true;
+        roundTools = toolsWereOffered
+          ? local.toolCalls
+              .filter((call) => call && call.function?.name)
+              .slice(0, MAX_TOOL_CALLS)
+              .map((call, index) => ({ ...call, id: call.id || `call_${round}_${index}` }))
+          : [];
         if (roundTools.length > 0) sawTools = true;
         // Some free models write their tool call as text instead of using the
         // protocol: "<tool_call><function=write_file><parameter=path>…". Nothing
         // runs that, so the model appears to do nothing and the turn ends with
         // no file written. Recover the call and send it down the same approval
-        // path as a real one.
+        // path as a real one, but only when tools were actually offered.
         if (roundTools.length === 0 && /<tool_call>/i.test(roundText)) {
           const recovered = parseTextToolCalls(roundText);
           if (recovered.calls.length > 0) {
             roundText = recovered.text;
-            roundTools = recovered.calls.map((call, index) => ({
-              id: `text_${round}_${index}`,
-              type: 'function',
-              function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
-            }));
-            sawTools = true;
+            if (toolsWereOffered) {
+              roundTools = recovered.calls.map((call, index) => ({
+                id: `text_${round}_${index}`,
+                type: 'function',
+                function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
+              }));
+              sawTools = true;
+            } else {
+              unofferedTools = true;
+            }
           }
         }
         // Text-parsed calls can be more numerous than protocol calls; both
@@ -1182,56 +1569,143 @@ async function handleChat(req, res) {
     if (controller.signal.aborted) break;
     if (roundTools.length === 0) break;
 
-    if (round >= MAX_TOOL_ROUNDS) {
+    if (round >= roundLimit) {
       sseSend(res, { type: 'retry', reason: 'tool-limit', message: 'Stopped after the tool round limit.' });
       break;
     }
 
     conversation.push({ role: 'assistant', content: roundText, tool_calls: roundTools });
     for (const call of roundTools) {
+      if (
+        mode === 'build' &&
+        (toolSteps >= MAX_BUILD_STEPS || Date.now() - buildStartedAt >= MAX_BUILD_MS)
+      ) {
+        budgetStopped = true;
+        sendBuildProgress('limit');
+        break;
+      }
+      toolSteps += 1;
       const name = call.function.name;
       const input = safeJson(call.function.arguments);
-      const outcome = await runToolConfirmed(
-        res,
-        name,
-        input,
-        {
-          getCatalog,
-          workspace: workspace(),
-          github: github(),
-          commands: runner,
-          // stdout/stderr reach the page while the process is still running.
-          onCommandOutput: (chunk) =>
-            sseSend(res, { type: 'command', chunk: chunk.text, stream: chunk.stream }),
-        },
-        controller.signal,
-      );
+      let outcome;
+      if (planMode && !PLAN_TOOL_NAMES.has(name)) {
+        // Defence in depth: a provider may ignore the filtered tool list.
+        outcome = {
+          ok: false,
+          content: `Error: Plan mode is read-only. \`${name}\` is not available until the user presses Build.`,
+        };
+      } else {
+        outcome = await runToolConfirmed(
+          res,
+          name,
+          input,
+          {
+            getCatalog,
+            workspace: turnWorkspace,
+            github: github(),
+            commands: runner,
+            processes: processManager,
+            processRoot: turnWorkspace.root ?? '',
+            screenshot: capturePreview,
+            previewLink: (entry) => previewLinkFor(entry, draftId, requestedWorkspace),
+            planMode,
+            // stdout/stderr reach the page while the process is still running.
+            onCommandOutput: (chunk) =>
+              sseSend(res, { type: 'command', chunk: chunk.text, stream: chunk.stream }),
+          },
+          controller.signal,
+        );
+      }
+      // A page was just written or patched: hand the model its link in the same
+      // tool result, so even a model that never calls preview_link can show it.
+      if (mode === 'build' && outcome.ok) {
+        const page = previewPageFrom(outcome, name, input);
+        if (page) {
+          const link = await previewLinkFor(page, draftId, requestedWorkspace);
+          if (link.ok) {
+            outcome = {
+              ...outcome,
+              content: `${outcome.content}\n\nPreview link: ${link.url}`,
+              previewUrl: link.url,
+              previewEntry: link.entry,
+            };
+          }
+        }
+      }
+      if (name === 'propose_plan' && outcome.ok) {
+        const plan = normalizePlan(input);
+        if (plan) sseSend(res, { type: 'plan', plan });
+      } else if (name === 'update_plan_step' && outcome.ok) {
+        sseSend(res, { type: 'plan_step', index: Number(input.index), status: String(input.status) });
+      }
       conversation.push({
         role: 'tool',
         tool_call_id: call.id || `call_${round}_${name}`,
         content: outcome.content,
       });
+      if (outcome.image) {
+        // The tool result is text, so the image follows as a user message. It
+        // is not added to the page transcript: the SSE event displays it, while
+        // the saved chat keeps the text answer and tool summary.
+        conversation.push(
+          toUpstreamMessage({
+            role: 'user',
+            content:
+              `Screenshot of the local preview /${outcome.entry ?? 'index.html'} ` +
+              `(${outcome.width ?? '?'}×${outcome.height ?? '?'}). The static preview check passed. ` +
+              'Inspect layout, spacing, overflow and contrast; fix what is visibly wrong before finishing.',
+            images: [outcome.image],
+          }),
+        );
+      }
       sseSend(res, {
         type: 'tool',
         name,
         arguments: call.function.arguments,
         ok: outcome.ok,
         preview: outcome.content.slice(0, 300),
+        screenshot: outcome.image,
+        screenshotWidth: outcome.width,
+        screenshotHeight: outcome.height,
+        screenshotEntry: outcome.entry,
+        // The page can show or copy the link the model just received.
+        previewUrl: outcome.previewUrl || (name === 'preview_link' ? outcome.url : undefined),
+        previewEntry: outcome.previewEntry || (name === 'preview_link' ? outcome.entry : undefined),
         // Let the page open an HTML/SVG file the model just wrote without the
         // user having to ask for a preview as a separate turn.
         path:
-          (name === 'write_file' || name === 'apply_patch') && typeof input.path === 'string'
-            ? input.path
-            : undefined,
+          name === 'scaffold_project'
+            ? outcome.path
+            : (name === 'write_file' || name === 'apply_patch') && typeof input.path === 'string'
+              ? input.path
+              : undefined,
+        // A started dev server carries its own id, port and URL so the page can
+        // offer Open and Stop without another request.
+        process: outcome.process,
+        url: outcome.process?.url || undefined,
       });
+      sendBuildProgress(
+        toolSteps >= MAX_BUILD_STEPS || Date.now() - buildStartedAt >= MAX_BUILD_MS
+          ? 'limit'
+          : 'running',
+      );
     }
+    if (
+      !budgetStopped &&
+      mode === 'build' &&
+      (toolSteps >= MAX_BUILD_STEPS || Date.now() - buildStartedAt >= MAX_BUILD_MS)
+    ) {
+      budgetStopped = true;
+      sendBuildProgress('limit');
+    }
+    if (budgetStopped) break;
   }
 
   // Several free models call tools and then return an empty message: the API
   // considers that turn finished, but the user asked a question and the tool
   // results are sitting in the conversation. Ask once more with no tools
   // attached, so the model has nothing to do but answer in words.
-  if (!controller.signal.aborted && accumulated.trim().length === 0 && sawTools) {
+  if (!controller.signal.aborted && !budgetStopped && accumulated.trim().length === 0 && sawTools) {
     const nudgeStarted = Date.now();
     try {
       const upstream = await post({ provider, key }, {
@@ -1299,6 +1773,7 @@ async function handleChat(req, res) {
             { role: 'assistant', content: accumulated, model: answeredModel, usage: lastUsage },
           ],
           requests: 1,
+          ...(requestedWorkspace !== undefined ? { workspace: requestedWorkspace } : {}),
         });
       }
     } catch {
@@ -1316,12 +1791,22 @@ async function handleChat(req, res) {
     });
   } else if (controller.signal.aborted) {
     sseSend(res, { type: 'done', model: answeredModel ?? chain[0], stopped: true });
+  } else if (budgetStopped) {
+    sseSend(res, {
+      type: 'error',
+      reason: 'build-limit',
+      message:
+        `Build stopped at its ${MAX_BUILD_STEPS}-step / ${Math.round(MAX_BUILD_MS / 60000)}-minute limit. ` +
+        'Files already written are safe. Send “continue” to keep building from here.',
+    });
   } else {
     let hint =
-      lastFailure?.message ??
-      (sawTools
-        ? 'The model used tools but never wrote an answer. Send the message again, or pick another free model.'
-        : 'No model answered.');
+      unofferedTools
+        ? 'The model tried to use a tool even though tools were not offered. Turn tools on in Settings, or pick another free model, then send the message again.'
+        : lastFailure?.message ??
+          (sawTools
+            ? 'The model used tools but never wrote an answer. Send the message again, or pick another free model.'
+            : 'No model answered.');
     if (lastFailure?.reason === 'rate-limit') {
       const info = await getKeyInfo();
       const free = info?.ok ? info.freeDaily : null;
@@ -1362,6 +1847,7 @@ function requireToken(req, res) {
 async function route(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const { pathname } = url;
+  if (!requireTrustedRequest(req, res)) return;
   // Decided once per request: both the page and every JSON body read this.
   res.wantsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
 
@@ -1614,11 +2100,15 @@ async function route(req, res) {
         models: rows,
       });
     } catch (error) {
-      return sendJson(res, error.status ?? 502, { error: error.message, provider: provider.id });
+      return sendJson(res, error.status ?? 502, {
+        error: scrubSecrets(String(error.message ?? error)),
+        provider: provider.id,
+      });
     }
   }
 
   if (req.method === 'GET' && pathname === '/api/key') {
+    if (!requireToken(req, res)) return;
     const provider = activeProvider();
     if (provider.id !== 'openrouter') {
       return sendJson(res, 200, {
@@ -1655,7 +2145,15 @@ async function route(req, res) {
         models: catalog.models.length,
         ageMs: catalog.fetchedAt ? Date.now() - catalog.fetchedAt : null,
       },
-      limits: { attempts: MAX_ATTEMPTS, toolRounds: MAX_TOOL_ROUNDS, toolCalls: MAX_TOOL_CALLS },
+      limits: {
+        attempts: MAX_ATTEMPTS,
+        toolRounds: MAX_TOOL_ROUNDS,
+        toolCalls: MAX_TOOL_CALLS,
+        buildSteps: MAX_BUILD_STEPS,
+        buildMs: MAX_BUILD_MS,
+        processes: processLimits.MAX_PROCESSES,
+        processLogBytes: processLimits.MAX_LOG_BYTES,
+      },
     });
   }
 
@@ -1710,20 +2208,52 @@ async function route(req, res) {
 
   if (pathname === '/api/fs' || pathname.startsWith('/api/fs/')) {
     if (!requireToken(req, res)) return;
-    const sandbox = workspace();
-    if (!sandbox.isReady) {
-      return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+    const chatId = url.searchParams.get('chat') || null;
+    if (chatId && !CHAT_ID.test(chatId)) {
+      return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
     }
+    const requested = url.searchParams.has('workspace') ? url.searchParams.get('workspace') : undefined;
+    const sandbox = workspaceFor(chatId, requested);
     try {
       if (req.method === 'GET' && pathname === '/api/fs') {
+        if (!sandbox.isReady) {
+          return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+        }
         return sendJson(res, 200, sandbox.list(url.searchParams.get('path') ?? '.'));
       }
       if (req.method === 'GET' && pathname === '/api/fs/read') {
+        if (!sandbox.isReady) {
+          return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+        }
         return sendJson(res, 200, sandbox.read(url.searchParams.get('path') ?? ''));
+      }
+      // The page asks this when Preview is opened without an active entry, so
+      // a generated page is not lost when the tab or chat is reopened.
+      if (req.method === 'GET' && pathname === '/api/fs/preview-entry') {
+        if (!sandbox.isReady) {
+          return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+        }
+        const entry = sandbox.findPreviewEntry();
+        if (!entry) {
+          return sendJson(res, 404, {
+            error: 'No HTML, SVG or Markdown file is available to preview.',
+          });
+        }
+        return sendJson(res, 200, { entry });
       }
       if (req.method === 'POST' && pathname === '/api/fs/write') {
         const body = await readJson(req, 2 * 1024 * 1024);
-        return sendJson(res, 200, { ok: true, ...sandbox.write(body?.path, body?.content) });
+        // Writes name their chat in the body because the URL is already built
+        // by the page with the file path and workspace policy.
+        const bodyChat = typeof body?.chat === 'string' && CHAT_ID.test(body.chat) ? body.chat : null;
+        if (body?.chat && !bodyChat) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+        const bodyWorkspace =
+          body?.workspace === null || typeof body?.workspace === 'string' ? body.workspace : undefined;
+        const target = workspaceFor(bodyChat, bodyWorkspace);
+        if (!target.isReady) {
+          return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+        }
+        return sendJson(res, 200, { ok: true, ...target.write(body?.path, body?.content) });
       }
       return sendJson(res, 405, { error: 'Method not allowed.' });
     } catch (error) {
@@ -1735,11 +2265,15 @@ async function route(req, res) {
   // This is deliberately separate from the saved remote-preview address below.
   if (req.method === 'POST' && pathname === '/api/preview/serve') {
     if (!requireToken(req, res)) return;
-    const sandbox = workspace();
+    const body = await readJson(req, 4096);
+    const chatId = typeof body?.chatId === 'string' && CHAT_ID.test(body.chatId) ? body.chatId : null;
+    if (body?.chatId && !chatId) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    const requestedWorkspace =
+      body?.workspace === null || typeof body?.workspace === 'string' ? body.workspace : undefined;
+    const sandbox = workspaceFor(chatId, requestedWorkspace);
     if (!sandbox.isReady) {
       return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
     }
-    const body = await readJson(req, 4096);
     const wanted = String(body?.entry ?? '').trim();
     if (!wanted) return sendJson(res, 400, { error: 'Choose an HTML file to preview.' });
     if (!/\.(html?|svg)$/i.test(wanted)) {
@@ -1747,7 +2281,9 @@ async function route(req, res) {
     }
     try {
       const file = sandbox.readAsset(wanted);
-      const preview = localPreviewServer();
+      // Pinned to this chat, and only one at a time: a URL from the previous
+      // chat cannot keep serving that chat's files after a switch.
+      const preview = localPreviewServer(chatId, requestedWorkspace);
       const served = await preview.open(file.path, {
         host: body?.host === 'localhost' ? 'localhost' : '127.0.0.1',
       });
@@ -1755,6 +2291,13 @@ async function route(req, res) {
     } catch (error) {
       return sendJson(res, error.status ?? 500, { error: error.message });
     }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/preview/close') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req, 4096).catch(() => ({}));
+    closePreviewServer(typeof body?.chatId === 'string' ? body.chatId : null);
+    return sendJson(res, 200, { ok: true });
   }
 
   // The preview address belongs to one chat and is stored on its own, so saving
@@ -1780,9 +2323,33 @@ async function route(req, res) {
 
   if (req.method === 'POST' && pathname === '/api/quit') {
     if (!requireToken(req, res)) return;
+    // A quit must not leave a dev server running with no window to stop it.
+    processManager.stopAllSync();
     sendJson(res, 200, { ok: true });
     setTimeout(() => process.exit(0), 120);
     return;
+  }
+
+  // Managed dev servers are listed and stopped from the page too, so a server
+  // can be closed without another chat turn.
+  if (req.method === 'GET' && pathname === '/api/processes') {
+    if (!requireToken(req, res)) return;
+    return sendJson(res, 200, {
+      processes: processManager.list(),
+      limits: {
+        maxProcesses: processLimits.MAX_PROCESSES,
+        maxLogBytes: processLimits.MAX_LOG_BYTES,
+      },
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/processes/stop') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req, 4096);
+    const id = typeof body?.id === 'string' && body.id.trim() ? body.id.trim() : '';
+    const stopped = await processManager.stop(id || undefined);
+    if (id && !stopped) return sendJson(res, 404, { error: 'No such process.' });
+    return sendJson(res, 200, { ok: true, stopped: stopped ?? [] });
   }
 
   return sendJson(res, 404, { error: 'Not found' });
@@ -1922,8 +2489,10 @@ export function createServer() {
     });
   });
   server.on('close', () => {
+    processManager.stopAllSync();
     const preview = previewServer;
     previewServer = null;
+    previewOwner = '';
     void preview?.close();
   });
   return server;
