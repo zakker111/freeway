@@ -6,6 +6,14 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release still 
 2.8.4 archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.19.0 · preview captures and Git tools
+
+- [x] Preview viewport selector, Capture and Download PNG for desktop
+- [x] Token-gated local `/api/preview/screenshot`; no model or remote URL required
+- [x] `git_status` / `git_diff` read-only; `git_commit` / `git_revert` approved per call
+- [x] Git paths contained; untracked files refused by revert; hooks/signing disabled
+- [x] 269 unit, 34 CLI, 28 + 28 simulation and 36 cloud checks pass
+
 ## Done — 2.18.1 · cloud boot repair
 
 - [x] Restored the missing comma in the cloud `write_file` description
@@ -320,9 +328,9 @@ and **Build this plan** executes that artifact.
 ### Then
 
 1. **2.14.0 · repo fixing** — this is what turns "make a page" into "fix my project":
-   - [ ] `git_status` and `git_diff`: branch, changed and untracked files, staged and
+   - [x] `git_status` and `git_diff`: branch, changed and untracked files, staged and
          unstaged hunks, read-only and shown in the transcript
-   - [ ] `git_commit` and `git_revert`: approved per call; commit only the reviewed files,
+   - [x] `git_commit` and `git_revert`: approved per call; commit only the reviewed files,
          revert the agent's own changes; never force-push or rewrite history
    - [ ] Clone from GitHub with the PAT already in Secrets, through an ephemeral credential
          helper rather than a token in the remote URL; extend `lib/redact.mjs` to cover

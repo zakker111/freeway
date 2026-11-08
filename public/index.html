@@ -1539,6 +1539,20 @@
         flex: 1; min-height: 200px; width: 100%; border: 1px solid var(--line);
         border-radius: 10px; background: #fff;
       }
+      .pv-shot-row { align-items: center; flex-wrap: wrap; gap: 6px; }
+      .pv-shot-row select {
+        font-size: 11.5px; padding: 3px 6px; color: var(--text);
+        background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+      }
+      .pv-shot-result {
+        margin-top: 8px; padding: 8px; border: 1px solid var(--line);
+        border-radius: 10px; background: var(--surface-2);
+      }
+      .pv-shot-result img {
+        display: block; width: 100%; height: auto; border: 1px solid var(--line);
+        border-radius: 8px; background: #fff;
+      }
+      .pv-shot-result .fine { margin: 6px 0 0; }
       .cmd-log {
         margin: 6px 0 0; padding: 9px 11px; max-height: 200px; overflow: auto;
         background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
@@ -2007,6 +2021,20 @@
           <button class="mini" id="pvOpen" type="button" title="Open in a new tab">Open ↗</button>
           <button class="mini" id="pvCopy" type="button" title="Copy the preview link to share with the chat">Copy link</button>
         </div>
+        <div class="rail-row pv-shot-row">
+          <select id="pvViewport" title="Screenshot size" aria-label="Screenshot size">
+            <option value="desktop">Desktop 800×600</option>
+            <option value="mobile">Mobile 390×844</option>
+            <option value="tablet">Tablet 768×1024</option>
+          </select>
+          <button class="mini" id="pvShot" type="button" title="Capture the preview as a PNG">Capture</button>
+          <button class="mini" id="pvShotDownload" type="button" title="Download the captured PNG" hidden>Download PNG</button>
+          <span class="fine" id="pvShotStatus" role="status" aria-live="polite"></span>
+        </div>
+        <div id="pvShotResult" class="pv-shot-result" hidden>
+          <img id="pvShotImg" alt="Captured preview" />
+          <p class="fine" id="pvShotMeta"></p>
+        </div>
         <iframe id="pvFrame" class="pv-frame" title="Preview" referrerpolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 style="display:none"></iframe>
@@ -2244,6 +2272,10 @@
         localPreview: false,
         previewMode: "",
         previewUrl: "",
+        // A user-triggered capture stays in page memory so it can be downloaded
+        // without sending it to the model.
+        previewShot: "",
+        previewShotName: "",
         pvLoaded: false,
         pvTimer: null,
       };
@@ -4117,6 +4149,7 @@
       function applyPreview(value, { load = true } = {}) {
         previewMonitor.clear();
         previewMonitor.setEnabled(false);
+        clearPreviewShot();
         const frame = $("pvFrame");
         clearPreviewFailure();
         state.localPreview = false;
@@ -4217,6 +4250,7 @@
 
       function showLocalPreview(html, label, warnings) {
         previewMonitor.clear();
+        clearPreviewShot();
         previewMonitor.setEnabled(true);
         state.localPreview = true;
         state.previewMode = "static";
@@ -4242,6 +4276,7 @@
       // involved. Same sandbox as a served preview, different explanation.
       function showDevServerPreview(url, label) {
         previewMonitor.clear();
+        clearPreviewShot();
         previewMonitor.setEnabled(true);
         state.localPreview = true;
         state.previewMode = "server";
@@ -4315,6 +4350,7 @@
       // absolute /assets paths all behave like they do under a dev server.
       function showServedPreview(url, label) {
         previewMonitor.clear();
+        clearPreviewShot();
         previewMonitor.setEnabled(true);
         state.localPreview = true;
         state.previewMode = "server";
@@ -4358,6 +4394,80 @@
         } catch {
           // Clipboard access can be blocked; keep the link selectable instead.
           previewNote(`Preview link: ${url}`);
+        }
+      }
+
+      function clearPreviewShot() {
+        state.previewShot = "";
+        state.previewShotName = "";
+        const result = $("pvShotResult");
+        if (result) result.hidden = true;
+        const image = $("pvShotImg");
+        if (image) image.removeAttribute("src");
+        const download = $("pvShotDownload");
+        if (download) download.hidden = true;
+        const status = $("pvShotStatus");
+        if (status) status.textContent = "";
+      }
+
+      function previewShotSource() {
+        if (state.previewMode === "server" && state.previewUrl) return { url: state.previewUrl };
+        const entry = state.previewEntry;
+        if (entry && !/\(in memory\)/i.test(entry) && /\.(html?|svg)$/i.test(entry)) {
+          return { entry };
+        }
+        return null;
+      }
+
+      function downloadPreviewShot() {
+        if (!state.previewShot) return;
+        const link = document.createElement("a");
+        link.href = state.previewShot;
+        link.download = state.previewShotName || "preview.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setStatus("screenshot downloaded");
+      }
+
+      async function capturePreviewShot() {
+        const source = previewShotSource();
+        if (!source) {
+          previewNote("Open a workspace HTML or SVG page, or a local dev server, before capturing.");
+          return;
+        }
+        const button = $("pvShot");
+        const viewport = $("pvViewport").value;
+        button.disabled = true;
+        $("pvShotStatus").textContent = "capturing…";
+        try {
+          const shot = await api("/api/preview/screenshot", {
+            method: "POST",
+            body: JSON.stringify({
+              ...source,
+              viewport,
+              chatId: state.threadId,
+              workspace: state.workspacePath,
+            }),
+          });
+          if (!shot?.image) throw new Error("The server returned no screenshot.");
+          state.previewShot = shot.image;
+          state.previewShotName =
+            `preview-${viewport}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
+          $("pvShotImg").src = shot.image;
+          $("pvShotResult").hidden = false;
+          $("pvShotDownload").hidden = false;
+          $("pvShotStatus").textContent = "captured";
+          $("pvShotMeta").textContent =
+            `${shot.width}×${shot.height} · ${Math.round((shot.bytes || 0) / 1024)} KB · ${shot.entry || "preview"}`;
+          previewNote("Screenshot captured locally. Download it here; it was not sent to the model.");
+          setStatus("preview screenshot captured");
+        } catch (error) {
+          $("pvShotStatus").textContent = "not captured";
+          previewNote(error.message);
+          setStatus(error.message);
+        } finally {
+          button.disabled = false;
         }
       }
 
@@ -6118,6 +6228,8 @@
         button.addEventListener("click", () => loadGithubView(button.dataset.ghView));
       }
       $("stRefresh").addEventListener("click", refreshStatus);
+      $("pvShot").addEventListener("click", capturePreviewShot);
+      $("pvShotDownload").addEventListener("click", downloadPreviewShot);
       $("pvLoad").addEventListener("click", savePreview);
       $("pvReload").addEventListener("click", () => {
         if (state.previewMode === "server" && state.previewUrl) {

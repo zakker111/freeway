@@ -81,7 +81,8 @@ generated, never edited by hand.
 | `lib/memory.mjs` | deterministic long-chat compaction (no model call, no history loss) |
 | `lib/workspace.mjs` | the one folder tools may touch; realpath containment, size caps |
 | `lib/preview-server.mjs` | loopback preview origin: token cookie, workspace containment, MIME, SPA fallback |
-| `lib/screenshot.mjs` | local headless Edge/Chrome capture: browser discovery, filtered env, 800×600 PNG, 320 KB cap |
+| `lib/screenshot.mjs` | local headless Edge/Chrome capture: browser discovery, filtered env, fixed desktop/mobile/tablet viewports, 320 KB cap |
+| `lib/git.mjs` | bounded Git status/diff/commit/revert; fixed executable, no shell, filtered env, hooks disabled |
 | `lib/preview-bridge.mjs` | shared runtime-error bridge, injected into srcdoc and served previews |
 | `shared/preview.js` | one preview core: static bundler, Markdown renderer, build adapters |
 | `build/sync-preview.mjs` | inlines the shared core into both pages; function replacer required |

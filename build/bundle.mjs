@@ -56,6 +56,7 @@ const page = read('public/index.html');
 const models = stripModule(read('lib/models.mjs'), 'lib/models.mjs');
 const memory = stripModule(read('lib/memory.mjs'), 'lib/memory.mjs');
 const scaffoldMod = stripModule(read('lib/scaffold.mjs'), 'lib/scaffold.mjs');
+const gitMod = stripModule(read('lib/git.mjs'), 'lib/git.mjs');
 const previewCheckMod = stripModule(read('lib/preview-check.mjs'), 'lib/preview-check.mjs');
 const tools = stripModule(read('lib/tools.mjs'), 'lib/tools.mjs');
 const planMod = stripModule(read('lib/plan.mjs'), 'lib/plan.mjs');
@@ -77,6 +78,7 @@ const app = stripModule(read('app.mjs'), 'app.mjs');
 collectNames(models.code, 'lib/models.mjs');
 collectNames(memory.code, 'lib/memory.mjs');
 collectNames(scaffoldMod.code, 'lib/scaffold.mjs');
+collectNames(gitMod.code, 'lib/git.mjs');
 collectNames(previewCheckMod.code, 'lib/preview-check.mjs');
 collectNames(tools.code, 'lib/tools.mjs');
 collectNames(planMod.code, 'lib/plan.mjs');
@@ -202,6 +204,10 @@ ${toolPrompt.code}
 /* --------------------------------------------------------- lib/redact.mjs */
 
 ${redact.code}
+
+/* ------------------------------------------------------------ lib/git.mjs */
+
+${gitMod.code}
 
 /* ------------------------------------------------------ lib/workspace.mjs */
 

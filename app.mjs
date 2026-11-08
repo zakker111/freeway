@@ -33,7 +33,7 @@ import { scrubSecrets } from './lib/redact.mjs';
 import { createWorkspace } from './lib/workspace.mjs';
 import { scaffoldLayout } from './lib/scaffold.mjs';
 import { createPreviewServer } from './lib/preview-server.mjs';
-import { captureScreenshot, screenshotAllowed } from './lib/screenshot.mjs';
+import { captureScreenshot, screenshotAllowed, screenshotViewport } from './lib/screenshot.mjs';
 import { openSecrets } from './lib/secrets.mjs';
 import { createGithub } from './lib/github.mjs';
 import { createCommandRunner, parseAllowlist } from './lib/commands.mjs';
@@ -221,7 +221,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.18.1';
+const VERSION = '2.19.0';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -634,7 +634,9 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     name === 'write_file' ||
     name === 'github_create_issue' ||
     name === 'run_command' ||
-    name === 'run_tests'
+    name === 'run_tests' ||
+    name === 'git_commit' ||
+    name === 'git_revert'
   ) {
     const allowed = await approve();
     if (!allowed) {
@@ -1269,12 +1271,18 @@ async function handleChat(req, res) {
         const preview = createPreviewServer({ getWorkspace: () => turnWorkspace, appPort: PORT });
         try {
           const opened = await preview.open(entry);
-          const shot = await captureScreenshot({ url: opened.url });
+          const viewport = screenshotViewport(input.viewport);
+          const shot = await captureScreenshot({
+            url: opened.url,
+            width: viewport.width,
+            height: viewport.height,
+          });
           screenshotsTaken += 1;
           return {
             ...shot,
             ok: true,
             entry,
+            viewport: input.viewport ?? 'desktop',
             content:
               `Captured /${entry} at ${shot.width}×${shot.height} (${Math.round(shot.bytes / 1024)} KB). ` +
               'The image is attached to the conversation so you can inspect layout, spacing, overflow and contrast.',
@@ -2290,6 +2298,64 @@ async function route(req, res) {
       return sendJson(res, 200, { ...served, entry: file.path });
     } catch (error) {
       return sendJson(res, error.status ?? 500, { error: error.message });
+    }
+  }
+
+  // User-facing capture from the Preview panel. This is deliberately separate
+  // from the model's vision gate: clicking Capture is an explicit request, so
+  // it works for any model and keeps the image in the page for download.
+  if (req.method === 'POST' && pathname === '/api/preview/screenshot') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req, 8192);
+    const chatId = typeof body?.chatId === 'string' && CHAT_ID.test(body.chatId) ? body.chatId : null;
+    if (body?.chatId && !chatId) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    const requestedWorkspace =
+      body?.workspace === null || typeof body?.workspace === 'string' ? body.workspace : undefined;
+    const sandbox = workspaceFor(chatId, requestedWorkspace);
+    if (!sandbox.isReady) {
+      return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+    }
+    const viewport = screenshotViewport(body?.viewport);
+    try {
+      const url = typeof body?.url === 'string' ? body.url.trim() : '';
+      let shot;
+      let entry = typeof body?.entry === 'string' ? body.entry.trim() : '';
+      if (url) {
+        shot = await captureScreenshot({
+          url,
+          width: viewport.width,
+          height: viewport.height,
+          maxChars: 2_000_000,
+        });
+        entry ||= 'current preview';
+      } else {
+        entry = entry || sandbox.findPreviewEntry() || '';
+        if (!entry) {
+          return sendJson(res, 400, { error: 'No HTML or SVG page is available to capture.' });
+        }
+        if (!/\.(html?|svg)$/i.test(entry)) {
+          return sendJson(res, 400, {
+            error: 'The local screenshot starts from an HTML or SVG file. Markdown previews cannot be captured.',
+          });
+        }
+        const preview = localPreviewServer(chatId, requestedWorkspace);
+        const opened = await preview.open(entry);
+        shot = await captureScreenshot({
+          url: opened.url,
+          width: viewport.width,
+          height: viewport.height,
+          maxChars: 2_000_000,
+        });
+        entry = opened.entry || entry;
+      }
+      return sendJson(res, 200, {
+        ok: true,
+        ...shot,
+        entry,
+        viewport: body?.viewport || 'desktop',
+      });
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, { error: String(error.message ?? error) });
     }
   }
 

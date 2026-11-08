@@ -64,7 +64,7 @@ installer. A build copies a Windows `node.exe`, injects the app as a Node SEA bl
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
 end to end on commit `94715e4` (run 41940445555). The last Windows executable published
-from this repo is 2.8.4; the current 2.18.1 source ZIP is built by `release.sh`, while a
+from this repo is 2.8.4; the current 2.19.0 source ZIP is built by `release.sh`, while a
 new `.exe` needs the workflow run. The earlier 2.4.1 download was cross-built from Linux
 with the same steps (see `RELEASING.md`).
 
@@ -357,11 +357,15 @@ between machines.
 | `write_file` | Writes a text file in the workspace | **approved per call** (unless auto-approve is on), 1 MB cap, realpath containment |
 | `search_files` | Greps text across the workspace, with line numbers | literal by default or regex, generated folders skipped, 2,000 files, 80 matches |
 | `read_many` | Reads up to 8 files in one call | 320 KB total, per-file errors reported |
+| `git_status` | Branch, changed and untracked files | read-only, bounded output |
+| `git_diff` | Unified diff, optionally one path or the staged index | read-only, no external diff, bounded output |
 | `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff** (unless auto-approve is on), every find must be unique, 1 MB cap |
 | `scaffold_project` | Creates a three-file static starter site | **approved per call**, refuses to overwrite, workspace-contained |
 | `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
 | `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or an account-backed page snapshot (cloud, signed in) | starts the private preview server, a `#preview=` browser link, or an owner-only `/preview/<id>` snapshot with a sandbox CSP; never a public share |
-| `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, 800×600 PNG, 320 KB cap, at most 2 per run |
+| `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, fixed desktop/mobile/tablet sizes, 320 KB cap, at most 2 per run. The Preview panel also has a user Capture / Download PNG flow that does not use a model. |
+| `git_commit` | Commits only named files | **approved per call**, hooks/signing disabled, never pushes |
+| `git_revert` | Restores tracked files to HEAD | **approved per call**, refuses untracked files, never rewrites history |
 | `github_list` | Repositories, issues, pulls or commits | read-only, 20 rows, 12s timeout |
 | `github_create_issue` | Opens an issue | **approved per call** |
 | `run_command` | Runs one allowlisted program in the workspace | **approved per call**, `shell: false`, filtered env, 60s, 64 KB, streamed output |
@@ -377,7 +381,7 @@ editions prepend a short system instruction (`lib/tool-prompt.mjs`) telling the 
 them and not to claim a call ran without a result. It is omitted when tools are off, or after
 a model rejects the parameter. By default, anything that writes or executes —
 `write_file`, `apply_patch`, `scaffold_project`, `github_create_issue`, `run_command`,
-`start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
+`git_commit`, `git_revert`, `start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
 connection or a three-minute wait counts as Deny. The off-by-default **Auto-approve Build
 actions** setting can skip those cards for every Build workspace while it is on. Plan mode
 never auto-approves, and the workspace and command allowlist still apply. Each skipped card
@@ -413,6 +417,8 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `lib/models.test.mjs` | unit tests for model selection |
 | `lib/tools.test.mjs` | unit tests for the tools |
 | `lib/workspace.mjs` | the one folder tools may touch; realpath containment, size caps |
+| `lib/git.mjs` | bounded Git status/diff/commit/revert; filtered env, no shell, hooks disabled |
+| `lib/git.test.mjs` | unit tests for Git path containment, commits and reverts |
 | `lib/secrets.mjs` | `secrets.json` at 0600; only names and hints reach the page |
 | `lib/github.mjs` | GitHub REST client behind the panel and the `github_*` tools |
 | `lib/commands.mjs` | allowlisted program runner: `shell: false`, filtered env, caps |

@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.19.0 | 2026-11-08 | User preview screenshots with PNG download; safe Git status/diff/commit/revert tools |
 | 2.18.1 | 2026-11-08 | Fix the 2.18.0 cloud boot failure and parse every inline page script |
 | 2.18.0 | 2026-11-08 | Cloud browser write bypass (superseded by the 2.18.1 boot fix) |
 | 2.17.2 | 2026-11-08 | Preview links are labelled by scope, and a missing file offers Open Files / Save sample & retry |
@@ -158,6 +159,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.19.0 — 2026-11-08
+
+- **Preview captures are a user feature.** The Preview panel now has a viewport
+  selector (desktop 800×600, mobile 390×844, tablet 768×1024), **Capture** and
+  **Download PNG**. Capture uses the same local headless Edge/Chrome path as the
+  vision tool, returns the PNG to the page, and never sends it to a model. The
+  desktop-only `/api/preview/screenshot` route is token-gated, local-URL only,
+  rejects URL credentials and refuses non-HTML/SVG workspace entries.
+- **Git tools for real repository work.** `git_status` and `git_diff` are read-only
+  and available in Plan; `git_commit` and `git_revert` require confirmation.
+  Commits name only the reviewed paths and disable hooks/signing. Reverts restore
+  tracked files to HEAD and refuse untracked files instead of deleting them.
+  There is no push, reset --hard, clean or shell.
+- **Checks.** All 2.19.0 gates pass: 269 unit tests, 34 CLI checks, 28 + 28
+  simulations and 36 cloud checks. The new route test captures a preview through
+  a fake local browser; the desktop bundle includes `lib/git.mjs`.
 
 ## 2.18.1 — 2026-11-08
 

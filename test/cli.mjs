@@ -665,6 +665,52 @@ async function main() {
     }
   });
 
+  if (process.platform !== 'win32') {
+    await check('captures a user preview as a PNG without a model', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-shot-'));
+      const browser = path.join(dir, 'fake-browser.cjs');
+      const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+      fs.writeFileSync(browser, `#!/usr/bin/env node\nconst fs = require('node:fs');\nconst out = process.argv.find((a) => a.startsWith('--screenshot=')).slice('--screenshot='.length);\nfs.writeFileSync(out, Buffer.from('${png}', 'base64'));\n`);
+      fs.chmodSync(browser, 0o755);
+      const app = await startApp({ env: { FREEWAY_BROWSER: browser } });
+      const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+      try {
+        const unauth = await fetch(`${app.base}/api/preview/screenshot`, { method: 'POST' });
+        assert.equal(unauth.status, 403);
+        const noWorkspace = await fetch(`${app.base}/api/preview/screenshot`, {
+          method: 'POST', headers, body: JSON.stringify({ entry: 'index.html' }),
+        });
+        assert.equal(noWorkspace.status, 400);
+
+        const site = path.join(dir, 'site');
+        fs.mkdirSync(site);
+        fs.writeFileSync(path.join(site, 'index.html'), '<!doctype html><title>shot</title><h1>shot</h1>');
+        await fetch(`${app.base}/api/config`, {
+          method: 'POST', headers, body: JSON.stringify({ workspace: site }),
+        });
+        const response = await fetch(`${app.base}/api/preview/screenshot`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ entry: 'index.html', viewport: 'mobile' }),
+        });
+        assert.equal(response.status, 200);
+        const shot = await response.json();
+        assert.match(shot.image, /^data:image\/png;base64,/);
+        assert.equal(shot.entry, 'index.html');
+        assert.equal(shot.viewport, 'mobile');
+        assert.equal(shot.width, 1);
+        assert.equal(shot.height, 1);
+
+        const rejected = await fetch(`${app.base}/api/preview/screenshot`, {
+          method: 'POST', headers, body: JSON.stringify({ url: 'https://example.com/' }),
+        });
+        assert.equal(rejected.status, 500);
+      } finally {
+        await stopApp(app);
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+
   await check('managed processes are token-gated and start empty', async () => {
     const app = await startApp();
     const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
