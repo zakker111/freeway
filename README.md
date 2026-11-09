@@ -304,8 +304,14 @@ between machines.
 - **Automatic model retry.** Within the selected provider, OpenRouter's `models` array can
   fail over server-side and the app retries the next free model itself — at most 3 attempts,
   never after text has started streaming. The provider is never changed for you.
-- **Honest stopping.** If every model is rate-limited you get one clear error with the
-  number of free requests left today, not an infinite retry loop.
+- **Automatic cooldown retry.** If a provider returns 429 with a cooling delay, the answer
+  bubble shows a live countdown and the same turn is resent once when it expires, so you do
+  not need to paste the message again. The provider's `Retry-After` is honoured; a missing
+  value falls back to 60 seconds, and waits over 15 minutes are reported instead of held.
+  Auth, credit, network and tool errors are never retried, and nothing is retried after text
+  has started streaming. Stop cancels the wait and an in-flight Build request.
+- **Honest stopping.** If the automatic resend is also rate-limited you get one clear error
+  with the number of free requests left today, not an infinite retry loop.
 - **Failure memory.** A model that returns 429 or a server error is skipped for the rest
   of the session, so every new turn does not walk into the same wall. New Chat forgets
   it; if everything is cooling down the memory is cleared rather than refusing to answer.

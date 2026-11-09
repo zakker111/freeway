@@ -230,7 +230,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.20.0';
+const VERSION = '2.22.1';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -1695,7 +1695,10 @@ async function handleChat(req, res) {
     }
 
     accumulated += roundText;
-    if (roundModel) answeredModel = roundModel;
+    if (roundModel) {
+      answeredModel = roundModel;
+      cooling.delete(roundModel);
+    }
     if (roundUsage) lastUsage = roundUsage;
     if (failed) lastFailure = failed;
 
@@ -2054,7 +2057,13 @@ async function handleChat(req, res) {
     if (lastFailure?.reason === 'credit') {
       hint += ' Add credits at https://openrouter.ai/settings/credits, or use free models only.';
     }
-    sseSend(res, { type: 'error', reason: lastFailure?.reason ?? 'unknown', message: scrubSecrets(hint) });
+    const retryAfterMs = Number(lastFailure?.retryAfterMs) || 0;
+    sseSend(res, {
+      type: 'error',
+      reason: lastFailure?.reason ?? 'unknown',
+      message: scrubSecrets(hint),
+      ...(retryAfterMs ? { retryAfterMs } : {}),
+    });
   }
 
   res.end();

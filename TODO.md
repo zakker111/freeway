@@ -6,6 +6,42 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release carrie
 2.20.0 source and Windows archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.22.1 · cancel-safe cooldown and GitHub hardening
+
+- [x] Cloud Build requests create and pass an AbortController signal; Stop aborts the request
+- [x] Clear the controller after tool turns and clean the desktop cooling class after Stop
+- [x] Push helper keeps the token out of argv and mirrors deletions with rsync --delete
+- [x] 328 unit (65 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Desktop 2.22.1; preview and production report 2.22.1-cloud
+- [x] Push the verified source to GitHub main
+
+## Done — 2.22.0 · automatic provider cooldown retry
+
+- [x] Detect provider 429 `Retry-After`; fall back to 60s when absent
+- [x] Show a live countdown in the answer bubble and resend the same turn once
+- [x] Bound waits at 15 minutes; never retry auth, credits, network, partial text or tools
+- [x] Stop cancels the wait; a successful retry clears the cooling mark
+- [x] 328 unit (65 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Mocked 429 runs pass in both the cloud and desktop pages
+- [x] Desktop 2.22.0; preview and production report 2.22.0-cloud
+
+## Done — 2.21.1 · dismissible cloud download note
+
+- [x] Close control on the cloud download announcement
+- [x] Choice persists in `localStorage` and is applied before paint
+- [x] Mobile layout keeps the close control clear of the copy
+- [x] 327 unit (64 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Live click + reload test passed on production; test key cleared afterward
+- [x] Desktop 2.21.1; preview and production report 2.21.1-cloud
+
+## Done — 2.21.0 · animated glass UI
+
+- [x] Slow aurora and glass chrome in both editions, with no new dependencies
+- [x] Brand orb, floating hero orb, gradient headline and framed diagram
+- [x] Springy buttons, message entrances, dialog/drawer motion, reduced-motion guard
+- [x] 326 unit (63 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Desktop 2.21.0; preview and production report 2.21.0-cloud
+
 ## Done — 2.20.0 · workspace intelligence tools
 
 - [x] `find_files` glob discovery with secret/generated-folder and symlink protection

@@ -1736,7 +1736,326 @@
       }
       .preview-problems ul { margin: 4px 0 0; padding-left: 18px; }
       .preview-problems li { margin: 2px 0; overflow-wrap: anywhere; }
-    </style>
+          /* ------------------------------------------------ 2.21 — depth & motion
+         A restrained layer over the base theme: a slow aurora, glassy chrome,
+         gradient light on the primary action, and short entrance motion. The
+         transcript stays the calmest surface on the page. */
+      :root {
+        --bg: #090b10;
+        --bg-wash: #101722;
+        --surface: #11151d;
+        --surface-2: #171d27;
+        --surface-3: #202936;
+        --line: #2b3442;
+        --line-2: #3e4b5f;
+        --text: #e9edf4;
+        --muted: #b0bac9;
+        --dim: #808c9e;
+        --accent: #eef2fb;
+        --accent-strong: #ffffff;
+        --accent-soft: #1c2534;
+        --accent-line: #4e5f7d;
+        --on-accent: #111111;
+        --glow: rgba(120, 152, 255, .20);
+        --glow-strong: rgba(120, 152, 255, .34);
+        --aura-1: rgba(76, 110, 245, .22);
+        --aura-2: rgba(48, 196, 180, .13);
+        --aura-3: rgba(156, 96, 255, .14);
+        --glass: rgba(12, 17, 25, .72);
+        --glass-strong: rgba(10, 14, 21, .92);
+        --vignette: rgba(3, 5, 9, .55);
+        --inset-highlight: rgba(255, 255, 255, .06);
+        --top-highlight: rgba(255, 255, 255, .30);
+        --shadow-header: 0 10px 30px rgba(0, 0, 0, .14);
+        --shadow-float: 0 22px 60px rgba(0, 0, 0, .38);
+      }
+      body { background: var(--bg); position: relative; isolation: isolate; }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -18vmax;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(42% 42% at 26% 22%, var(--aura-1) 0%, transparent 70%),
+          radial-gradient(38% 38% at 78% 18%, var(--aura-2) 0%, transparent 72%),
+          radial-gradient(46% 46% at 62% 88%, var(--aura-3) 0%, transparent 72%);
+        filter: blur(24px);
+        animation: ambient-drift 28s ease-in-out infinite alternate;
+        will-change: transform;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: radial-gradient(ellipse at 50% 42%, transparent 32%, var(--vignette) 100%);
+      }
+
+      /* Buttons carry a little more light, but stay quiet at rest. */
+      button {
+        transition: border-color .2s ease, background .2s ease, color .2s ease,
+          box-shadow .25s ease, opacity .2s ease, transform .2s cubic-bezier(.2, .8, .2, 1);
+      }
+      button:hover:not(:disabled) { transform: translateY(-1px); }
+      button:active:not(:disabled) { transform: translateY(0) scale(.985); }
+      button.primary {
+        color: var(--on-accent);
+        background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+        border-color: var(--accent-line);
+        box-shadow: 0 8px 24px var(--glow), inset 0 1px 0 var(--top-highlight);
+      }
+      button.primary:hover:not(:disabled) {
+        background: linear-gradient(180deg, var(--accent-strong), var(--accent-strong));
+        border-color: var(--accent-strong);
+        box-shadow: 0 12px 32px var(--glow-strong), inset 0 1px 0 var(--accent-strong);
+      }
+
+      .modelBtn, select#provider, .attach {
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      }
+      .modelBtn:hover:not(:disabled), select#provider:hover, .attach:hover {
+        border-color: var(--accent-line);
+        box-shadow: 0 8px 24px var(--glow);
+      }
+
+      /* Glass chrome, with a single hairline of light underneath. */
+      header {
+        background: var(--glass);
+        backdrop-filter: saturate(160%) blur(18px);
+        box-shadow: var(--shadow-header);
+      }
+      header::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 -1px;
+        height: 1px;
+        pointer-events: none;
+        background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+        opacity: .7;
+      }
+      .brand { text-shadow: 0 0 26px var(--glow); }
+      .brand::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: conic-gradient(from 210deg, var(--accent), var(--accent-line), var(--accent-strong), var(--accent));
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px var(--glow);
+        animation: orbit 9s linear infinite;
+      }
+
+      /* Empty state: one floating mark, a lit headline, a framed diagram. */
+      .empty { animation: hero-in .55s cubic-bezier(.2, .8, .2, 1) both; }
+      .empty::before {
+        content: "";
+        display: block;
+        width: 46px;
+        height: 46px;
+        margin: 0 auto 18px;
+        border-radius: 15px;
+        background: conic-gradient(from 210deg, var(--accent-soft), var(--accent-line), var(--accent-strong), var(--accent-soft));
+        box-shadow: 0 0 0 1px var(--line), 0 18px 44px var(--glow);
+        animation: hero-orb 7s ease-in-out infinite;
+      }
+      .empty h1 {
+        color: var(--text);
+        background: linear-gradient(100deg, var(--text) 8%, var(--accent-strong) 48%, var(--muted) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .ascii {
+        border-color: var(--accent-line);
+        background: linear-gradient(160deg, var(--surface), var(--surface-2));
+        box-shadow: var(--shadow-float), inset 0 1px 0 var(--top-highlight);
+      }
+      .suggest button {
+        background: linear-gradient(180deg, var(--accent-soft), var(--surface-2));
+        border-color: var(--accent-line);
+        box-shadow: inset 0 1px 0 var(--inset-highlight);
+        transition: transform .18s ease, box-shadow .22s ease, border-color .18s ease, background .18s ease;
+      }
+      .suggest button:hover:not(:disabled) {
+        background: linear-gradient(180deg, var(--surface-3), var(--accent-soft));
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px var(--glow);
+      }
+
+      /* Messages arrive with a little weight, then settle into reading. */
+      .msg { animation: msg-in .42s cubic-bezier(.2, .8, .2, 1) both; }
+      .bubble {
+        border-radius: 16px;
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        transition: border-color .22s ease, box-shadow .26s ease, transform .22s ease;
+      }
+      .msg.user .bubble {
+        background: linear-gradient(135deg, var(--accent-soft), var(--surface-2));
+        border-color: var(--accent-line);
+      }
+      .msg.assistant .bubble {
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        box-shadow: inset 2px 0 0 var(--accent-line), var(--shadow-sm);
+      }
+      .msg:hover .bubble {
+        border-color: var(--line-2);
+        box-shadow: inset 2px 0 0 var(--accent-line), var(--shadow-md);
+      }
+      .msg.user:hover .bubble {
+        box-shadow: 0 14px 40px rgba(0, 0, 0, .22), 0 0 26px var(--glow);
+      }
+      .msg.assistant .bubble.cursor {
+        border-color: var(--accent-line);
+        animation: halo 2.8s ease-in-out infinite;
+      }
+      .cursor::after { text-shadow: 0 0 12px var(--glow-strong); }
+      .code { box-shadow: var(--shadow-float); }
+
+      /* Composer and mode switch share the same glass as the header. */
+      footer {
+        background: var(--glass-strong);
+        backdrop-filter: blur(22px) saturate(150%);
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, .22);
+      }
+      footer::before {
+        content: "";
+        position: absolute;
+        inset: -1px 0 auto;
+        height: 1px;
+        pointer-events: none;
+        background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+        opacity: .7;
+      }
+      .mode-row {
+        max-width: var(--content);
+        margin: 0 auto 9px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .mode-row .mini {
+        border-radius: 999px;
+        padding: 4px 12px;
+        transition: background .2s ease, border-color .2s ease, box-shadow .25s ease, color .2s ease;
+      }
+      .mode-row .mini.active {
+        color: var(--accent-strong);
+        border-color: var(--accent-line);
+        background: linear-gradient(180deg, var(--surface-3), var(--accent-soft));
+        box-shadow: 0 4px 16px var(--glow), inset 0 1px 0 var(--inset-highlight);
+      }
+      textarea#input {
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        transition: border-color .2s ease, box-shadow .25s ease, background .2s ease;
+      }
+      textarea#input:focus {
+        border-color: var(--accent-line);
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 32px var(--glow);
+      }
+
+      /* Overlays float above the page instead of appearing on top of it. */
+      dialog {
+        background: var(--glass-strong);
+        border-color: var(--line-2);
+        backdrop-filter: blur(26px) saturate(150%);
+      }
+      dialog[open] { animation: dialog-in .24s cubic-bezier(.2, .8, .2, 1) both; }
+      dialog::backdrop {
+        background: rgba(2, 4, 8, .58);
+        backdrop-filter: blur(6px);
+        animation: backdrop-in .2s ease both;
+      }
+
+      .sidebar {
+        background: var(--glass-strong);
+        backdrop-filter: blur(24px) saturate(150%);
+        box-shadow: inset -1px 0 0 var(--inset-highlight);
+      }
+      .thread-item { transition: background .18s ease, border-color .18s ease, box-shadow .22s ease, transform .18s ease; }
+      .thread-item:hover { transform: translateX(2px); }
+      .thread-item.active {
+        background: linear-gradient(90deg, var(--accent-soft), var(--surface));
+        border-color: var(--accent-line);
+        box-shadow: var(--shadow-sm), inset 3px 0 0 var(--accent), 0 0 26px var(--glow);
+      }
+      .rail {
+        background: var(--glass-strong);
+        backdrop-filter: blur(24px) saturate(150%);
+      }
+      .rail-tab.active { box-shadow: 0 4px 16px var(--glow), inset 0 1px 0 var(--inset-highlight); }
+      .modelMenu {
+        background: var(--glass-strong);
+        backdrop-filter: blur(24px) saturate(150%);
+        border-color: var(--line-2);
+        box-shadow: var(--shadow-lg), 0 0 40px var(--glow);
+        transform-origin: top right;
+        animation: menu-in .18s cubic-bezier(.2, .8, .2, 1) both;
+      }
+      .notice { background: linear-gradient(90deg, var(--accent-soft), var(--surface)); }
+      .banner { animation: msg-in .26s cubic-bezier(.2, .8, .2, 1) both; }
+
+      @keyframes ambient-drift {
+        from { transform: translate3d(-3%, -2%, 0) scale(1) rotate(-2deg); }
+        to { transform: translate3d(3%, 2%, 0) scale(1.08) rotate(3deg); }
+      }
+      @keyframes orbit { to { transform: rotate(360deg); } }
+      @keyframes hero-in {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes hero-orb {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-5px) rotate(8deg); }
+      }
+      @keyframes msg-in {
+        from { opacity: 0; transform: translateY(10px) scale(.99); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes halo {
+        0%, 100% { box-shadow: inset 2px 0 0 var(--accent-line), var(--shadow-sm); }
+        50% { box-shadow: inset 2px 0 0 var(--accent-strong), 0 0 32px var(--glow); }
+      }
+      @keyframes dialog-in {
+        from { opacity: 0; transform: translateY(12px) scale(.97); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes menu-in {
+        from { opacity: 0; transform: translateY(-4px) scale(.985); }
+        to { opacity: 1; transform: none; }
+      }
+      @media (max-width: 640px) {
+        .empty::before { width: 38px; height: 38px; margin-bottom: 14px; }
+        .mode-row { gap: 6px; }
+        .mode-row .mini { padding: 4px 10px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: .001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: .001ms !important;
+        }
+      }
+      /* --------------------------------------------------- dismissible notice */
+      .notice { position: relative; padding-right: clamp(40px, 6vw, 58px); }
+      .notice-close {
+        position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+        width: 28px; height: 28px; padding: 0; display: grid; place-items: center;
+        border-radius: 999px; border-color: transparent; background: transparent;
+        box-shadow: none; color: var(--muted); font-size: 18px; line-height: 1;
+      }
+      .notice-close:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.05);
+        color: var(--accent-strong); background: var(--surface-2); border-color: var(--accent-line);
+      }
+      .notice-close:active:not(:disabled) { transform: translateY(-50%) scale(.96); }
+      @media (max-width: 640px) {
+        .notice { text-align: left; padding-right: 42px; }
+        .notice-close { right: 6px; }
+      }
+</style>
   </head>
   <body>
     <aside class="sidebar" id="sidebar" aria-label="Saved chats">
@@ -1782,7 +2101,8 @@
       <button class="ghost" id="quitBtn" type="button" title="Stop this tab">Quit</button>
     </header>
 
-    <div class="notice">
+    <div class="notice" id="cloudNotice">
+      <button class="notice-close" id="noticeClose" type="button" title="Dismiss this announcement" aria-label="Dismiss the desktop download announcement">×</button>
       <b>Cloud edition — chat, files and preview.</b>
       All ten hosted providers work here; OVHcloud needs no key and the rest take one, with Cloudflare also needing an Account ID.
       Upload text or HTML, preview it in a sandbox, or sign in to keep a synced copy.
@@ -1790,6 +2110,14 @@
       <a id="desktopLink" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">download the current build ↗</a>.
       A Worker has no disk and cannot run your files or commands.
     </div>
+    <script>
+      // Hide the download note before paint when this visitor already dismissed it.
+      try {
+        if (localStorage.getItem('orc.notice.download.v1') === 'dismissed') {
+          document.getElementById('cloudNotice').hidden = true;
+        }
+      } catch {}
+    </script>
 
     <aside class="rail" id="rail" hidden aria-label="Panels">
       <div class="rail-head">
@@ -2715,6 +3043,7 @@
         // The assistant message is not in state yet, but its index is known;
         // clicks are blocked while busy and become valid once the answer lands.
         addActions(pending.wrap, state.messages.length, 'assistant');
+        state.abort = new AbortController();
 
         const startedAt = Date.now();
         const settings = readSettings();
@@ -2746,9 +3075,26 @@
               tools: WORKSPACE_TOOLS,
             };
             if (settings.temperature !== null) body.temperature = settings.temperature;
-            const res = await fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify(body) });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw requestError(res, data);
+            let res;
+            let data;
+            for (let attempt = 0; ; attempt += 1) {
+              try {
+                res = await fetch('/api/chat', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify(body),
+                  signal: state.abort?.signal,
+                });
+                data = await res.json().catch(() => ({}));
+                if (!res.ok) throw requestError(res, data);
+                if (attempt > 0 && state.cooling) delete state.cooling[state.model];
+                break;
+              } catch (error) {
+                const wait = autoRetryDelay(error);
+                if (step !== 0 || attempt >= 1 || !wait) throw error;
+                await waitForCooldown(pending, meta, error, wait, state.abort?.signal);
+              }
+            }
             answeredBy = data.provider || '';
             fallbackFrom = data.fallbackFrom || '';
             retriedFrom = data.retriedFrom || '';
@@ -2800,25 +3146,31 @@
           addMeta(pending.wrap, '', answer);
           bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
         } catch (error) {
-          bumpStats(false, Date.now() - startedAt);
+          if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
           if (['upstream_rate', 'rate_limited'].includes(error.code)) {
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
           }
-          if (error.code === 'missing_key' || error.code === 'key_rejected') {
-            state.messages.pop();
-            setTimeout(() => openKey('That key was rejected. Paste a working one.'), 200);
-          }
           pending.bubble.classList.remove('cursor');
-          pending.wrap.className = 'msg error';
-          pending.bubble.textContent = '';
-          pending.bubble.append(el('b', '', 'That did not work'));
-          pending.bubble.append(document.createTextNode(error.message));
-          meta.textContent = error.code || '';
+          if (error.name === 'AbortError') {
+            pending.wrap.remove();
+            state.messages.pop();
+          } else {
+            if (error.code === 'missing_key' || error.code === 'key_rejected') {
+              state.messages.pop();
+              setTimeout(() => openKey('That key was rejected. Paste a working one.'), 200);
+            }
+            pending.wrap.className = 'msg error';
+            pending.bubble.textContent = '';
+            pending.bubble.append(el('b', '', 'That did not work'));
+            pending.bubble.append(document.createTextNode(error.message));
+            meta.textContent = error.code || '';
+          }
         } finally {
           state.busy = false;
           $('send').disabled = false;
           $('send').textContent = 'Send';
           $('stop').disabled = true;
+          state.abort = null;
           setHints();
           scrollDown();
         }
@@ -2945,6 +3297,55 @@
         return state.mode === "build" && readSettings().tools ? toolSend(images) : streamSend(images);
       }
 
+      const AUTO_RETRY_MAX_MS = 15 * 60_000;
+      function autoRetryDelay(error) {
+        const code = String(error?.code || error?.reason || '');
+        if (code !== 'upstream_rate' && code !== 'rate-limit') return 0;
+        const raw = Number(error?.retryAfterMs) || 0;
+        const ms = raw > 0 ? raw : 60_000;
+        return ms <= AUTO_RETRY_MAX_MS ? ms + 750 : 0;
+      }
+      function sleepAbortable(ms, signal) {
+        return new Promise((resolve, reject) => {
+          if (signal?.aborted) return reject(new DOMException('stopped', 'AbortError'));
+          let timer = 0;
+          const finish = (fn, value) => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', onAbort);
+            fn(value);
+          };
+          const onAbort = () => finish(reject, new DOMException('stopped', 'AbortError'));
+          timer = setTimeout(() => finish(resolve), Math.max(0, ms));
+          signal?.addEventListener('abort', onAbort, { once: true });
+        });
+      }
+      async function waitForCooldown(pending, meta, error, ms, signal) {
+        const until = Date.now() + ms;
+        pending.wrap.classList.remove('error');
+        pending.wrap.classList.add('cooling');
+        pending.bubble.classList.remove('cursor');
+        pending.bubble.textContent = '';
+        pending.bubble.append(el('b', '', 'Cooling down'));
+        pending.bubble.append(document.createTextNode(' — retrying in '));
+        const timer = el('span', '', '');
+        pending.bubble.append(timer, document.createTextNode('s'));
+        meta.textContent = 'automatic retry';
+        noteCooldown(error.model || state.model, ms);
+        announce(`Cooling down. Retrying in ${Math.ceil(ms / 1000)} seconds.`);
+        while (true) {
+          if (state.stopRequested) throw new DOMException('stopped', 'AbortError');
+          const left = Math.max(0, until - Date.now());
+          timer.textContent = String(Math.ceil(left / 1000));
+          if (left <= 0) break;
+          await sleepAbortable(Math.min(1000, left), signal);
+        }
+        pending.wrap.classList.remove('cooling');
+        pending.bubble.classList.add('cursor');
+        pending.bubble.textContent = 'Retrying now…';
+        meta.textContent = state.model;
+        announce('Retrying now.');
+      }
+
       async function streamSend(images = []) {
         const box = $('input');
         const text = box.value.trim();
@@ -2999,29 +3400,35 @@
           );
           outgoing.max_tokens = settings.maxTokens;
           if (settings.temperature !== null) outgoing.temperature = settings.temperature;
-          const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(outgoing),
-            signal: state.abort.signal,
-          });
+          let answer = '';
+          let info = null;
+          let answeredBy = '';
+          let fallbackFrom = '';
+          let retriedFrom = '';
+          let compacted = 0;
+          for (let attempt = 0; ; attempt += 1) {
+            try {
+              const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(outgoing),
+                signal: state.abort.signal,
+              });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             throw requestError(res, data);
           }
           if (!res.body) throw new Error('This browser cannot read a streamed reply.');
-          const answeredBy = res.headers.get('x-answer-provider') || '';
-          const fallbackFrom = res.headers.get('x-fallback-from') || '';
-          const retriedFrom = res.headers.get('x-retried-from') || '';
-          const compacted = Number(res.headers.get('x-memory-compacted') || 0);
+              answeredBy = res.headers.get('x-answer-provider') || '';
+              fallbackFrom = res.headers.get('x-fallback-from') || '';
+              retriedFrom = res.headers.get('x-retried-from') || '';
+              compacted = Number(res.headers.get('x-memory-compacted') || 0);
 
           // The Worker sends `{"delta":…}` frames while the model talks, then
           // one `{"done":true,…}` frame. Paint each delta as it lands.
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
-          let answer = '';
-          let info = null;
           pending.bubble.textContent = '';
           while (true) {
             const { done, value } = await reader.read();
@@ -3039,7 +3446,10 @@
                 continue;
               }
               if (event.error) {
-                throw Object.assign(new Error(event.message || 'The stream stopped early.'), { code: event.error });
+                throw Object.assign(new Error(event.message || 'The stream stopped early.'), {
+                  code: event.error,
+                  retryAfterMs: Number(event.retryAfterMs) || 0,
+                });
               }
               if (event.delta) {
                 answer += event.delta;
@@ -3051,6 +3461,20 @@
           }
 
           if (!answer) throw new Error('The model returned no text. Try another free model.');
+          if (attempt > 0 && state.cooling) delete state.cooling[state.model];
+          break;
+            } catch (error) {
+              const wait = autoRetryDelay(error);
+              if (error.name === 'AbortError' || attempt >= 1 || !wait || answer) throw error;
+              await waitForCooldown(pending, meta, error, wait, state.abort?.signal);
+              answer = '';
+              info = null;
+              answeredBy = '';
+              fallbackFrom = '';
+              retriedFrom = '';
+              compacted = 0;
+            }
+          }
           pending.bubble.classList.remove('cursor');
           pending.bubble.innerHTML = renderMarkdown(answer);
           state.messages.push({
@@ -5796,6 +6220,10 @@
       }
 
       $('provider').onchange = () => applyProvider($('provider').value);
+      $('noticeClose').onclick = () => {
+        $('cloudNotice').hidden = true;
+        try { localStorage.setItem('orc.notice.download.v1', 'dismissed'); } catch {}
+      };
 
       /* Quick-start chips: fill the box, never send. The same four exist in the
          desktop app so both editions teach the same first move. */

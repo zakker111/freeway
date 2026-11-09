@@ -1958,7 +1958,273 @@
       .pv-problems ul { margin: 4px 0 0; padding-left: 18px; }
       .pv-problems li { margin: 2px 0; overflow-wrap: anywhere; }
       .gh-tabs { flex-wrap: wrap; }
-    </style>
+          /* ------------------------------------------------ 2.21 — depth & motion
+         The desktop shell gets the same restrained aurora, glass and short
+         entrance motion. Reading surfaces stay quiet; only the edges move. */
+      :root {
+        --bg: #090b10;
+        --bg-wash: #101722;
+        --surface: #11151d;
+        --surface-2: #171d27;
+        --surface-3: #202936;
+        --line: #2b3442;
+        --line-2: #3e4b5f;
+        --text: #e9edf4;
+        --muted: #b0bac9;
+        --dim: #808c9e;
+        --accent: #eef2fb;
+        --accent-strong: #ffffff;
+        --accent-soft: #1c2534;
+        --accent-line: #4e5f7d;
+        --on-accent: #111111;
+        --glow: rgba(120, 152, 255, .20);
+        --glow-strong: rgba(120, 152, 255, .34);
+        --aura-1: rgba(76, 110, 245, .22);
+        --aura-2: rgba(48, 196, 180, .13);
+        --aura-3: rgba(156, 96, 255, .14);
+        --glass: rgba(12, 17, 25, .72);
+        --glass-strong: rgba(10, 14, 21, .92);
+        --vignette: rgba(3, 5, 9, .55);
+        --inset-highlight: rgba(255, 255, 255, .06);
+        --top-highlight: rgba(255, 255, 255, .30);
+        --shadow-header: 0 10px 30px rgba(0, 0, 0, .14);
+        --shadow-float: 0 22px 60px rgba(0, 0, 0, .38);
+      }
+      body { background: var(--bg); position: relative; isolation: isolate; }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -18vmax;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(42% 42% at 26% 22%, var(--aura-1) 0%, transparent 70%),
+          radial-gradient(38% 38% at 78% 18%, var(--aura-2) 0%, transparent 72%),
+          radial-gradient(46% 46% at 62% 88%, var(--aura-3) 0%, transparent 72%);
+        filter: blur(24px);
+        animation: ambient-drift 28s ease-in-out infinite alternate;
+        will-change: transform;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: radial-gradient(ellipse at 50% 42%, transparent 32%, var(--vignette) 100%);
+      }
+
+      button {
+        transition: border-color .2s ease, background .2s ease, color .2s ease,
+          box-shadow .25s ease, opacity .2s ease, transform .2s cubic-bezier(.2, .8, .2, 1);
+      }
+      button:hover:not(:disabled) { transform: translateY(-1px); }
+      button:active:not(:disabled) { transform: translateY(0) scale(.985); }
+      button.primary {
+        color: var(--on-accent);
+        background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+        border-color: var(--accent-line);
+        box-shadow: 0 8px 24px var(--glow), inset 0 1px 0 var(--top-highlight);
+      }
+      button.primary:hover:not(:disabled) {
+        background: linear-gradient(180deg, var(--accent-strong), var(--accent-strong));
+        border-color: var(--accent-strong);
+        box-shadow: 0 12px 32px var(--glow-strong), inset 0 1px 0 var(--accent-strong);
+      }
+
+      .chip, select.prov, .attach {
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      }
+      .chip:hover:not(:disabled), select.prov:hover, .attach:hover {
+        border-color: var(--accent-line);
+        box-shadow: 0 8px 24px var(--glow);
+      }
+
+      header.bar {
+        background: var(--glass);
+        backdrop-filter: saturate(160%) blur(18px);
+        box-shadow: var(--shadow-header);
+      }
+      header.bar::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 -1px;
+        height: 1px;
+        pointer-events: none;
+        background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+        opacity: .7;
+      }
+      .brand { text-shadow: 0 0 26px var(--glow); }
+      .brand::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: conic-gradient(from 210deg, var(--accent), var(--accent-line), var(--accent-strong), var(--accent));
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px var(--glow);
+        animation: orbit 9s linear infinite;
+      }
+
+      .empty::before {
+        content: "";
+        display: block;
+        width: 46px;
+        height: 46px;
+        margin: 0 auto 18px;
+        border-radius: 15px;
+        background: conic-gradient(from 210deg, var(--accent-soft), var(--accent-line), var(--accent-strong), var(--accent-soft));
+        box-shadow: 0 0 0 1px var(--line), 0 18px 44px var(--glow);
+        animation: hero-orb 7s ease-in-out infinite;
+      }
+      .empty h1 {
+        color: var(--text);
+        background: linear-gradient(100deg, var(--text) 8%, var(--accent-strong) 48%, var(--muted) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .empty .ascii {
+        border-color: var(--accent-line);
+        background: linear-gradient(160deg, var(--surface), var(--surface-2));
+        box-shadow: var(--shadow-float), inset 0 1px 0 var(--top-highlight);
+      }
+      .suggest button {
+        background: linear-gradient(180deg, var(--accent-soft), var(--surface-2));
+        border-color: var(--accent-line);
+        box-shadow: inset 0 1px 0 var(--inset-highlight);
+      }
+      .suggest button:hover:not(:disabled) {
+        background: linear-gradient(180deg, var(--surface-3), var(--accent-soft));
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 26px var(--glow);
+      }
+
+      .msg { animation: msg-in .42s cubic-bezier(.2, .8, .2, 1) both; }
+      .bubble {
+        border-radius: 16px;
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        transition: border-color .22s ease, box-shadow .26s ease, transform .22s ease;
+      }
+      .msg.user .bubble {
+        background: linear-gradient(135deg, var(--accent-soft), var(--surface-2));
+        border-color: var(--accent-line);
+      }
+      .msg.assistant .bubble {
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        box-shadow: inset 2px 0 0 var(--accent-line), var(--shadow-sm);
+      }
+      .msg:hover .bubble {
+        border-color: var(--line-2);
+        box-shadow: inset 2px 0 0 var(--accent-line), var(--shadow-md);
+      }
+      .msg.user:hover .bubble {
+        box-shadow: 0 14px 40px rgba(0, 0, 0, .22), 0 0 26px var(--glow);
+      }
+      .msg.assistant .bubble.streaming {
+        border-color: var(--accent-line);
+        box-shadow: inset 2px 0 0 var(--accent-strong), 0 0 32px var(--glow);
+      }
+      .code { box-shadow: var(--shadow-float); }
+
+      footer {
+        background: var(--glass-strong);
+        backdrop-filter: blur(22px) saturate(150%);
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, .22);
+      }
+      footer::before {
+        content: "";
+        position: absolute;
+        inset: -1px 0 auto;
+        height: 1px;
+        pointer-events: none;
+        background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+        opacity: .7;
+      }
+      .mode-switch {
+        padding: 3px;
+        border-radius: 999px;
+        border-color: var(--line);
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+        box-shadow: inset 0 1px 0 var(--inset-highlight);
+      }
+      .mode-btn { border-radius: 999px; transition: background .2s ease, border-color .2s ease, box-shadow .25s ease, color .2s ease; }
+      .mode-btn.active {
+        background: linear-gradient(180deg, var(--surface-3), var(--accent-soft));
+        border-color: var(--accent-line);
+        box-shadow: 0 4px 16px var(--glow), inset 0 1px 0 var(--inset-highlight);
+      }
+      textarea {
+        background: linear-gradient(180deg, var(--surface), var(--surface-2));
+        transition: border-color .2s ease, box-shadow .25s ease, background .2s ease;
+      }
+      textarea:focus {
+        border-color: var(--accent-line);
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 32px var(--glow);
+      }
+
+      dialog {
+        background: var(--glass-strong);
+        border-color: var(--line-2);
+        backdrop-filter: blur(26px) saturate(150%);
+      }
+      dialog[open] { animation: dialog-in .24s cubic-bezier(.2, .8, .2, 1) both; }
+      dialog::backdrop {
+        background: rgba(2, 4, 8, .58);
+        backdrop-filter: blur(6px);
+        animation: backdrop-in .2s ease both;
+      }
+      .overlay {
+        background: rgba(2, 4, 8, .58);
+        backdrop-filter: blur(6px);
+        animation: backdrop-in .2s ease both;
+      }
+      .overlay .modal { animation: dialog-in .24s cubic-bezier(.2, .8, .2, 1) both; }
+
+      .sidebar {
+        background: var(--glass-strong);
+        backdrop-filter: blur(24px) saturate(150%);
+        box-shadow: inset -1px 0 0 var(--inset-highlight);
+      }
+      .thread-item { transition: background .18s ease, border-color .18s ease, box-shadow .22s ease, transform .18s ease; }
+      .thread-item:hover { transform: translateX(2px); }
+      .thread-item.active {
+        background: linear-gradient(90deg, var(--accent-soft), var(--surface));
+        border-color: var(--accent-line);
+        box-shadow: var(--shadow-sm), inset 3px 0 0 var(--accent), 0 0 26px var(--glow);
+      }
+      .rail {
+        background: var(--glass-strong);
+        backdrop-filter: blur(24px) saturate(150%);
+      }
+      .rail-tab.active { box-shadow: 0 4px 16px var(--glow), inset 0 1px 0 var(--inset-highlight); }
+      .jump {
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+        border-color: var(--accent-line);
+        box-shadow: 0 10px 28px var(--glow);
+      }
+
+      @keyframes ambient-drift {
+        from { transform: translate3d(-3%, -2%, 0) scale(1) rotate(-2deg); }
+        to { transform: translate3d(3%, 2%, 0) scale(1.08) rotate(3deg); }
+      }
+      @keyframes orbit { to { transform: rotate(360deg); } }
+      @keyframes hero-orb {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-5px) rotate(8deg); }
+      }
+      @keyframes msg-in {
+        from { opacity: 0; transform: translateY(10px) scale(.99); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes dialog-in {
+        from { opacity: 0; transform: translateY(12px) scale(.97); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+      @media (max-width: 640px) {
+        .empty::before { width: 38px; height: 38px; margin-bottom: 14px; }
+      }
+</style>
   </head>
   <body>
     <aside class="sidebar" id="sidebar" aria-label="Saved chats">
@@ -5622,6 +5888,49 @@
         $("input").focus();
       }
 
+      const AUTO_RETRY_MAX_MS = 15 * 60_000;
+      function autoRetryDelay(error) {
+        const code = String(error?.code || error?.reason || "");
+        if (code !== "rate-limit" && code !== "upstream_rate") return 0;
+        const raw = Number(error?.retryAfterMs) || 0;
+        const ms = raw > 0 ? raw : 60_000;
+        return ms <= AUTO_RETRY_MAX_MS ? ms + 750 : 0;
+      }
+      function sleepAbortable(ms, signal) {
+        return new Promise((resolve, reject) => {
+          if (signal?.aborted) return reject(new DOMException("stopped", "AbortError"));
+          let timer = 0;
+          const finish = (fn, value) => {
+            clearTimeout(timer);
+            signal?.removeEventListener("abort", onAbort);
+            fn(value);
+          };
+          const onAbort = () => finish(reject, new DOMException("stopped", "AbortError"));
+          timer = setTimeout(() => finish(resolve), Math.max(0, ms));
+          signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      async function waitForCooldown(node, bubble, ms, signal) {
+        const until = Date.now() + ms;
+        node.classList.add("cooling");
+        bubble.classList.remove("error");
+        bubble.classList.add("streaming");
+        bubble.textContent = "";
+        bubble.append(document.createTextNode("Cooling down — retrying in "));
+        const timer = document.createElement("span");
+        bubble.append(timer, document.createTextNode("s"));
+        while (true) {
+          const left = Math.max(0, until - Date.now());
+          timer.textContent = String(Math.ceil(left / 1000));
+          setStatus(`cooling down — retrying in ${Math.ceil(left / 1000)}s`);
+          if (left <= 0) break;
+          await sleepAbortable(Math.min(1000, left), signal);
+        }
+        node.classList.remove("cooling");
+        bubble.textContent = "Retrying now…";
+        setStatus("retrying…");
+      }
+
       async function send({ replay = false, text = "" } = {}) {
         if (state.streaming) return;
         const box = $("input");
@@ -5690,7 +5999,9 @@
         const log = [];
 
         try {
-          const response = await fetch("/api/chat", {
+          for (let attempt = 0; ; attempt += 1) {
+            try {
+              const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "content-type": "application/json", "x-app-token": APP_TOKEN },
             body: JSON.stringify({
@@ -5924,10 +6235,10 @@
                   addMeta(node, bits.join(" · ") || "done", false);
                   setStatus("");
                 } else if (event.type === "error") {
-                  node.classList.add("error");
-                  bubble.textContent = event.message;
-                  addMeta(node, event.reason, true);
-                  setStatus("");
+                  throw Object.assign(new Error(event.message || "The request failed."), {
+                    code: event.reason,
+                    retryAfterMs: Number(event.retryAfterMs) || 0,
+                  });
                 }
               }
               boundary = buffer.indexOf("\n\n");
@@ -5938,10 +6249,40 @@
             node.classList.add("error");
             bubble.textContent = "No answer was returned. Try another model, or send again.";
           }
+          break;
+            } catch (error) {
+              const wait = autoRetryDelay(error);
+              if (
+                error.name === "AbortError" ||
+                attempt >= 1 ||
+                !wait ||
+                answer.trim() ||
+                toolsUsed.length
+              ) {
+                throw error;
+              }
+              await waitForCooldown(node, bubble, wait, state.controller.signal);
+              answer = "";
+              model = null;
+              usage = null;
+              chain = [];
+              log.length = 0;
+              toolsUsed.length = 0;
+              toolRow.remove();
+              for (const oldMeta of node.querySelectorAll(".meta")) oldMeta.remove();
+              node.classList.remove("error");
+              bubble.classList.remove("error");
+              bubble.classList.add("streaming");
+              bubble.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+              setStatus("retrying…");
+            }
+          }
         } catch (error) {
           if (error.name === "AbortError") {
             aborted = true;
             addMeta(node, "stopped", true);
+            if (!answer.trim()) bubble.textContent = "Stopped before any text arrived.";
+            setStatus("");
           } else {
             node.classList.add("error");
             bubble.textContent = error.message;
@@ -5953,6 +6294,7 @@
           $("sendBtn").textContent = "Send";
           $("sendBtn").title = "";
           $("stopBtn").disabled = true;
+          node.classList.remove("cooling");
           bubble.classList.remove("streaming");
           renderBuildProgress(null);
           updateQueueBar();

@@ -5,6 +5,10 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.22.1 | 2026-11-09 | Cancel-safe Build requests and cooldown cleanup |
+| 2.22.0 | 2026-11-09 | Automatic provider cooldown retry with a live countdown |
+| 2.21.1 | 2026-11-09 | Dismissible cloud download notice, remembered across reloads |
+| 2.21.0 | 2026-11-09 | Animated glass UI: aurora, hero motion, gradient light and message entrances |
 | 2.20.0 | 2026-11-09 | Workspace intelligence: glob search, Git history, project detection and detected checks |
 | 2.19.0 | 2026-11-08 | User preview screenshots with PNG download; safe Git status/diff/commit/revert tools |
 | 2.18.1 | 2026-11-08 | Fix the 2.18.0 cloud boot failure and parse every inline page script |
@@ -160,6 +164,66 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.22.1 — 2026-11-09
+
+- **Stop works in Build mode.** The cloud tool loop now creates its own abort controller,
+  passes its signal to each tool request and cooldown wait, and clears it after the turn.
+  Stop cancels an in-flight tool request immediately instead of waiting for it to finish.
+- **A stopped cooldown no longer leaves the desktop bubble pulsing.** The cooling class is
+  cleared in the turn's `finally` block, and the footer is reset.
+- **The GitHub helper no longer exposes the token in `git clone` arguments.** The token is
+  supplied only by the temporary askpass helper, and the source sync now uses
+  `rsync --delete` so files removed locally do not linger on the remote.
+- **Checks.** 328 unit tests (65 page contracts), 36 CLI, 29 + 29 simulations and 36 cloud
+  checks pass. Page contracts assert the Build abort signal/controller and desktop cleanup.
+- **Live.** Desktop 2.22.1 on port 3002; cloud preview and production report 2.22.1-cloud.
+
+## 2.22.0 — 2026-11-09
+
+- **A 429 can wait for its own cooldown.** When the selected provider returns a rate
+  limit with `Retry-After` (or no delay, where 60 seconds is the fallback), the assistant
+  bubble shows a live countdown and the same turn is resent once when it expires. The
+  chat does not need to be pasted again.
+- **Only provider cooldowns qualify.** Auth failures, credits, network errors, text that
+  has already started streaming, and tool-running turns are never automatically retried.
+  Waits above 15 minutes are reported with the normal error instead of holding the turn.
+- **Bounded and cancellable.** One automatic resend per turn; Stop aborts both the wait
+  and the retry. A successful resend clears the local cooling mark so the next message is
+  not skipped.
+- **Both editions.** The cloud page retries streamed and tool turns; the desktop SSE loop
+  does the same, and the server now forwards the provider delay with its error event.
+- **Checks.** All 2.22.0 gates pass: 328 unit tests (65 page contracts), 36 CLI,
+  29 + 29 simulations and 36 cloud checks. Mocked 429 runs in both live pages made two
+  requests, showed the countdown, and rendered the retried answer.
+- **Live.** Desktop 2.22.0 on port 3002; preview and production report 2.22.0-cloud.
+
+## 2.21.1 — 2026-11-09
+
+- **The cloud download note can be dismissed.** A close control in the top
+  announcement hides it immediately and stores the choice in `localStorage`
+  (`orc.notice.download.v1`), so it stays gone across reloads.
+- **No flash for returning visitors.** The dismissed state is applied by an inline
+  check immediately after the notice; the control remains usable if storage is blocked.
+- **Small-screen fit.** The close control stays clear of the copy at 640px and below.
+- **Checks.** All 2.21.1 gates pass: 327 unit tests (64 page contracts), 36 CLI,
+  29 + 29 simulations and 36 cloud checks. A live production click hid the notice,
+  stored `dismissed`, and it stayed hidden after reload; the test key was cleared after.
+- **Live.** Desktop 2.21.1 on port 3002; preview and production report 2.21.1-cloud.
+
+## 2.21.0 — 2026-11-09
+
+- **A quieter kind of flashy.** Both pages gain a slow, low-contrast aurora behind
+  glassy header, footer and panels. The brand mark and empty-state orb turn slowly,
+  while the reading surfaces keep the same dark, eye-strain-aware contrast.
+- **Motion with a purpose.** Messages rise in, primary actions lift and glow, quick
+  starts float on hover, dialogs scale in, and drawers slide with a softer curve.
+  Every animation stops under `prefers-reduced-motion`.
+- **No new dependencies or assets.** The pass is inline CSS over the existing tokens.
+  Both editions remain single files, and the cloud page keeps its CSP.
+- **Checks.** All 2.21.0 gates pass: 326 unit tests (63 page contracts), 36 CLI,
+  29 + 29 simulations and 36 cloud checks.
+- **Live.** Desktop 2.21.0 on port 3002; preview and production report 2.21.0-cloud.
 
 ## 2.20.0 — 2026-11-09
 
