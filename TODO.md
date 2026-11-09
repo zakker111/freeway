@@ -343,7 +343,7 @@ and **Build this plan** executes that artifact.
          unstaged hunks, read-only and shown in the transcript
    - [x] `git_commit` and `git_revert`: approved per call; commit only the reviewed files,
          revert the agent's own changes; never force-push or rewrite history
-   - [ ] Clone from GitHub with the PAT already in Secrets, through an ephemeral credential
+   - [x] Clone from GitHub with the PAT already in Secrets, through an ephemeral credential
          helper rather than a token in the remote URL; extend `lib/redact.mjs` to cover
          `ghp_` / `github_pat_` so it cannot reach a prompt, a diff or the page
    - [ ] Read `AGENTS.md` and `README.md` automatically when a project is opened, and pass

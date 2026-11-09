@@ -1164,7 +1164,7 @@
         padding: 7px 12px;
         cursor: pointer;
         box-shadow: var(--shadow-sm);
-        transition: border-color .15s, background .15s, color .15s, box-shadow .15s, opacity .15s;
+        transition: border-color .15s, background .15s, color .15s, box-shadow .15s, opacity .15s, transform .08s;
       }
       button:hover:not(:disabled) { border-color: var(--line-2); background: var(--surface-2); }
       button:active:not(:disabled) { transform: translateY(.5px); }
@@ -1196,11 +1196,12 @@
       }
       .brand {
         font-weight: 650; letter-spacing: .2px; white-space: nowrap;
-        display: inline-flex; align-items: center; gap: 8px;
+        display: inline-flex; align-items: center; gap: 0;
       }
       .brand::before {
         content: ""; width: 9px; height: 9px; border-radius: 3px;
         background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+        margin-right: 8px;
       }
       .brand span { color: var(--muted); font-weight: 550; }
       .ver {
@@ -1231,6 +1232,12 @@
       }
       .pill b { color: var(--text); font-weight: 650; }
       .pill.warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-soft); }
+      /* Header controls travel in two groups so a narrow window can give the
+         pickers their own row without stranding the actions behind them. */
+      .bar-models, .bar-actions { display: flex; align-items: center; gap: 9px; min-width: 0; }
+      .bar-actions { gap: 3px; }
+      .bar-actions #quota { margin-right: 5px; }
+      .bar-actions #keyBtn { display: none; }
 
       main {
         flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -1243,7 +1250,11 @@
       }
 
       /* ------------------------------------------------------------ empty */
-      .empty { color: var(--muted); text-align: center; margin: clamp(18px, 6vh, 66px) auto 0; max-width: 54ch; padding: 0 8px; }
+      .empty {
+        color: var(--muted); text-align: center; margin: clamp(18px, 6vh, 66px) auto 0;
+        max-width: 54ch; padding: 0 8px;
+        animation: rise .34s cubic-bezier(.22, .8, .24, 1) both;
+      }
       .empty h1 {
         font-size: clamp(21px, 2.4vw, 27px); color: var(--text); margin: 0 0 10px;
         font-weight: 650; letter-spacing: -.2px;
@@ -1262,12 +1273,17 @@
       .suggest button {
         font-size: 12.5px; color: var(--accent-strong); background: var(--accent-soft);
         border: 1px solid var(--accent-line); border-radius: 999px; padding: 6px 13px; box-shadow: none;
+        animation: rise .3s ease-out both;
+        transition: transform .16s ease, background .15s, border-color .15s, color .15s;
       }
-      .suggest button:hover:not(:disabled) { background: #333333; border-color: #555555; }
+      .suggest button:nth-child(2) { animation-delay: .04s; }
+      .suggest button:nth-child(3) { animation-delay: .08s; }
+      .suggest button:nth-child(4) { animation-delay: .12s; }
+      .suggest button:hover:not(:disabled) { background: #333333; border-color: #555555; transform: translateY(-1px); }
 
       /* --------------------------------------------------------- messages */
-      .msg { display: flex; flex-direction: column; gap: 6px; animation: rise .18s ease-out; }
-      @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      .msg { display: flex; flex-direction: column; gap: 6px; animation: rise .24s cubic-bezier(.22, .8, .24, 1) both; }
+      @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
       /* Your own lines sit in the same left column as the answer, so a short
          "hi" and the reply read as one transcript instead of two sides. */
       .msg.user { align-items: flex-start; }
@@ -1288,7 +1304,10 @@
         font-size: clamp(1rem, 1.05vw + 0.2rem, 1.125rem);
         line-height: 1.76;
       }
-      .msg.assistant .bubble.streaming { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(0, 0, 0, .08); }
+      .msg.assistant .bubble.streaming {
+        border-color: var(--accent-line);
+        animation: breathe 2.4s ease-in-out infinite;
+      }
       .msg.error .bubble { border-color: var(--danger-line); background: var(--danger-soft); color: var(--text); }
       .msg.user.queued .bubble {
         background: var(--surface-2); color: var(--muted); border-color: var(--line-2);
@@ -1303,8 +1322,17 @@
       }
       .meta-line .tag { color: var(--muted); }
       .meta-line .warning { color: var(--warn); }
+      .model-switch {
+        display: flex; align-items: center; gap: 9px; margin: 3px 0 1px;
+        color: var(--dim); font-family: var(--mono); font-size: 10.5px;
+        letter-spacing: .03em; text-transform: uppercase;
+        animation: rise .3s ease-out both;
+      }
+      .model-switch::before, .model-switch::after {
+        content: ""; flex: 1; height: 1px; background: var(--line);
+      }
 
-      .tool-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      .tool-row { display: flex; flex-wrap: wrap; gap: 6px; animation: rise .2s ease-out both; }
       .tool-chip {
         font-size: 11.5px; color: var(--muted);
         border: 1px solid var(--line); border-radius: 999px;
@@ -1359,6 +1387,11 @@
       .dots i:nth-child(2) { animation-delay: .16s; }
       .dots i:nth-child(3) { animation-delay: .32s; }
       @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+      /* A slow halo while tokens arrive: alive without pulling focus. */
+      @keyframes breathe {
+        0%, 100% { box-shadow: var(--shadow-sm), 0 0 0 2px rgba(255, 255, 255, .04); }
+        50% { box-shadow: var(--shadow-sm), 0 0 0 5px rgba(255, 255, 255, .09); }
+      }
 
       /* -------------------------------------------------------- composer */
       footer {
@@ -1413,6 +1446,7 @@
       .plan-actions { display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
       .plan-actions button { min-height: 36px; padding: 0 13px; font-size: 12.5px; }
       .composer { max-width: var(--content); width: 100%; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      .composer #undoBtn[hidden] { display: none; }
       .attach {
         display: inline-flex; align-items: center; justify-content: center; gap: 7px;
         min-height: 50px; padding: 0 14px; flex: 0 0 auto; cursor: pointer;
@@ -1440,6 +1474,7 @@
       }
       textarea {
         flex: 1; resize: none; min-height: 50px; max-height: 40vh; max-height: 40dvh;
+        overflow-y: hidden;
         background: var(--surface); color: var(--text); border: 1px solid var(--line);
         border-radius: 14px; padding: 13px 15px; font: inherit; font-size: 16px;
         line-height: 1.5; outline: none; box-shadow: var(--shadow-sm);
@@ -1563,6 +1598,14 @@
       .fs-row .kind { width: 14px; color: var(--dim); font-size: 11px; }
       .fs-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .fs-row .size { font-size: 10.5px; color: var(--dim); }
+      .gh-repo { padding: 2px 5px 2px 0; gap: 4px; }
+      .gh-repo-open {
+        display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+        padding: 6px 4px 6px 9px; border: 0; background: transparent;
+        box-shadow: none; color: var(--text); font: inherit; text-align: left;
+      }
+      .gh-repo-open:hover { color: var(--accent-strong); }
+      .gh-repo .mini { flex: 0 0 auto; padding: 3px 7px; font-size: 10.5px; }
       .fs-editor { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
       .fs-editor.hidden { display: none; }
       .fs-editor textarea {
@@ -1576,6 +1619,7 @@
         margin-top: 8px; border: 1px solid var(--warn-line); border-radius: 12px;
         background: var(--warn-soft); padding: 11px 13px; display: flex; flex-direction: column; gap: 8px;
         max-width: min(92%, 70ch); font-size: 12.5px;
+        animation: rise .22s ease-out both;
       }
       .confirm-card .confirm-title { color: var(--warn); font-weight: 650; }
       .confirm-card .confirm-detail {
@@ -1615,7 +1659,10 @@
       .thread-empty-new:hover:not(:disabled) {
         background: var(--surface-2); border-color: var(--accent);
       }
-      .thread-item { display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px; }
+      .thread-item {
+        display: flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 10px;
+        transition: background .16s, border-color .16s, box-shadow .16s;
+      }
       .thread-item:hover { background: rgba(255, 255, 255, .06); border-color: var(--line); }
       .thread-item.active {
         background: var(--surface); border-color: var(--line);
@@ -1628,7 +1675,7 @@
       .thread-item .open:hover { background: transparent; border-color: transparent; }
       .thread-item .ttl { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .thread-item .sub { display: block; font-size: 11px; color: var(--dim); }
-      .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; }
+      .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; transition: opacity .15s; }
       .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
       .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
       #sideBtn { display: inline-flex; align-items: center; gap: 5px; }
@@ -1709,6 +1756,36 @@
       .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
       .field label { font-size: 12.5px; color: var(--muted); font-weight: 550; }
       .field .help { font-size: 11.5px; color: var(--dim); }
+
+      .field-head {
+        position: relative; display: flex; align-items: center; gap: 7px;
+        flex-wrap: wrap;
+      }
+      .field-head > label { margin: 0; }
+      .qmark {
+        flex: 0 0 auto; width: 17px; height: 17px; padding: 0;
+        display: inline-grid; place-items: center; border-radius: 50%;
+        border: 1px solid var(--line-2); background: transparent; color: var(--dim);
+        font: 650 10.5px/1 "Segoe UI", system-ui, sans-serif;
+        box-shadow: none; cursor: help;
+      }
+      .qmark:hover:not(:disabled), .qmark:focus {
+        color: var(--text); border-color: var(--accent-line); background: var(--surface-2);
+      }
+      .qmark:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+      .qtip {
+        position: absolute; z-index: 40; left: 0; top: calc(100% + 7px);
+        width: max-content; max-width: min(320px, 100%);
+        padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 9px;
+        background: var(--surface-2); color: var(--muted);
+        font-size: 11.5px; font-weight: 400; line-height: 1.45; text-align: left;
+        box-shadow: var(--shadow-md); pointer-events: none;
+        opacity: 0; visibility: hidden; transform: translateY(-2px);
+        transition: opacity .12s ease, transform .12s ease, visibility .12s;
+      }
+      .qmark:hover + .qtip, .qmark:focus + .qtip {
+        opacity: 1; visibility: visible; transform: none;
+      }
       input[type="text"], input[type="password"], input[type="search"], input[type="number"], select, textarea.prompt {
         background: var(--surface); border: 1px solid var(--line); color: var(--text);
         border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 14px; outline: none; width: 100%;
@@ -1770,6 +1847,7 @@
         background: var(--accent); color: #111; border: 0;
         font-size: 16px; display: grid; place-items: center;
         box-shadow: 0 8px 24px rgba(0, 0, 0, .32); z-index: 8;
+        animation: pop .2s ease-out;
       }
       .jump:hover:not(:disabled) { background: var(--accent-strong); border-color: transparent; }
       .jump.hidden { display: none; }
@@ -1795,6 +1873,38 @@
       .dev-servers[hidden] { display: none; }
       .dev-servers .mini { padding: 1px 6px; font-size: 10.5px; }
 
+      /* Two deliberate rows once the desktop bar stops fitting: identity and
+         actions first, then the provider/model pickers across the width. */
+      @media (max-width: 1700px) {
+        header.bar {
+          display: grid; grid-template-columns: auto auto 1fr;
+          grid-template-areas: "side brand actions" "models models models";
+          align-items: center; gap: 7px 8px;
+        }
+        #sideBtn { grid-area: side; }
+        .brand { grid-area: brand; }
+        .bar-actions { grid-area: actions; justify-self: end; }
+        .bar-models { grid-area: models; width: 100%; max-width: 660px; }
+        .bar-models .prov { flex: 1 1 50%; min-width: 0; max-width: none; }
+        .bar-models .chip { flex: 1 1 50%; min-width: 0; max-width: none; text-align: left; }
+        .ver, #policy, .spacer { display: none; }
+      }
+
+      @media (max-width: 760px) {
+        #quota { display: none; }
+        .bar-actions { gap: 1px; }
+        .bar-actions #keyBtn { display: inline-flex; }
+        header.bar button { min-height: 38px; }
+      }
+
+      @media (max-width: 420px) {
+        header.bar {
+          grid-template-columns: auto 1fr;
+          grid-template-areas: "side brand" "models models" "actions actions";
+        }
+        .bar-actions { justify-self: stretch; justify-content: space-between; }
+      }
+
       @media (max-width: 900px) {
         .sidebar {
           position: fixed; inset: 0 auto 0 0; z-index: 15; width: 284px; max-width: 86vw;
@@ -1808,12 +1918,23 @@
       @media (max-width: 640px) {
         header.bar { padding: 9px 12px; gap: 7px; }
         .brand { font-size: 14px; }
+        /* Phones trade the large diagram and the two-line mode hint for
+           message space; the hero and quick starts stay above the fold. */
+        .empty { margin-top: 14px; }
+        .empty .ascii, .empty p { display: none; }
+        .mode-bar { margin-bottom: 6px; }
+        .mode-hint { display: none; }
+        /* Phones keep 44px+ targets while giving the transcript back about
+           20px of vertical space. */
+        footer { padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); }
+        .mode-switch { padding: 2px; }
+        .mode-btn { min-width: 58px; padding: 4px 10px; font-size: 12px; }
+        .composer { gap: 8px; }
+        .composer #input { min-height: 46px; padding: 10px 14px; border-radius: 12px; }
+        .attach { min-height: 46px; }
         .chip { max-width: 132px; font-size: 12px; padding: 4px 10px; }
         .pill { font-size: 11px; padding: 4px 8px; }
         header.bar button { padding: 7px 9px; min-height: 40px; font-size: 12.5px; }
-        /* The policy pill already says free/no-key; cap the duplicate quota text so
-           New, Settings, Preview, Files and Quit stay on one row. */
-        #quota { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bubble { max-width: 100%; }
         .hint { display: none; }
         .modal { max-height: 92dvh; border-radius: 14px; }
@@ -1824,7 +1945,11 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+        *, *::before, *::after {
+          animation-duration: .001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: .001ms !important;
+        }
       }
       .pv-problems {
         border: 1px solid var(--line-2); border-radius: 9px; padding: 8px 10px;
@@ -1832,6 +1957,7 @@
       }
       .pv-problems ul { margin: 4px 0 0; padding-left: 18px; }
       .pv-problems li { margin: 2px 0; overflow-wrap: anywhere; }
+      .gh-tabs { flex-wrap: wrap; }
     </style>
   </head>
   <body>
@@ -1851,16 +1977,21 @@
       <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
       <div class="brand">Free<span>way</span></div>
       <span class="ver" id="version" title="Running version (also at /api/config)">v…</span>
-      <select id="provider" class="prov" title="Provider" aria-label="Provider"></select>
-      <button id="modelBtn" class="chip" title="Choose a model (Ctrl+M)">Loading…</button>
+      <div class="bar-models">
+        <select id="provider" class="prov" title="Provider" aria-label="Provider"></select>
+        <button id="modelBtn" class="chip" title="Choose a model (Ctrl+M)">Loading…</button>
+      </div>
       <span class="pill tier" id="policy" title="How free is decided here">…</span>
       <div class="spacer"></div>
-      <button id="quota" class="pill" title="API key and quota">quota…</button>
-      <button id="newChatBtn" class="ghost" title="New chat (Ctrl+Shift+N)">New</button>
-      <button id="settingsBtn" class="ghost" title="Settings" aria-label="Settings">⚙</button>
-      <button id="quickPreview" class="ghost" type="button" title="Open a working preview">Preview</button>
-      <button id="railBtn" class="ghost" title="Files and secrets" aria-label="Files and secrets">▤</button>
-      <button id="quitBtn" class="ghost" title="Stop the app">Quit</button>
+      <div class="bar-actions">
+        <button id="quota" class="pill" title="API key and quota">quota…</button>
+        <button id="keyBtn" class="ghost" type="button" title="API key and quota" aria-label="API key and quota">Key</button>
+        <button id="newChatBtn" class="ghost" title="New chat (Ctrl+Shift+N)">New</button>
+        <button id="settingsBtn" class="ghost" title="Settings" aria-label="Settings">⚙</button>
+        <button id="quickPreview" class="ghost" type="button" title="Open a working preview">Preview</button>
+        <button id="railBtn" class="ghost" title="Files and secrets" aria-label="Files and secrets">▤</button>
+        <button id="quitBtn" class="ghost" title="Stop the app">Quit</button>
+      </div>
     </header>
 
     <main id="scroll">
@@ -1922,6 +2053,7 @@
           <input id="attach" type="file" accept=".txt,.md,.json,.js,.mjs,.ts,.py,.css,.html,.csv,.log,.yml,.yaml" hidden />
         </label>
         <button id="memoryBtn" class="mini" type="button" title="Edit the note sent with this chat">memory</button>
+        <button id="undoBtn" class="mini" type="button" title="Undo the last file change from this Build" hidden>Undo</button>
         <button id="sendBtn" class="primary">Send</button>
         <button id="stopBtn" class="ghost" disabled>Stop</button>
       </div>
@@ -1950,6 +2082,7 @@
           <button class="mini" id="fsUp" type="button" title="Folder above" aria-label="Folder above">↑</button>
           <button class="mini" id="fsRefresh" type="button" title="Reload files" aria-label="Reload files">⟳</button>
           <button class="mini" id="fsSample" type="button" title="Create a sample page">Sample</button>
+          <button class="mini" id="fsZip" type="button" title="Download this workspace as a ZIP">ZIP</button>
           <span class="path" id="fsPath">/</span>
         </div>
         <div class="fs-list" id="fsList"></div>
@@ -1979,20 +2112,42 @@
       </div>
 
       <div class="rail-body hidden" id="railGithub">
-        <p class="fine" id="ghStatus">Add a GITHUB_TOKEN secret to browse GitHub from here.</p>
-        <div class="fs-list" id="ghRepos"></div>
-        <div id="ghRepoBox" hidden>
-          <div class="rail-row">
-            <span class="path" id="ghRepoTitle"></span>
+        <p class="fine" id="ghStatus">Connect GitHub to see your repositories.</p>
+        <div id="ghConnect">
+          <div class="field">
+            <label for="ghToken">Personal access token</label>
+            <input id="ghToken" type="password" placeholder="ghp_… or github_pat_…"
+                   autocomplete="off" spellcheck="false" />
+            <span class="help">Classic token with <code>repo</code> and <code>workflow</code> scopes. Fine-grained tokens need Contents, Issues, Pull requests and Actions access.</span>
           </div>
           <div class="rail-row">
-            <button class="mini" type="button" data-gh-view="issues">Issues</button>
-            <button class="mini" type="button" data-gh-view="pulls">PRs</button>
-            <button class="mini" type="button" data-gh-view="commits">Commits</button>
+            <button class="mini" id="ghConnectBtn" type="button">Connect GitHub</button>
+            <a class="mini" id="ghTokenLink"
+               href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=Freeway"
+               target="_blank" rel="noreferrer">Create token ↗</a>
           </div>
-          <div class="fs-list" id="ghItems"></div>
         </div>
-        <p class="fine">Read-only. The model can open an issue, but only after you approve it.</p>
+        <div id="ghConnected" hidden>
+          <div class="rail-row">
+            <span class="path">Your repositories</span>
+            <button class="mini" id="ghDisconnect" type="button">Disconnect</button>
+          </div>
+          <div class="fs-list" id="ghRepos"></div>
+          <div id="ghRepoBox" hidden>
+            <div class="rail-row">
+              <span class="path" id="ghRepoTitle"></span>
+            </div>
+            <div class="rail-row gh-tabs">
+              <button class="mini" type="button" data-gh-view="issues">Issues</button>
+              <button class="mini" type="button" data-gh-view="pulls">PRs</button>
+              <button class="mini" type="button" data-gh-view="commits">Commits</button>
+              <button class="mini" type="button" data-gh-view="runs">Actions</button>
+              <button class="mini" type="button" data-gh-view="releases">Releases</button>
+            </div>
+            <div class="fs-list" id="ghItems"></div>
+          </div>
+        </div>
+        <p class="fine" id="ghNote">The token stays on this computer. Browsing is read-only. Clones, pushes, issues, comments, reviews, merges, releases and Actions need your approval.</p>
       </div>
 
       <div class="rail-body hidden" id="railStatus">
@@ -2102,55 +2257,97 @@
         <header><strong id="settingsTitle">Settings</strong></header>
         <div class="body">
           <div class="field">
-            <label for="sPrompt">System prompt</label>
-            <textarea id="sPrompt" class="prompt" rows="3" placeholder="Optional. Sets the model's behaviour for every message."></textarea>
+            <div class="field-head">
+              <label for="sPrompt">System prompt</label>
+              <button class="qmark" type="button" aria-label="More about System prompt" aria-describedby="tipSystemPrompt">?</button>
+              <span class="qtip" id="tipSystemPrompt" role="tooltip">Optional instructions sent with every message. Use it to set tone, format or constraints; leave it blank for the model's default behaviour.</span>
+            </div>
+            <textarea id="sPrompt" class="prompt" rows="3" placeholder="Optional instructions for every reply."></textarea>
           </div>
           <div class="field">
-            <label for="sTemp">Temperature</label>
+            <div class="field-head">
+              <label for="sTemp">Temperature</label>
+              <button class="qmark" type="button" aria-label="More about Temperature" aria-describedby="tipTemperature">?</button>
+              <span class="qtip" id="tipTemperature" role="tooltip">Lower values make replies more focused and repeatable; higher values make them more varied. Leave blank to use the provider's default.</span>
+            </div>
             <input id="sTemp" type="number" min="0" max="2" step="0.1" placeholder="default" />
-            <span class="help">0 is focused, 2 is wild. Leave empty to use the model default.</span>
+            <span class="help">0 focused · 2 wild · blank uses the default.</span>
           </div>
           <div class="field">
-            <label for="sMax">Max output tokens</label>
+            <div class="field-head">
+              <label for="sMax">Max output tokens</label>
+              <button class="qmark" type="button" aria-label="More about Max output tokens" aria-describedby="tipMaxTokens">?</button>
+              <span class="qtip" id="tipMaxTokens" role="tooltip">Caps the length of each reply in tokens, from 256 to 4000. Lower values are faster and cheaper.</span>
+            </div>
             <input id="sMax" type="number" min="256" max="4000" step="1" />
-            <span class="help">Between 256 and 4000. Lower is faster and cheaper.</span>
+            <span class="help">256–4000; lower is faster.</span>
           </div>
           <div class="field">
-            <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
-            <span class="help">Clock, exact calculator, public web fetch, workspace files and GitHub, plus allowlisted commands when enabled below. When this is on, the model is told to use the tools instead of guessing. Only sent to models that support tool calling.</span>
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
+              <button class="qmark" type="button" aria-label="More about tools" aria-describedby="tipTools">?</button>
+              <span class="qtip" id="tipTools" role="tooltip">Clock, exact calculator, public web fetch, workspace files and GitHub, plus allowlisted commands when enabled below. When this is on, the model is told to use the tools instead of guessing. Only sent to models that support tool calling.</span>
+            </div>
+            <span class="help">Clock, calculator, web, files, GitHub and allowlisted commands.</span>
           </div>
           <div class="field">
-            <label class="check"><input type="checkbox" id="sScreenshot" /> Check the preview with a screenshot</label>
-            <span class="help">On by default. After preview_check passes, a local headless Edge or Chrome can capture the preview for vision-capable models. At most two captures per Build run, and no image is sent when this is off.</span>
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sScreenshot" /> Screenshot previews for vision models</label>
+              <button class="qmark" type="button" aria-label="More about screenshot previews" aria-describedby="tipScreenshots">?</button>
+              <span class="qtip" id="tipScreenshots" role="tooltip">On by default. After a preview check passes, a local headless Edge or Chrome can capture the preview for a vision-capable model. At most two captures per Build run, and no image is sent when this is off.</span>
+            </div>
+            <span class="help">Up to two per Build run; off stops all captures.</span>
           </div>
           <div class="field">
-            <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
-            <span class="help">A collapsed “What happened” line under answers that retried another model.</span>
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
+              <button class="qmark" type="button" aria-label="More about the retry log" aria-describedby="tipRetryLog">?</button>
+              <span class="qtip" id="tipRetryLog" role="tooltip">A collapsed “What happened” line under an answer shows every model attempt and retry.</span>
+            </div>
+            <span class="help">Shows which models answered after a retry.</span>
           </div>
           <div class="field">
-            <label for="sCap">Free requests per chat</label>
+            <div class="field-head">
+              <label for="sCap">Free requests per chat</label>
+              <button class="qmark" type="button" aria-label="More about the request cap" aria-describedby="tipRequestCap">?</button>
+              <span class="qtip" id="tipRequestCap" role="tooltip">Soft cap for one conversation. The footer counts requests and warns near the limit; 0 turns it off.</span>
+            </div>
             <input id="sCap" type="number" min="0" max="1000" step="1" />
-            <span class="help">Soft cap for one conversation: the footer counts requests and warns near the limit. 0 turns it off.</span>
+            <span class="help">Soft cap per chat; 0 turns it off.</span>
           </div>
           <div class="field">
-            <label for="sWorkspace">Workspace folder</label>
+            <div class="field-head">
+              <label for="sWorkspace">Workspace folder</label>
+              <button class="qmark" type="button" aria-label="More about the workspace folder" aria-describedby="tipWorkspace">?</button>
+              <span class="qtip" id="tipWorkspace" role="tooltip">The only folder the Files panel and the model's file tools may touch. Leave it blank to turn both off.</span>
+            </div>
             <input id="sWorkspace" type="text" placeholder="C:\Users\you\projects" spellcheck="false" />
-            <span class="help">The only folder the Files panel and the model's read_file / write_file tools may touch. Leave it blank to turn both off.</span>
+            <span class="help">Files and tools stay inside this folder; blank disables both.</span>
           </div>
           <div class="field">
-            <label class="check"><input type="checkbox" id="sCommands" /> Allow the model to run commands</label>
-            <span class="help">Off by default. Commands still stop at an Allow / Deny card showing the exact arguments, unless Auto-approve Build actions is on.</span>
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sCommands" /> Allow the model to run commands</label>
+              <button class="qmark" type="button" aria-label="More about running commands" aria-describedby="tipCommands">?</button>
+              <span class="qtip" id="tipCommands" role="tooltip">Off by default. Commands stop at an Allow / Deny card showing the exact arguments, unless Auto-approve Build actions is on.</span>
+            </div>
+            <span class="help">Each run still asks first unless auto-approve is on.</span>
           </div>
           <div class="field">
-            <label for="sAllowlist">Programs it may run</label>
+            <div class="field-head">
+              <label for="sAllowlist">Programs it may run</label>
+              <button class="qmark" type="button" aria-label="More about the program allowlist" aria-describedby="tipAllowlist">?</button>
+              <span class="qtip" id="tipAllowlist" role="tooltip">Program names only, separated by commas. No paths. A name not listed is refused before anything starts.</span>
+            </div>
             <input id="sAllowlist" type="text" placeholder="node, npm, git" spellcheck="false" autocomplete="off" />
-            <span class="help">Names only, separated by commas. No paths. A name not listed here is refused before anything starts.</span>
+            <span class="help">Comma-separated names; no paths.</span>
           </div>
           <div class="field">
-            <label class="check" for="sAutoApprove" title="When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands in every Build workspace without an Allow / Deny card. This applies to every Build workspace until you turn it off. Plan stays read-only. Only use it where you can restore files.">
-              <input type="checkbox" id="sAutoApprove" title="When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands in every Build workspace without an Allow / Deny card. This applies to every Build workspace until you turn it off. Plan stays read-only. Only use it where you can restore files." aria-describedby="sAutoApproveHelp" /> Auto-approve Build actions
-            </label>
-            <span class="help" id="sAutoApproveHelp">Off by default. When on, Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands without an Allow / Deny card. This is a global setting: it applies to every Build workspace until you turn it off. Plan stays read-only, and the workspace folder and program allowlist above still apply. Only use it where you can restore files.</span>
+            <div class="field-head">
+              <label class="check" for="sAutoApprove"><input type="checkbox" id="sAutoApprove" aria-describedby="sAutoApproveHelp" /> Auto-approve Build actions</label>
+              <button class="qmark" type="button" aria-label="More about auto-approve Build actions" aria-describedby="tipAutoApprove">?</button>
+              <span class="qtip" id="tipAutoApprove" role="tooltip">Off by default. Build can write files, create GitHub issues, start or stop allowlisted processes and run allowlisted commands without an Allow / Deny card. This is a global setting: it applies to every Build workspace until you turn it off. Plan stays read-only, and the workspace folder and program allowlist above still apply. Only use it where you can restore files.</span>
+            </div>
+            <span class="help" id="sAutoApproveHelp">Skips Allow cards in Build; Plan stays read-only.</span>
           </div>
           <div class="field">
             <label>Saved chats</label>
@@ -2158,10 +2355,12 @@
               <button id="exportBtn" type="button">Export all chats</button>
               <button id="importBtn" type="button">Import…</button>
               <button id="exportMdBtn" type="button" title="Download this conversation as Markdown">Export this chat (.md)</button>
+              <button id="exportDocxBtn" type="button" title="Download this conversation as a Word document">DOCX</button>
+              <button id="exportPdfBtn" type="button" title="Download this conversation as a PDF">PDF</button>
               <button id="promptsBtn" type="button" title="Saved prompts">Prompts…</button>
               <label class="check"><input type="checkbox" id="importReplace" /> Replace existing</label>
             </div>
-            <span class="help">One JSON file with every chat and your settings. Import merges unless you tick replace.</span>
+            <span class="help">One JSON file with chats and settings; import merges unless you tick replace.</span>
             <span class="help">Freeway does not update itself. <a href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">Get the latest release ↗</a></span>
             <input id="importFile" type="file" accept="application/json,.json" hidden />
           </div>
@@ -2242,6 +2441,9 @@
         // New chats start in Plan; a saved chat reopens in the mode it used.
         mode: "plan",
         plan: null,
+        // The newest undo checkpoint for the open chat. It is server-side; this
+        // object only carries the public metadata needed by the button.
+        lastCheckpoint: null,
         threads: [],
         // Ids the server matched on message text for the current search. Titles
         // are filtered instantly in the browser; this fills in content matches.
@@ -2428,6 +2630,7 @@
           requests: state.requests,
           messages: state.messages.slice(-40),
           mode: state.mode,
+          model: state.model,
           plan: state.plan,
           workspace: state.workspacePath,
         };
@@ -2457,6 +2660,7 @@
               messages: job.messages,
               preview: state.preview,
               mode: job.mode,
+              model: job.model,
               plan: job.plan,
               workspace: job.workspace,
               ifRev: state.rev,
@@ -2490,6 +2694,8 @@
             state.rev = Number(theirs.rev) || 0;
             state.draft = theirs.draft ?? null;
             state.mode = theirs.mode === "build" ? "build" : "plan";
+            if (typeof theirs.model === "string" && theirs.model) state.model = theirs.model;
+            updateModelChip();
             state.plan = normalizePlan(theirs.plan);
             renderMode();
             renderThread();
@@ -2507,6 +2713,7 @@
               messages: job.messages,
               preview: state.preview,
               mode: job.mode,
+              model: job.model,
               plan: job.plan,
             }),
           });
@@ -2588,6 +2795,7 @@
           ? [{ role: "system", content: `User memory note for this chat (keep following it):\n${note}` }, ...messages]
           : messages;
       }
+      $("undoBtn").addEventListener("click", undoCheckpoint);
       $("memoryBtn").addEventListener("click", async () => {
         if (!state.threadId) return setStatus("open a chat first");
         const answer = await askPrompt(
@@ -2728,6 +2936,15 @@
           result.thread.title && result.thread.title !== derivedTitle(state.messages) ? result.thread.title : "";
         state.draft = result.thread.draft ?? null;
         state.mode = result.thread.mode === "build" ? "build" : "plan";
+        if (typeof result.thread.model === "string" && result.thread.model) {
+          const savedModel = result.thread.model;
+          if (state.models.length === 0 || state.models.some((model) => model.id === savedModel)) {
+            state.model = savedModel;
+          } else if (state.models[0]?.id) {
+            state.model = state.models[0].id;
+          }
+        }
+        updateModelChip();
         state.plan = normalizePlan(result.thread.plan);
         state.preview = result.thread.preview || "";
         state.previewEntry = "";
@@ -2735,6 +2952,7 @@
         state.previewUrl = "";
         state.localPreview = false;
         state.pvLoaded = false;
+        setCheckpoint(null);
         $("pvUrl").value = state.preview;
         resetFilePanel();
         applyPreview(state.preview);
@@ -2752,6 +2970,7 @@
         renderDraft();
         renderMode();
         renderThreadList();
+        void refreshCheckpoint();
         closeSidebar(true);
         $("input").focus();
       }
@@ -3276,6 +3495,14 @@
         node.appendChild(box);
       }
 
+      function createModelSwitchNode(model) {
+        const divider = document.createElement("div");
+        divider.className = "model-switch";
+        divider.textContent = `Model: ${shortModel(model)}`;
+        divider.title = `This answer used ${model}`;
+        return divider;
+      }
+
       function createMessageNode(message, index) {
         const wrap = document.createElement("div");
         wrap.className = `msg ${message.role}`;
@@ -3333,11 +3560,23 @@
 
       function renderThread() {
         const thread = $("thread");
-        for (const node of thread.querySelectorAll(".msg, .plan-card")) node.remove();
+        for (const node of thread.querySelectorAll(".msg, .plan-card, .model-switch")) node.remove();
         showEmpty(state.messages.length === 0 && !state.plan);
         renderPlanCard();
-        state.messages.forEach((message, index) => thread.appendChild(createMessageNode(message, index)));
-        scrollDown(true);
+        let previousModel = null;
+        state.messages.forEach((message, index) => {
+          if (message.role === "assistant" && message.model) {
+            if (previousModel && previousModel !== message.model) {
+              thread.appendChild(createModelSwitchNode(message.model));
+            }
+            previousModel = message.model;
+          }
+          thread.appendChild(createMessageNode(message, index));
+        });
+        // An empty chat opens at the top, where the hero and quick starts are;
+        // only a real transcript is pinned to the latest line.
+        if (state.messages.length || state.plan) scrollDown(true);
+        else $("scroll").scrollTop = 0;
         updateJump();
         updateBudget();
       }
@@ -3397,9 +3636,11 @@
         buildBtn.classList.toggle("active", !planning);
         planBtn.setAttribute("aria-pressed", String(planning));
         buildBtn.setAttribute("aria-pressed", String(!planning));
-        $("modeHint").textContent = planning
+        const hint = planning
           ? "Plan is read-only. Ask for a plan, then press Build on the plan card."
           : "Build can write files and run commands, with approval before each write.";
+        $("modeHint").textContent = hint;
+        $("modeHint").title = hint;
         $("input").placeholder = planning ? "Describe what you want planned…" : "Message…";
       }
 
@@ -3659,6 +3900,67 @@
               ? `&workspace=${encodeURIComponent(state.workspacePath)}`
               : "";
         return chat + workspace;
+      }
+
+      // A model write carries a checkpoint id. The server keeps the before
+      // bytes; the page keeps only this small public record and the undo button.
+      function setCheckpoint(checkpoint) {
+        state.lastCheckpoint = checkpoint && checkpoint.id ? checkpoint : null;
+        const button = $("undoBtn");
+        if (!button) return;
+        if (!state.lastCheckpoint) {
+          button.hidden = true;
+          button.title = "Undo the last file change from this Build";
+          return;
+        }
+        const files = (state.lastCheckpoint.files || []).map((file) => `/${file.path}`).join(", ");
+        button.hidden = false;
+        button.title = `Undo the last ${state.lastCheckpoint.tool || "file"} change${files ? `: ${files}` : ""}`;
+      }
+
+      async function refreshCheckpoint() {
+        if (!state.threadId) {
+          setCheckpoint(null);
+          return;
+        }
+        const params = new URLSearchParams();
+        params.set("chat", state.threadId);
+        if (state.workspacePath === "") params.set("workspace", "");
+        else if (state.workspacePath) params.set("workspace", state.workspacePath);
+        try {
+          const data = await api(`/api/checkpoints/latest?${params.toString()}`);
+          setCheckpoint(data.checkpoint);
+        } catch {
+          setCheckpoint(null);
+        }
+      }
+
+      async function undoCheckpoint() {
+        const checkpoint = state.lastCheckpoint;
+        if (!checkpoint || state.streaming) return;
+        const button = $("undoBtn");
+        button.disabled = true;
+        try {
+          const result = await api("/api/checkpoints/undo", {
+            method: "POST",
+            body: JSON.stringify({
+              chat: state.threadId,
+              workspace: state.workspacePath,
+              id: checkpoint.id,
+            }),
+          });
+          const count = result.checkpoint?.files?.length || 0;
+          setCheckpoint(null);
+          if (state.rail) await refreshFiles();
+          if (state.previewEntry) await previewWorkspaceFile(state.previewEntry);
+          else if (state.fsFile) await openFile(state.fsFile);
+          setStatus(`undid ${count} file change${count === 1 ? "" : "s"}`);
+          await refreshCheckpoint();
+        } catch (error) {
+          setStatus(error.message);
+        } finally {
+          button.disabled = false;
+        }
       }
 
       function closePreviewSession(chatId) {
@@ -4488,6 +4790,92 @@
         }
       }
 
+      function setGithubConnected(connected) {
+        $("ghConnect").hidden = connected;
+        $("ghConnected").hidden = !connected;
+        if (!connected) {
+          $("ghRepoBox").hidden = true;
+          state.ghRepo = "";
+        }
+      }
+
+      async function connectGithub() {
+        const input = $("ghToken");
+        const token = input.value.trim();
+        const status = $("ghStatus");
+        if (!token) {
+          status.textContent = "Paste a GitHub token first.";
+          input.focus();
+          return;
+        }
+        const button = $("ghConnectBtn");
+        button.disabled = true;
+        button.textContent = "Connecting…";
+        status.textContent = "Checking the token with GitHub…";
+        try {
+          const result = await api("/api/github/connect", {
+            method: "POST",
+            body: JSON.stringify({ token }),
+          });
+          input.value = "";
+          status.textContent = `Connected as @${result.viewer?.login ?? "you"}`;
+          setStatus("GitHub connected");
+          await refreshGithub();
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          button.disabled = false;
+          button.textContent = "Connect GitHub";
+        }
+      }
+
+      async function disconnectGithub() {
+        const ok = await askConfirm(
+          "Disconnect GitHub? The saved token will be deleted from this computer.",
+          "Disconnect GitHub",
+          "Disconnect",
+        );
+        if (!ok) return;
+        try {
+          await api("/api/github", { method: "DELETE" });
+          $("ghRepos").textContent = "";
+          $("ghToken").value = "";
+          setGithubConnected(false);
+          $("ghStatus").textContent = "Connect GitHub to see your repositories.";
+          setStatus("GitHub disconnected");
+        } catch (error) {
+          $("ghStatus").textContent = error.message;
+        }
+      }
+
+      async function cloneGithub(fullName, button) {
+        const suggested = fullName.split("/").pop() || "repo";
+        const answer = await askPrompt(`Clone ${fullName} into a new folder`, suggested, "Clone repository");
+        if (answer === null) return;
+        const folder = answer.trim();
+        if (!folder) return setStatus("a clone folder is required");
+        button.disabled = true;
+        button.textContent = "Cloning…";
+        try {
+          const result = await api("/api/github/clone", {
+            method: "POST",
+            body: JSON.stringify({
+              repo: fullName,
+              folder,
+              chat: state.threadId,
+              workspace: state.workspacePath,
+            }),
+          });
+          setStatus(`cloned ${fullName} into /${result.folder}`);
+          refreshFiles();
+        } catch (error) {
+          setStatus(error.message);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Clone";
+        }
+      }
+
       async function refreshGithub() {
         const status = $("ghStatus");
         const list = $("ghRepos");
@@ -4496,16 +4884,26 @@
         try {
           const me = await api("/api/github?what=viewer");
           const data = await api("/api/github?what=repos");
-          status.textContent = `Signed in as ${me.login}`;
+          setGithubConnected(true);
+          status.textContent = `Connected as @${me.login}`;
           for (const repo of data.items) {
-            const row = document.createElement("button");
-            row.type = "button";
-            row.className = "fs-row";
-            row.innerHTML =
+            const row = document.createElement("div");
+            row.className = "fs-row gh-repo";
+            const open = document.createElement("button");
+            open.type = "button";
+            open.className = "gh-repo-open";
+            open.innerHTML =
               `<span class="kind">${repo.private ? "▪" : "▸"}</span>` +
               `<span class="name">${escapeHtml(repo.fullName)}</span>`;
-            row.title = repo.description || repo.fullName;
-            row.addEventListener("click", () => openRepo(repo.fullName));
+            open.title = repo.description || repo.fullName;
+            open.addEventListener("click", () => openRepo(repo.fullName));
+            const clone = document.createElement("button");
+            clone.type = "button";
+            clone.className = "mini";
+            clone.textContent = "Clone";
+            clone.title = `Clone ${repo.fullName} into the workspace`;
+            clone.addEventListener("click", () => void cloneGithub(repo.fullName, clone));
+            row.append(open, clone);
             list.appendChild(row);
           }
           if (data.items.length === 0) {
@@ -4515,7 +4913,11 @@
             list.appendChild(note);
           }
         } catch (error) {
-          status.textContent = error.message;
+          setGithubConnected(false);
+          const message = String(error?.message ?? error);
+          status.textContent = /not connected|no github token/i.test(message)
+            ? "Connect GitHub to see your repositories."
+            : message;
         }
       }
 
@@ -4543,10 +4945,16 @@
             link.href = item.url;
             link.target = "_blank";
             link.rel = "noreferrer";
-            const label =
-              what === "commits"
-                ? `${item.sha}  ${item.message}`
-                : `#${item.number}  ${item.title}`;
+            let label;
+            if (what === "commits") {
+              label = `${item.sha}  ${item.message}`;
+            } else if (what === "runs") {
+              label = `${item.name} #${item.number} · ${item.status}${item.conclusion ? ` / ${item.conclusion}` : ""}`;
+            } else if (what === "releases") {
+              label = `${item.tag}  ${item.name}${item.draft ? " (draft)" : ""}`;
+            } else {
+              label = `#${item.number}  ${item.title}`;
+            }
             link.innerHTML = `<span class="name">${escapeHtml(label)}</span>`;
             list.appendChild(link);
           }
@@ -4628,6 +5036,14 @@
             `${args.program || "?"} ${list.join(" ")}`.trim() +
             (args.cwd ? `\n\nin /${args.cwd}` : "\n\nin the workspace root") +
             "\n\nNo shell: these arguments are passed to the program exactly as shown.";
+        } else if (event.name === "github_clone") {
+          detail.textContent =
+            `Clone ${args.repo || "?"} into /${args.folder || "<repository name>"}\n\n` +
+            "The latest commit is copied into the workspace. The GitHub token is used only for this clone.";
+        } else if (event.name.startsWith("github_")) {
+          detail.textContent =
+            `GitHub ${event.name.replace(/^github_/, "").replace(/_/g, " ")}\n\n` +
+            JSON.stringify(args, null, 2);
         } else {
           detail.textContent = event.arguments ?? "";
         }
@@ -4966,6 +5382,9 @@
         updateModelChip();
         $("picker").classList.add("hidden");
         persist();
+        if (state.messages.length === 0 && state.threads.some((thread) => thread.id === state.threadId)) {
+          scheduleSave({ allowEmpty: true });
+        }
         try {
           await api("/api/config", { method: "POST", body: JSON.stringify({ model: id }) });
         } catch {
@@ -5152,7 +5571,11 @@
         const input = $("input");
         const limit = Math.max(48, Math.round(window.innerHeight * 0.4));
         input.style.height = "auto";
-        input.style.height = `${Math.min(input.scrollHeight, limit)}px`;
+        // scrollHeight excludes the border, but the textarea is border-box;
+        // without this the box is two pixels short and shows an idle scrollbar.
+        const border = input.offsetHeight - input.clientHeight;
+        input.style.height = `${Math.min(input.scrollHeight + border, limit + border)}px`;
+        input.style.overflowY = input.scrollHeight > input.clientHeight + 1 ? "auto" : "hidden";
       }
 
       function addMeta(node, text, warning) {
@@ -5220,6 +5643,17 @@
           $("thread").appendChild(createMessageNode(state.messages[state.messages.length - 1], state.messages.length - 1));
         }
         if (state.messages.length === 0) return;
+
+        // Remember the last answer's model before this turn replaces the
+        // streaming placeholder. The divider is computed again on every render.
+        let priorAnswerModel = null;
+        for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+          const earlier = state.messages[i];
+          if (earlier.role === "assistant" && earlier.model) {
+            priorAnswerModel = earlier.model;
+            break;
+          }
+        }
 
         showEmpty(false);
         const node = createMessageNode({ role: "assistant", content: "" }, -1);
@@ -5375,6 +5809,16 @@
                   setStatus(`auto-approved ${event.name}`);
                 } else if (event.type === "build") {
                   renderBuildProgress(event);
+                } else if (event.type === "repair") {
+                  if (event.state === "exhausted") {
+                    addMeta(node, `repair limit reached (${event.check})`, true);
+                    setStatus("repair limit reached — latest file change can be undone");
+                  } else if (event.state === "passed") {
+                    addMeta(node, "verification passed after repair", false);
+                  } else {
+                    addMeta(node, `repair ${event.attempt}/${event.maxAttempts} after ${event.check}`, true);
+                    setStatus(`repair attempt ${event.attempt}/${event.maxAttempts}`);
+                  }
                 } else if (event.type === "tool") {
                   toolsUsed.push({ name: event.name, preview: event.preview, ok: event.ok });
                   toolRow.textContent = "";
@@ -5410,6 +5854,10 @@
                     else if (state.previewEntry && /\.(css|js|mjs|svg)$/i.test(event.path)) {
                       previewWorkspaceFile(state.previewEntry);
                     }
+                  }
+                  if (event.checkpoint) setCheckpoint(event.checkpoint);
+                  if (event.checkpointError) {
+                    addMeta(node, `checkpoint unavailable: ${event.checkpointError}`, true);
                   }
                   // Show the link even when the model forgets to repeat it in
                   // its answer: every write of a page carries one now.
@@ -5529,6 +5977,9 @@
             };
             state.messages.push(message);
             node.dataset.index = String(state.messages.length - 1);
+            if (model && priorAnswerModel && model !== priorAnswerModel && node.parentNode) {
+              node.parentNode.insertBefore(createModelSwitchNode(model), node);
+            }
             const actions = document.createElement("div");
             actions.className = "actions";
             actions.appendChild(addAction(node, "copy", "Copy"));
@@ -5720,6 +6171,7 @@
         state.previewMode = "";
         state.previewUrl = "";
         state.localPreview = false;
+        setCheckpoint(null);
         $("pvUrl").value = "";
         // A new chat must not keep showing the previous chat's preview or
         // file buffer.
@@ -6005,6 +6457,14 @@
         clearAttachment();
         setStatus("image removed");
       });
+      $("ghConnectBtn").addEventListener("click", connectGithub);
+      $("ghToken").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          connectGithub();
+        }
+      });
+      $("ghDisconnect").addEventListener("click", disconnectGithub);
       $("sendBtn").addEventListener("click", submit);
       $("stopBtn").addEventListener("click", stop);
       $("queueFlush").addEventListener("click", flushQueue);
@@ -6106,6 +6566,91 @@
         $("promptOverlay").classList.add("hidden");
       });
 
+
+      async function downloadBinary(path, body, fallbackName) {
+        const response = await fetch(path, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-app-token": APP_TOKEN },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          let detail = {};
+          try { detail = await response.json(); } catch { detail = {}; }
+          throw new Error(detail.error || `HTTP ${response.status}`);
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get("content-disposition") || "";
+        const match = /filename="([^"]+)"/.exec(disposition);
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = match ? match[1] : fallbackName;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function currentTranscriptMarkdown() {
+        const info = providerInfo();
+        const lines = [
+          "# Freeway transcript",
+          "",
+          `- Exported: ${new Date().toISOString()}`,
+          `- Provider: ${info.label}`,
+          `- Model: ${state.model || "unknown"}`,
+          "",
+          "---",
+          "",
+        ];
+        for (const message of state.messages) {
+          lines.push(`## ${message.role === "user" ? "You" : "Assistant"}`, "", String(message.content || "").trim(), "");
+        }
+        return lines.join("\n");
+      }
+
+      async function downloadDocument(format) {
+        if (!state.messages.length) {
+          $("settingsError").textContent = "Nothing to export yet — send a message first.";
+          return;
+        }
+        setStatus(`building ${format.toUpperCase()}…`);
+        try {
+          await downloadBinary(
+            "/api/export/document",
+            { markdown: currentTranscriptMarkdown(), format, title: "Freeway transcript" },
+            `freeway-transcript.${format}`,
+          );
+          setStatus(`${format.toUpperCase()} downloaded`);
+        } catch (error) {
+          $("settingsError").textContent = error.message;
+          setStatus("");
+        }
+      }
+
+      async function downloadWorkspaceZip() {
+        setStatus("building ZIP…");
+        try {
+          await downloadBinary(
+            "/api/workspace/archive",
+            {
+              chat: state.threadId,
+              workspace: state.workspacePath === "" ? null : state.workspacePath,
+            },
+            "freeway-workspace.zip",
+          );
+          setStatus("ZIP downloaded");
+        } catch (error) {
+          $("fsHint").hidden = false;
+          $("fsHint").textContent = error.message;
+          setStatus("");
+        }
+      }
+
+      $("exportDocxBtn").addEventListener("click", () => downloadDocument("docx"));
+      $("exportPdfBtn").addEventListener("click", () => downloadDocument("pdf"));
+      $("fsZip").addEventListener("click", downloadWorkspaceZip);
+
       $("exportMdBtn").addEventListener("click", () => {
         if (!state.messages.length) {
           $("settingsError").textContent = "Nothing to export yet — send a message first.";
@@ -6196,6 +6741,7 @@
       });
 
       $("quota").addEventListener("click", () => showKeyOverlay(""));
+      $("keyBtn").addEventListener("click", () => showKeyOverlay(""));
       $("jumpBtn").addEventListener("click", () => scrollDown(true));
 
       $("modelBtn").addEventListener("click", async () => {

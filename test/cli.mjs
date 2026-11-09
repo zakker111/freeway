@@ -189,11 +189,15 @@ async function main() {
       const put = await fetch(`${app.base}/api/threads/chat-abc123`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ messages: [{ role: 'user', content: 'hello bicycles' }] }),
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'hello bicycles' }],
+          model: 'mock/alpha-free',
+        }),
       });
       assert.equal(put.status, 200);
       const saved = (await put.json()).thread;
       assert.equal(saved.title, 'hello bicycles');
+      assert.equal(saved.model, 'mock/alpha-free', 'the thread model was not saved');
 
       const list = (await (await fetch(`${app.base}/api/threads`, { headers })).json()).threads;
       assert.equal(list.length, 1);
@@ -204,6 +208,7 @@ async function main() {
 
       const read = await (await fetch(`${app.base}/api/threads/chat-abc123`, { headers })).json();
       assert.equal(read.thread.messages[0].content, 'hello bicycles');
+      assert.equal(read.thread.model, 'mock/alpha-free', 'the thread model did not round-trip');
 
       // A file-only draft must survive the save route too, not just the store.
       const draftResponse = await fetch(`${app.base}/api/threads`, {
@@ -350,6 +355,29 @@ async function main() {
     }
   });
 
+  await check('rejects null JSON and malformed chat ids', async () => {
+    const app = await startApp();
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const nullBody = await fetch(`${app.base}/api/config`, {
+        method: 'POST',
+        headers,
+        body: 'null',
+      });
+      assert.equal(nullBody.status, 400, 'JSON null must not become a 500');
+      assert.match((await nullBody.json()).error, /object|JSON/i);
+
+      const badId = await fetch(`${app.base}/api/threads/bad!id`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'bad id' }] }),
+      });
+      assert.equal(badId.status, 400, 'a malformed thread id must be refused before storage');
+    } finally {
+      await stopApp(app);
+    }
+  });
+
   await check('secrets are write-only from the browser', async () => {
     const app = await startApp();
     const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
@@ -404,7 +432,38 @@ async function main() {
       });
       assert.equal(missing.status, 400);
       const body = await missing.json();
-      assert.match(body.error, /GITHUB_TOKEN/);
+      assert.match(body.error, /Connect GitHub/);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('GitHub connect and clone refuse empty credentials without network', async () => {
+    const app = await startApp();
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const denied = await fetch(`${app.base}/api/github/connect`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: 'ghp_never_sent' }),
+      });
+      assert.equal(denied.status, 403);
+
+      const empty = await fetch(`${app.base}/api/github/connect`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ token: '   ' }),
+      });
+      assert.equal(empty.status, 400);
+      assert.match((await empty.json()).error, /Paste a GitHub token/);
+
+      const clone = await fetch(`${app.base}/api/github/clone`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ repo: 'zakker111/freeway' }),
+      });
+      assert.equal(clone.status, 400);
+      assert.match((await clone.json()).error, /Connect GitHub/);
     } finally {
       await stopApp(app);
     }
@@ -799,9 +858,11 @@ async function main() {
   await check('refuses a foreign Host before serving the token page', async () => {
     const app = await startApp();
     try {
-      const response = await rawGet(app.base, '/', { host: 'evil.example' });
-      assert.equal(response.status, 403);
-      assert.doesNotMatch(response.body, /const APP_TOKEN/);
+      for (const host of ['evil.example', '127.0.0.1.evil.test', '127.0.0.1.nip.io']) {
+        const response = await rawGet(app.base, '/', { host });
+        assert.equal(response.status, 403, `${host} was accepted as loopback`);
+        assert.doesNotMatch(response.body, /const APP_TOKEN/);
+      }
     } finally {
       await stopApp(app);
     }

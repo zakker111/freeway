@@ -60,6 +60,12 @@ const projectMod = stripModule(read('lib/project.mjs'), 'lib/project.mjs');
 const scaffoldMod = stripModule(read('lib/scaffold.mjs'), 'lib/scaffold.mjs');
 const gitMod = stripModule(read('lib/git.mjs'), 'lib/git.mjs');
 const previewCheckMod = stripModule(read('lib/preview-check.mjs'), 'lib/preview-check.mjs');
+const zipMod = stripModule(read('lib/zip.mjs'), 'lib/zip.mjs');
+const markdownMod = stripModule(read('lib/markdown.mjs'), 'lib/markdown.mjs');
+const docxMod = stripModule(read('lib/docx.mjs'), 'lib/docx.mjs');
+const pdfMod = stripModule(read('lib/pdf.mjs'), 'lib/pdf.mjs');
+const chartMod = stripModule(read('lib/chart.mjs'), 'lib/chart.mjs');
+const archiveMod = stripModule(read('lib/archive.mjs'), 'lib/archive.mjs');
 const tools = stripModule(read('lib/tools.mjs'), 'lib/tools.mjs');
 const planMod = stripModule(read('lib/plan.mjs'), 'lib/plan.mjs');
 const toolPrompt = stripModule(read('lib/tool-prompt.mjs'), 'lib/tool-prompt.mjs');
@@ -69,6 +75,9 @@ const workspaceMod = stripModule(read('lib/workspace.mjs'), 'lib/workspace.mjs')
 const previewBridgeMod = stripModule(read('lib/preview-bridge.mjs'), 'lib/preview-bridge.mjs');
 const previewServerMod = stripModule(read('lib/preview-server.mjs'), 'lib/preview-server.mjs');
 const screenshotMod = stripModule(read('lib/screenshot.mjs'), 'lib/screenshot.mjs');
+const browserMod = stripModule(read('lib/browser.mjs'), 'lib/browser.mjs');
+const checkpointsMod = stripModule(read('lib/checkpoints.mjs'), 'lib/checkpoints.mjs');
+const repairMod = stripModule(read('lib/repair.mjs'), 'lib/repair.mjs');
 const secretsMod = stripModule(read('lib/secrets.mjs'), 'lib/secrets.mjs');
 const githubMod = stripModule(read('lib/github.mjs'), 'lib/github.mjs');
 const commandsMod = stripModule(read('lib/commands.mjs'), 'lib/commands.mjs');
@@ -84,6 +93,12 @@ collectNames(projectMod.code, 'lib/project.mjs');
 collectNames(scaffoldMod.code, 'lib/scaffold.mjs');
 collectNames(gitMod.code, 'lib/git.mjs');
 collectNames(previewCheckMod.code, 'lib/preview-check.mjs');
+collectNames(zipMod.code, 'lib/zip.mjs');
+collectNames(markdownMod.code, 'lib/markdown.mjs');
+collectNames(docxMod.code, 'lib/docx.mjs');
+collectNames(pdfMod.code, 'lib/pdf.mjs');
+collectNames(chartMod.code, 'lib/chart.mjs');
+collectNames(archiveMod.code, 'lib/archive.mjs');
 collectNames(tools.code, 'lib/tools.mjs');
 collectNames(planMod.code, 'lib/plan.mjs');
 collectNames(toolPrompt.code, 'lib/tool-prompt.mjs');
@@ -93,6 +108,9 @@ collectNames(workspaceMod.code, 'lib/workspace.mjs');
 collectNames(previewBridgeMod.code, 'lib/preview-bridge.mjs');
 collectNames(previewServerMod.code, 'lib/preview-server.mjs');
 collectNames(screenshotMod.code, 'lib/screenshot.mjs');
+collectNames(browserMod.code, 'lib/browser.mjs');
+collectNames(checkpointsMod.code, 'lib/checkpoints.mjs');
+collectNames(repairMod.code, 'lib/repair.mjs');
 collectNames(secretsMod.code, 'lib/secrets.mjs');
 collectNames(githubMod.code, 'lib/github.mjs');
 collectNames(commandsMod.code, 'lib/commands.mjs');
@@ -151,6 +169,12 @@ const imports = mergeImports([
   ...projectMod.imports,
   ...scaffoldMod.imports,
   ...previewCheckMod.imports,
+  ...zipMod.imports,
+  ...markdownMod.imports,
+  ...docxMod.imports,
+  ...pdfMod.imports,
+  ...chartMod.imports,
+  ...archiveMod.imports,
   ...tools.imports,
   ...toolPrompt.imports,
   ...chatStore.imports,
@@ -159,6 +183,9 @@ const imports = mergeImports([
   ...previewBridgeMod.imports,
   ...previewServerMod.imports,
   ...screenshotMod.imports,
+  ...browserMod.imports,
+  ...checkpointsMod.imports,
+  ...repairMod.imports,
   ...secretsMod.imports,
     ...githubMod.imports,
     ...commandsMod.imports,
@@ -203,6 +230,30 @@ ${scaffoldMod.code}
 
 ${previewCheckMod.code}
 
+/* ------------------------------------------------------------ lib/zip.mjs */
+
+${zipMod.code}
+
+/* ------------------------------------------------------- lib/markdown.mjs */
+
+${markdownMod.code}
+
+/* ----------------------------------------------------------- lib/docx.mjs */
+
+${docxMod.code}
+
+/* ------------------------------------------------------------ lib/pdf.mjs */
+
+${pdfMod.code}
+
+/* ---------------------------------------------------------- lib/chart.mjs */
+
+${chartMod.code}
+
+/* -------------------------------------------------------- lib/archive.mjs */
+
+${archiveMod.code}
+
 /* ---------------------------------------------------------- lib/tools.mjs */
 
 ${tools.code}
@@ -239,6 +290,10 @@ ${previewServerMod.code}
 
 ${screenshotMod.code}
 
+/* ------------------------------------------------------- lib/browser.mjs */
+
+${browserMod.code}
+
 /* -------------------------------------------------------- lib/secrets.mjs */
 
 ${secretsMod.code}
@@ -266,6 +321,14 @@ ${chatStore.code}
 /* ----------------------------------------------------- lib/providers.mjs */
 
 ${providersMod.code}
+
+/* ------------------------------------------------------- lib/checkpoints.mjs */
+
+${checkpointsMod.code}
+
+/* ---------------------------------------------------------- lib/repair.mjs */
+
+${repairMod.code}
 
 /* ---------------------------------------------------------------- app.mjs */
 

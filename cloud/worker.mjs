@@ -633,7 +633,7 @@ const MAX_THREADS = 200;
 // locally, which made a long conversation look lost.
 const MAX_THREAD_MESSAGES = 200;
 const MAX_THREAD_CHARS = 120_000;
-const THREAD_COLUMNS = 'id, title, provider, model, messages, updated_at';
+const THREAD_COLUMNS = 'id, title, provider, model, mode, messages, updated_at';
 
 // SQLite LIKE reads % and _ as wildcards, so a search for "50%" would match
 // everything and "a_b" would match "axb". Escape them and declare ESCAPE in the
@@ -724,6 +724,7 @@ async function ensureSchema(db) {
          title TEXT NOT NULL,
          provider TEXT NOT NULL,
          model TEXT NOT NULL,
+         mode TEXT NOT NULL DEFAULT 'plan',
          messages TEXT NOT NULL,
          updated_at INTEGER NOT NULL,
          PRIMARY KEY (sub, id)
@@ -770,6 +771,13 @@ async function ensureSchema(db) {
        )`,
     ),
   ]);
+  // Existing deployments predate Plan mode. Add the column once; the catch is
+  // the harmless duplicate-column case on a fresh table.
+  try {
+    await db.prepare("ALTER TABLE chats ADD COLUMN mode TEXT NOT NULL DEFAULT 'plan'").run();
+  } catch {
+    /* column already exists */
+  }
   await db.batch([
     db.prepare('CREATE INDEX IF NOT EXISTS chats_by_sub ON chats (sub, updated_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS files_by_sub ON files (sub, updated_at DESC)'),
@@ -813,6 +821,7 @@ export function cleanThread(input) {
     title: title || 'Untitled chat',
     provider: String(input.provider ?? 'openrouter').slice(0, 40),
     model: String(input.model ?? '').slice(0, 120),
+    mode: input.mode === 'build' ? 'build' : 'plan',
     messages: kept,
     updatedAt: Date.now(),
   };
@@ -2032,6 +2041,7 @@ async function handle(request, env, ctx) {
           title: row.title,
           provider: row.provider,
           model: row.model,
+          mode: row.mode === 'build' ? 'build' : 'plan',
           messages: (() => {
             try {
               const parsed = JSON.parse(row.messages);
@@ -2076,12 +2086,13 @@ async function handle(request, env, ctx) {
         const thread = cleanThread({ ...(body ?? {}), id });
         if (!thread) return publicError(400, 'bad_thread', 'That chat could not be saved.');
         await env.DB.prepare(
-          `INSERT INTO chats (sub, id, title, provider, model, messages, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO chats (sub, id, title, provider, model, mode, messages, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(sub, id) DO UPDATE SET
              title = excluded.title,
              provider = excluded.provider,
              model = excluded.model,
+             mode = excluded.mode,
              messages = excluded.messages,
              updated_at = excluded.updated_at`,
         )
@@ -2091,6 +2102,7 @@ async function handle(request, env, ctx) {
             thread.title,
             thread.provider,
             thread.model,
+            thread.mode,
             JSON.stringify(thread.messages),
             thread.updatedAt,
           )

@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, toUpstreamMessage } from './lib/models.mjs';
 import { compactMessages } from './lib/memory.mjs';
-import { TOOL_DEFINITIONS, runTool, parseTextToolCalls } from './lib/tools.mjs';
+import { TOOL_DEFINITIONS, runTool, parseTextToolCalls, postAsText } from './lib/tools.mjs';
 import { normalizePlan, PLAN_TOOL_NAMES } from './lib/plan.mjs';
 import { resolveCheck } from './lib/project.mjs';
 import { withToolInstruction } from './lib/tool-prompt.mjs';
@@ -37,9 +37,16 @@ import { createPreviewServer } from './lib/preview-server.mjs';
 import { captureScreenshot, screenshotAllowed, screenshotViewport } from './lib/screenshot.mjs';
 import { openSecrets } from './lib/secrets.mjs';
 import { createGithub } from './lib/github.mjs';
+import { cloneGithubRepo, pullGithubRepo, pushGithubRepo, switchGithubBranch } from './lib/github-clone.mjs';
+import { createWorkspaceArchive } from './lib/archive.mjs';
+import { buildDocx } from './lib/docx.mjs';
+import { buildPdf } from './lib/pdf.mjs';
 import { createCommandRunner, parseAllowlist } from './lib/commands.mjs';
 import { createProcessManager, processLimits } from './lib/processes.mjs';
 import { createStatusLog } from './lib/status.mjs';
+import { createBrowserManager, browserShouldRecheck } from './lib/browser.mjs';
+import { createCheckpointStore } from './lib/checkpoints.mjs';
+import { createRepairTracker, REPAIR_MAX_ATTEMPTS } from './lib/repair.mjs';
 
 // import.meta.dirname and AbortSignal.any need Node 20.11. Without this check an
 // older Node fails later with a confusing error inside a request instead of a
@@ -63,11 +70,12 @@ function failCli(message) {
 }
 
 function isLoopback(host) {
+  const name = String(host ?? '').replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
   return (
-    host === 'localhost' ||
-    host === '::1' ||
-    host === '0:0:0:0:0:0:0:1' ||
-    host.startsWith('127.')
+    name === 'localhost' ||
+    name === '::1' ||
+    name === '0:0:0:0:0:0:0:1' ||
+    (isIP(name) === 4 && name.split('.')[0] === '127')
   );
 }
 
@@ -526,9 +534,20 @@ const processManager = createProcessManager({
   excludePorts: [PORT],
 });
 
-// Closing the window must not leave a dev server listening with no way to see
-// or stop it. SIGKILL because this runs while the process is exiting.
-process.on('exit', () => processManager.stopAllSync());
+// One interactive browser at a time. It is a local tool session, not a user
+// browser: it receives no app secrets, opens only the loopback preview, and is
+// closed when the app exits or after two idle minutes.
+const browserManager = createBrowserManager();
+
+// File checkpoints are in memory and bounded. They are keyed by the chat's
+// workspace owner, so undo can never restore a file in another chat.
+const checkpointStore = createCheckpointStore();
+
+// Closing the window must not leave a dev server or headless browser running.
+process.on('exit', () => {
+  browserManager.closeSync();
+  processManager.stopAllSync();
+});
 
 // Model-initiated writes park here until the page says yes or no.
 const pendingConfirms = new Map();
@@ -593,6 +612,14 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     });
     return true;
   };
+  let checkpoint = null;
+  const capture = (paths) => {
+    if (!ctx.checkpoints) return;
+    checkpoint = ctx.checkpoints.prepare(ctx.workspace, paths, {
+      owner: ctx.checkpointOwner,
+      tool: name,
+    });
+  };
   if (name === 'apply_patch') {
     // Build the real diff before asking, so the card shows exactly what will
     // change. previewPatch validates every find and never writes anything.
@@ -612,6 +639,11 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     if (!allowed) {
       return { ok: false, content: 'The user declined this patch. Do not retry it without asking first.' };
     }
+    try {
+      capture([preview.path]);
+    } catch (error) {
+      return { ok: false, content: `Error: could not create a checkpoint for this patch: ${error?.message ?? error}` };
+    }
   } else if (name === 'scaffold_project') {
     let layout;
     try {
@@ -625,6 +657,11 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     });
     if (!allowed) {
       return { ok: false, content: 'The user declined this scaffold. Do not retry it without asking first.' };
+    }
+    try {
+      capture(layout.paths);
+    } catch (error) {
+      return { ok: false, content: `Error: could not create a checkpoint for this scaffold: ${error?.message ?? error}` };
     }
   } else if (name === 'start_process' || name === 'stop_process') {
     const allowed = await approve();
@@ -651,18 +688,53 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     }
   } else if (
     name === 'write_file' ||
+    name === 'render_chart' ||
+    name === 'notify' ||
+    name === 'post_url' ||
     name === 'github_create_issue' ||
+    name === 'github_update_issue' ||
+    name === 'github_comment' ||
+    name === 'github_create_pull' ||
+    name === 'github_review_pull' ||
+    name === 'github_merge_pull' ||
+    name === 'github_actions' ||
+    name === 'github_create_release' ||
+    name === 'github_create_repo' ||
+    name === 'github_pull' ||
+    name === 'github_push' ||
+    name === 'github_branch' ||
+    name === 'github_clone' ||
     name === 'run_command' ||
     name === 'run_tests' ||
     name === 'git_commit' ||
-    name === 'git_revert'
+    name === 'git_revert' ||
+    name === 'browser_open' ||
+    name === 'browser_click' ||
+    name === 'browser_type'
   ) {
     const allowed = await approve();
     if (!allowed) {
       return { ok: false, content: 'The user declined this write. Do not retry it without asking first.' };
     }
+    if (name === 'write_file') {
+      try {
+        capture([args?.path]);
+      } catch (error) {
+        return { ok: false, content: `Error: could not create a checkpoint for this write: ${error?.message ?? error}` };
+      }
+    }
   }
-  return runTool(name, args, ctx);
+  const outcome = await runTool(name, args, ctx);
+  if (checkpoint && outcome.ok) {
+    try {
+      return { ...outcome, checkpoint: ctx.checkpoints.commit(checkpoint) };
+    } catch (error) {
+      // The write succeeded, so do not turn it into a failure; tell the user
+      // that this particular change cannot be undone.
+      return { ...outcome, checkpointError: String(error?.message ?? error) };
+    }
+  }
+  return outcome;
 }
 
 function loadConfig() {
@@ -893,8 +965,20 @@ function readJson(req, limit = MAX_BODY_BYTES) {
       settled = true;
       if (chunks.length === 0) return resolve({});
       try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      } catch {
+        const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        // JSON null and primitives are valid JSON but cannot carry a route
+        // object; treating them as an empty body would turn a bad request into
+        // an uncaught property access (500).
+        if (parsed === null || typeof parsed !== 'object') {
+          reject(Object.assign(new Error('JSON body must be an object'), { status: 400 }));
+          return;
+        }
+        resolve(parsed);
+      } catch (error) {
+        if (error?.status === 400) {
+          reject(error);
+          return;
+        }
         reject(Object.assign(new Error('Invalid JSON body'), { status: 400 }));
       }
     });
@@ -1271,7 +1355,21 @@ async function handleChat(req, res) {
     models,
   });
   if (tools.length > 0 && !screenshotReady) {
-    tools = tools.filter((tool) => tool.function.name !== 'screenshot_preview');
+    tools = tools.filter(
+      (tool) =>
+        tool.function.name !== 'screenshot_preview' &&
+        tool.function.name !== 'browser_screenshot',
+    );
+  }
+  // Browser sessions need a preview page from a workspace. Offering them with
+  // no workspace would only produce calls that must fail.
+  if (tools.length > 0 && !turnWorkspace.isReady) {
+    tools = tools.filter((tool) => !tool.function.name.startsWith('browser_'));
+  }
+  // The browser loop uses Node's built-in WebSocket. On Node 20 that global is
+  // behind a flag; hide the tools instead of offering a guaranteed failure.
+  if (tools.length > 0 && typeof WebSocket !== 'function') {
+    tools = tools.filter((tool) => !tool.function.name.startsWith('browser_'));
   }
 
   let screenshotsTaken = 0;
@@ -1329,6 +1427,10 @@ async function handleChat(req, res) {
       clientGone = true;
       controller.abort();
     }
+    // The interactive browser is a per-turn tool session. Closing it here
+    // avoids leaving one chat's preview readable by the next chat and frees a
+    // headless process when the answer finishes or the tab disappears.
+    void browserManager.close();
   });
 
   const conversation = [];
@@ -1345,6 +1447,7 @@ async function handleChat(req, res) {
     tools: tools.map((tool) => tool.function.name),
     screenshots: screenshotReady,
     rounds: roundLimit,
+    repair: mode === 'build' ? { maxAttempts: REPAIR_MAX_ATTEMPTS } : null,
     build: mode === 'build' ? { maxSteps: MAX_BUILD_STEPS, maxMs: MAX_BUILD_MS } : null,
     memory: memory.compacted
       ? {
@@ -1385,6 +1488,9 @@ async function handleChat(req, res) {
   let lastFailure = null;
   let toolSteps = 0;
   let budgetStopped = false;
+  const repair = createRepairTracker({ maxAttempts: REPAIR_MAX_ATTEMPTS });
+  let repairInstruction = '';
+  let repairLocked = false;
   const buildStartedAt = Date.now();
   const sendBuildProgress = (state = 'running') => {
     if (mode !== 'build') return;
@@ -1615,7 +1721,14 @@ async function handleChat(req, res) {
       const name = call.function.name;
       const input = safeJson(call.function.arguments);
       let outcome;
-      if (planMode && !PLAN_TOOL_NAMES.has(name)) {
+      const blocked = repairLocked;
+      if (blocked) {
+        outcome = {
+          ok: false,
+          content:
+            'Error: the repair limit was reached. No more tools will run; report what still fails and what you changed.',
+        };
+      } else if (planMode && !PLAN_TOOL_NAMES.has(name)) {
         // Defence in depth: a provider may ignore the filtered tool list.
         outcome = {
           ok: false,
@@ -1630,10 +1743,50 @@ async function handleChat(req, res) {
             getCatalog,
             workspace: turnWorkspace,
             github: github(),
+            githubClone: (repo, folder) =>
+              cloneGithubRepo({
+                root: turnWorkspace.root,
+                token: secrets().get('GITHUB_TOKEN') ?? '',
+                repo,
+                folder,
+              }),
+            githubPull: (repo, folder) =>
+              pullGithubRepo({
+                root: turnWorkspace.root,
+                token: secrets().get('GITHUB_TOKEN') ?? '',
+                repo,
+                folder,
+              }),
+            githubPush: (repo, folder) =>
+              pushGithubRepo({
+                root: turnWorkspace.root,
+                token: secrets().get('GITHUB_TOKEN') ?? '',
+                repo,
+                folder,
+              }),
+            githubBranch: (folder, name, create) =>
+              switchGithubBranch({ root: turnWorkspace.root, folder, name, create }),
+            notify: async (text) => {
+              const webhook = secrets().get('NOTIFY_WEBHOOK_URL') ?? '';
+              if (!webhook) {
+                throw new Error('Add NOTIFY_WEBHOOK_URL in the Secrets panel first.');
+              }
+              let host = '';
+              try {
+                host = new URL(webhook).hostname.toLowerCase();
+              } catch {
+                throw new Error('NOTIFY_WEBHOOK_URL is not a valid URL.');
+              }
+              const payload = /(^|\.)discord(app)?\.com$/.test(host) ? { content: text } : { text };
+              await postAsText(webhook, { body: JSON.stringify(payload), contentType: 'application/json' });
+            },
             commands: runner,
             processes: processManager,
             processRoot: turnWorkspace.root ?? '',
             screenshot: capturePreview,
+            browser: browserManager,
+            checkpoints: checkpointStore,
+            checkpointOwner: previewKey(draftId, requestedWorkspace),
             previewLink: (entry) => previewLinkFor(entry, draftId, requestedWorkspace),
             planMode,
             // stdout/stderr reach the page while the process is still running.
@@ -1642,6 +1795,33 @@ async function handleChat(req, res) {
           },
           controller.signal,
         );
+      }
+      // An already-open browser is the cheapest verification loop: reload the
+      // page after a page edit and hand the model the resulting text, errors and
+      // failed requests instead of making it ask for another snapshot. This is
+      // best effort; a broken browser must not turn a successful write into a
+      // failed tool call.
+      if (
+        mode === 'build' &&
+        outcome.ok &&
+        browserManager.isOpen() &&
+        browserShouldRecheck(name, input.path)
+      ) {
+        try {
+          const browserCheck = await browserManager.feedback({ reload: true });
+          if (browserCheck?.content) {
+            outcome = {
+              ...outcome,
+              browser: browserCheck,
+              content: `${outcome.content}\n\nAutomatic browser check after the edit:\n${browserCheck.content}`,
+            };
+          }
+        } catch (error) {
+          outcome = {
+            ...outcome,
+            content: `${outcome.content}\n\nAutomatic browser check failed: ${String(error?.message ?? error)}`,
+          };
+        }
       }
       // A page was just written or patched: hand the model its link in the same
       // tool result, so even a model that never calls preview_link can show it.
@@ -1656,6 +1836,26 @@ async function handleChat(req, res) {
               previewUrl: link.url,
               previewEntry: link.entry,
             };
+          }
+        }
+      }
+      if (!blocked && mode === 'build') {
+        repair.noteMutation(name, outcome);
+        const verdict = repair.observe(name, outcome);
+        if (verdict && verdict.state !== 'pass') {
+          sseSend(res, {
+            type: 'repair',
+            ...verdict,
+            message: repair.instruction(verdict),
+          });
+          if (verdict.state === 'passed') {
+            repairInstruction = '';
+          } else {
+            repairInstruction = repair.instruction(verdict);
+            if (verdict.state === 'exhausted') {
+              repairLocked = true;
+              tools = [];
+            }
           }
         }
       }
@@ -1678,9 +1878,11 @@ async function handleChat(req, res) {
           toUpstreamMessage({
             role: 'user',
             content:
-              `Screenshot of the local preview /${outcome.entry ?? 'index.html'} ` +
-              `(${outcome.width ?? '?'}×${outcome.height ?? '?'}). The static preview check passed. ` +
-              'Inspect layout, spacing, overflow and contrast; fix what is visibly wrong before finishing.',
+              `Screenshot of the ${outcome.browser ? 'interactive local preview' : `local preview /${outcome.entry ?? 'index.html'}`} ` +
+              `(${outcome.width ?? '?'}×${outcome.height ?? '?'}). ` +
+              (outcome.browser
+                ? 'Inspect the rendered state, layout, spacing, overflow and contrast; use browser_snapshot for text and errors.'
+                : 'The static preview check passed. Inspect layout, spacing, overflow and contrast; fix what is visibly wrong before finishing.'),
             images: [outcome.image],
           }),
         );
@@ -1710,12 +1912,18 @@ async function handleChat(req, res) {
         // offer Open and Stop without another request.
         process: outcome.process,
         url: outcome.process?.url || undefined,
+        checkpoint: outcome.checkpoint,
+        checkpointError: outcome.checkpointError,
       });
       sendBuildProgress(
         toolSteps >= MAX_BUILD_STEPS || Date.now() - buildStartedAt >= MAX_BUILD_MS
           ? 'limit'
           : 'running',
       );
+    }
+    if (repairInstruction) {
+      conversation.push({ role: 'system', content: repairInstruction });
+      repairInstruction = '';
     }
     if (
       !budgetStopped &&
@@ -1916,7 +2124,9 @@ async function route(req, res) {
   if (pathname.startsWith('/api/threads/')) {
     if (!requireToken(req, res)) return;
     const id = decodeId(pathname.slice('/api/threads/'.length));
-    if (!id) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    if (!id || !CHAT_ID.test(id)) {
+      return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    }
 
     if (req.method === 'GET') {
       const thread = store().get(id);
@@ -2178,6 +2388,7 @@ async function route(req, res) {
         toolCalls: MAX_TOOL_CALLS,
         buildSteps: MAX_BUILD_STEPS,
         buildMs: MAX_BUILD_MS,
+        repairAttempts: REPAIR_MAX_ATTEMPTS,
         processes: processLimits.MAX_PROCESSES,
         processLogBytes: processLimits.MAX_LOG_BYTES,
       },
@@ -2189,23 +2400,94 @@ async function route(req, res) {
     return handleChat(req, res);
   }
 
+  if (req.method === 'POST' && pathname === '/api/github/connect') {
+    if (!requireToken(req, res)) return;
+    try {
+      const body = await readJson(req, 16 * 1024);
+      const token = typeof body?.token === 'string' ? body.token.trim() : '';
+      if (!token) return sendJson(res, 400, { error: 'Paste a GitHub token to connect.' });
+      if (token.length > 1024) return sendJson(res, 400, { error: 'That GitHub token is too long.' });
+      // Validate before saving, so a typo never replaces a working connection.
+      const client = createGithub(token);
+      const viewer = await client.viewer();
+      secrets().set('GITHUB_TOKEN', token);
+      return sendJson(res, 200, { ok: true, viewer });
+    } catch (error) {
+      return sendJson(res, error.status ?? 502, { error: scrubSecrets(String(error.message ?? error)) });
+    }
+  }
+
+  if (req.method === 'DELETE' && pathname === '/api/github') {
+    if (!requireToken(req, res)) return;
+    try {
+      secrets().remove('GITHUB_TOKEN');
+      return sendJson(res, 200, { ok: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: scrubSecrets(String(error.message ?? error)) });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/github/clone') {
+    if (!requireToken(req, res)) return;
+    try {
+      const body = await readJson(req, 16 * 1024);
+      const token = secrets().get('GITHUB_TOKEN') ?? '';
+      if (!token) {
+        return sendJson(res, 400, { error: 'Connect GitHub in the GitHub panel before cloning.' });
+      }
+      const chatId = typeof body?.chat === 'string' && body.chat ? body.chat : null;
+      if (chatId && !CHAT_ID.test(chatId)) {
+        return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+      }
+      const requested = Object.prototype.hasOwnProperty.call(body ?? {}, 'workspace')
+        ? body.workspace
+        : undefined;
+      const sandbox = workspaceFor(chatId, requested);
+      if (!sandbox.isReady) {
+        return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+      }
+      const result = await cloneGithubRepo({
+        root: sandbox.root,
+        token,
+        repo: body?.repo,
+        folder: body?.folder,
+      });
+      return sendJson(res, 200, { ok: true, ...result });
+    } catch (error) {
+      return sendJson(res, error.status ?? 502, { error: scrubSecrets(String(error.message ?? error)) });
+    }
+  }
+
   if (pathname === '/api/github') {
     if (!requireToken(req, res)) return;
     const client = github();
     if (!client.hasToken) {
       return sendJson(res, 400, {
-        error: 'No GitHub token is saved. Add GITHUB_TOKEN in the Secrets panel.',
+        error: 'No GitHub token is saved. Connect GitHub in the GitHub panel.',
       });
     }
     try {
       const what = url.searchParams.get('what') ?? 'viewer';
       const repo = url.searchParams.get('repo') ?? '';
       const state = url.searchParams.get('state') ?? 'open';
+      const number = url.searchParams.get('number') ?? '';
+      const sha = url.searchParams.get('sha') ?? '';
+      const branch = url.searchParams.get('branch') ?? '';
       if (what === 'viewer') return sendJson(res, 200, await client.viewer());
       if (what === 'repos') return sendJson(res, 200, { items: await client.repos() });
+      if (what === 'repo') return sendJson(res, 200, await client.repo(repo));
+      if (what === 'branches') return sendJson(res, 200, { items: await client.branches(repo) });
       if (what === 'issues') return sendJson(res, 200, { items: await client.issues(repo, state) });
+      if (what === 'issue') return sendJson(res, 200, await client.issue(repo, number));
       if (what === 'pulls') return sendJson(res, 200, { items: await client.pulls(repo, state) });
-      if (what === 'commits') return sendJson(res, 200, { items: await client.commits(repo) });
+      if (what === 'pull') return sendJson(res, 200, await client.pull(repo, number));
+      if (what === 'commits') return sendJson(res, 200, { items: await client.commits(repo, branch) });
+      if (what === 'commit') return sendJson(res, 200, await client.commit(repo, sha));
+      if (what === 'reviews') return sendJson(res, 200, { items: await client.reviews(repo, number) });
+      if (what === 'comments') return sendJson(res, 200, { items: await client.comments(repo, number) });
+      if (what === 'workflows') return sendJson(res, 200, { items: await client.workflows(repo) });
+      if (what === 'runs') return sendJson(res, 200, { items: await client.workflowRuns(repo) });
+      if (what === 'releases') return sendJson(res, 200, { items: await client.releases(repo) });
       return sendJson(res, 400, { error: `Unknown view "${what}".` });
     } catch (error) {
       return sendJson(res, error.status ?? 502, { error: scrubSecrets(String(error.message ?? error)) });
@@ -2230,6 +2512,52 @@ async function route(req, res) {
       return sendJson(res, error.status ?? 500, {
         error: scrubSecrets(String(error.message ?? error)),
       });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/workspace/archive') {
+    if (!requireToken(req, res)) return;
+    try {
+      const body = await readJson(req, 8 * 1024);
+      const chatId = typeof body?.chat === 'string' && CHAT_ID.test(body.chat) ? body.chat : null;
+      if (body?.chat && !chatId) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+      const requested = Object.prototype.hasOwnProperty.call(body ?? {}, 'workspace') ? body.workspace : undefined;
+      const sandbox = workspaceFor(chatId, requested);
+      const archive = createWorkspaceArchive(sandbox);
+      res.writeHead(200, {
+        'content-type': 'application/zip',
+        'content-disposition': `attachment; filename="${archive.name}"`,
+        'content-length': archive.buffer.length,
+        'cache-control': 'no-store',
+      });
+      res.end(archive.buffer);
+      return;
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, { error: scrubSecrets(String(error.message ?? error)) });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/export/document') {
+    if (!requireToken(req, res)) return;
+    try {
+      const body = await readJson(req, 2 * 1024 * 1024);
+      const markdown = typeof body?.markdown === 'string' ? body.markdown : '';
+      if (!markdown.trim()) return sendJson(res, 400, { error: 'There is no Markdown to export.' });
+      const format = String(body?.format ?? 'pdf').toLowerCase();
+      if (!['pdf', 'docx'].includes(format)) return sendJson(res, 400, { error: 'Format must be pdf or docx.' });
+      const title = String(body?.title ?? 'Freeway export').trim().slice(0, 120) || 'Freeway export';
+      const buffer = format === 'docx' ? buildDocx(markdown, { title }) : buildPdf(markdown, { title });
+      const stamp = new Date().toISOString().slice(0, 10);
+      res.writeHead(200, {
+        'content-type': format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf',
+        'content-disposition': `attachment; filename="freeway-${stamp}.${format}"`,
+        'content-length': buffer.length,
+        'cache-control': 'no-store',
+      });
+      res.end(buffer);
+      return;
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, { error: scrubSecrets(String(error.message ?? error)) });
     }
   }
 
@@ -2397,6 +2725,40 @@ async function route(req, res) {
     return sendJson(res, 200, { thread: { id: thread.id, preview: thread.preview } });
   }
 
+  if (pathname === '/api/checkpoints/latest' || pathname === '/api/checkpoints/undo') {
+    if (!requireToken(req, res)) return;
+    const body = req.method === 'POST' ? await readJson(req, 4096) : {};
+    // A GET has no JSON body. The page passes both values in the query string,
+    // including an empty workspace= for a new managed-workspace chat.
+    const chatValue = req.method === 'GET' ? url.searchParams.get('chat') : body?.chat;
+    const workspaceValue =
+      req.method === 'GET'
+        ? (url.searchParams.has('workspace') ? url.searchParams.get('workspace') : undefined)
+        : (body?.workspace === null || typeof body?.workspace === 'string' ? body.workspace : undefined);
+    const chat = typeof chatValue === 'string' && CHAT_ID.test(chatValue) ? chatValue : null;
+    if (chatValue && !chat) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    const requested = workspaceValue;
+    try {
+      const sandbox = workspaceFor(chat, requested);
+      if (!sandbox.isReady) {
+        return sendJson(res, 400, { error: 'No workspace folder is set. Choose one in Settings.' });
+      }
+      const owner = previewKey(chat, requested);
+      if (req.method === 'GET' && pathname === '/api/checkpoints/latest') {
+        return sendJson(res, 200, { checkpoint: checkpointStore.latest(owner, sandbox) });
+      }
+      if (req.method === 'POST' && pathname === '/api/checkpoints/undo') {
+        const checkpoint = checkpointStore.undo(owner, sandbox, body?.id);
+        return sendJson(res, 200, { ok: true, checkpoint });
+      }
+      return sendJson(res, 405, { error: 'Method not allowed.' });
+    } catch (error) {
+      return sendJson(res, error.status ?? 500, {
+        error: scrubSecrets(String(error?.message ?? error)),
+      });
+    }
+  }
+
   if (req.method === 'POST' && pathname === '/api/chat/confirm') {
     if (!requireToken(req, res)) return;
     const body = await readJson(req, 4096);
@@ -2408,7 +2770,8 @@ async function route(req, res) {
 
   if (req.method === 'POST' && pathname === '/api/quit') {
     if (!requireToken(req, res)) return;
-    // A quit must not leave a dev server running with no window to stop it.
+    // A quit must not leave a dev server or headless browser running.
+    browserManager.closeSync();
     processManager.stopAllSync();
     sendJson(res, 200, { ok: true });
     setTimeout(() => process.exit(0), 120);
@@ -2574,6 +2937,7 @@ export function createServer() {
     });
   });
   server.on('close', () => {
+    browserManager.closeSync();
     processManager.stopAllSync();
     const preview = previewServer;
     previewServer = null;

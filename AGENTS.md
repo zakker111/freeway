@@ -83,6 +83,7 @@ generated, never edited by hand.
 | `lib/workspace.mjs` | the one folder tools may touch; list/read/find/search, realpath containment, size caps |
 | `lib/preview-server.mjs` | loopback preview origin: token cookie, workspace containment, MIME, SPA fallback |
 | `lib/screenshot.mjs` | local headless Edge/Chrome capture: browser discovery, filtered env, fixed desktop/mobile/tablet viewports, 320 KB cap |
+| `lib/browser.mjs` | interactive local CDP browser: loopback-only URLs, snapshots, click/type, console/network, screenshots, auto recheck |
 | `lib/git.mjs` | bounded Git status/diff/history/commit/revert; fixed executable, no shell, filtered env, hooks disabled |
 | `lib/preview-bridge.mjs` | shared runtime-error bridge, injected into srcdoc and served previews |
 | `shared/preview.js` | one preview core: static bundler, Markdown renderer, build adapters |
@@ -133,6 +134,21 @@ top of them:
   is read-only. Plan mode offers none of them.
 - On POSIX the child gets its own process group, so stopping a dev server stops the
   children it spawned. Never relax `shell: false` to make a script start.
+
+## Interactive browser
+
+- `lib/browser.mjs` may open only the tokenised loopback preview. Never accept a
+  model-supplied remote URL; `browserUrlAllowed` is the boundary.
+- Browser actions are confirmed by default: `browser_open`, `browser_click` and
+  `browser_type` go through `runToolConfirmed`; Plan never offers any browser tool.
+- The child gets `browserEnv`, an isolated temporary profile, and no provider keys. At most
+  two screenshots per session; browser text/events are bounded.
+- A page edit while a session is open triggers a best-effort reload and snapshot. A failed
+  recheck is reported in the tool result, never turned into a failed write.
+- Browser tools need Node's built-in WebSocket (Node 22+). They are hidden on Node 20, where
+  the global is behind a flag. The core app still supports Node 20.11.
+- The session is closed when the chat response ends, so one chat cannot read another chat's
+  preview through a stale browser process.
 
 ## Style
 

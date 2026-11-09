@@ -557,6 +557,62 @@ const mock = http.createServer(async (req, res) => {
       return;
     }
 
+    if (mode === 'repair') {
+      const toolCount = body.messages.filter((message) => message.role === 'tool').length;
+      if (Array.isArray(body.tools) && toolCount < 3) {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        sse(res, {
+          id: 'x',
+          model: 'mock/alpha-free',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: `call_repair_${toolCount}`,
+                    type: 'function',
+                    function: {
+                      name: 'preview_check',
+                      arguments: JSON.stringify({ entry: 'repair-broken.html' }),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        });
+        sse(res, {
+          id: 'x',
+          model: 'mock/alpha-free',
+          choices: [{ delta: {}, finish_reason: 'tool_calls' }],
+          usage: { prompt_tokens: 20, completion_tokens: 5, cost: 0 },
+        });
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [
+          { delta: { role: 'assistant', content: 'Repair limit reached. The missing stylesheet is still not fixed.' } },
+        ],
+      });
+      sse(res, {
+        id: 'x',
+        model: 'mock/alpha-free',
+        choices: [{ delta: {}, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 30, completion_tokens: 12, cost: 0 },
+      });
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
     if (mode === 'exhausted') {
       res.writeHead(429, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
@@ -1171,11 +1227,71 @@ async function main() {
       const toolEvent = events.find((event) => event.type === 'tool');
       assert.equal(toolEvent?.name, 'write_file');
       assert.equal(toolEvent?.ok, true);
+      assert.ok(toolEvent?.checkpoint?.id, 'the write did not carry a checkpoint');
+
+      const latest = await (
+        await fetch(`${base}/api/checkpoints/latest`, { headers: { 'x-app-token': token } })
+      ).json();
+      assert.equal(latest.checkpoint?.id, toolEvent.checkpoint.id, 'latest did not return the write checkpoint');
+      const undo = await fetch(`${base}/api/checkpoints/undo`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ id: toolEvent.checkpoint.id }),
+      });
+      assert.equal(undo.status, 200, 'undo was refused');
+      const undone = await undo.json();
+      assert.equal(undone.checkpoint.id, toolEvent.checkpoint.id);
+      assert.equal(fs.existsSync(target), false, 'undo did not remove the newly created file');
 
       const followUp = chatCalls[1];
       assert.ok(followUp, 'the app never sent the write result back to the model');
       const toolMessage = followUp.messages.find((m) => m.role === 'tool');
       assert.match(toolMessage.content, /Wrote \/written\/by-model\.txt/);
+      mode = 'fallback';
+    });
+
+    await check('stops after two repair rounds and forces a final report', async () => {
+      mode = 'repair';
+      const workspace = path.join(configDir, 'ws');
+      fs.mkdirSync(workspace, { recursive: true });
+      fs.writeFileSync(
+        path.join(workspace, 'repair-broken.html'),
+        '<!doctype html><html><head><link rel="stylesheet" href="./missing.css"></head><body>broken</body></html>',
+      );
+      const save = await fetch(`${base}/api/config`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({ workspace }),
+      });
+      assert.equal(save.status, 200);
+      chatCalls = [];
+
+      const response = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': token },
+        body: JSON.stringify({
+          threadId: 'repair-loop-1',
+          workspace,
+          messages: [{ role: 'user', content: 'check the page until it works' }],
+        }),
+      });
+      const events = collectSse(await response.text());
+      const repairs = events.filter((event) => event.type === 'repair');
+      assert.equal(repairs.length, 3, `expected initial failure + two repairs, got ${JSON.stringify(repairs)}`);
+      assert.deepEqual(repairs.map((event) => event.state), ['failed', 'retry', 'exhausted']);
+      assert.equal(events.filter((event) => event.type === 'tool' && event.name === 'preview_check').length, 3);
+      assert.equal(chatCalls.length, 4, 'the turn did not stop after the third failed check');
+      assert.equal(Array.isArray(chatCalls[3]?.tools), false, 'tools were offered after the repair limit');
+      assert.ok(
+        chatCalls[3]?.messages?.some(
+          (message) => message.role === 'system' && /Repair limit reached/.test(message.content),
+        ),
+        'the final request had no stop instruction',
+      );
+      assert.match(
+        events.filter((event) => event.type === 'delta').map((event) => event.text).join(''),
+        /Repair limit reached/,
+      );
       mode = 'fallback';
     });
 

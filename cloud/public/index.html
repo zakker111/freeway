@@ -1502,6 +1502,40 @@
       dialog p { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
       dialog a { color: var(--accent-strong); text-underline-offset: 2px; }
       dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; font-weight: 550; }
+
+      .setting { margin: 0 0 14px; }
+      .settings-head {
+        position: relative; display: flex; align-items: center; gap: 7px;
+        flex-wrap: wrap;
+      }
+      .settings-head label { margin: 0; }
+      .settings-head label.checkline { display: inline-flex; align-items: center; gap: 8px; }
+      .settings-head label.checkline input { width: auto; }
+      .setting-note { margin-top: 4px; color: var(--dim); font-size: 11.5px; line-height: 1.45; }
+      .qmark {
+        flex: 0 0 auto; width: 17px; height: 17px; padding: 0;
+        display: inline-grid; place-items: center; border-radius: 50%;
+        border: 1px solid var(--line-2); background: transparent; color: var(--dim);
+        font: 650 10.5px/1 "Segoe UI", system-ui, sans-serif;
+        box-shadow: none; cursor: help;
+      }
+      .qmark:hover:not(:disabled), .qmark:focus {
+        color: var(--text); border-color: var(--accent-line); background: var(--surface-2);
+      }
+      .qmark:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+      .qtip {
+        position: absolute; z-index: 40; left: 0; top: calc(100% + 7px);
+        width: max-content; max-width: min(320px, 100%);
+        padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 9px;
+        background: var(--surface-2); color: var(--muted);
+        font-size: 11.5px; font-weight: 400; line-height: 1.45; text-align: left;
+        box-shadow: var(--shadow-md); pointer-events: none;
+        opacity: 0; visibility: hidden; transform: translateY(-2px);
+        transition: opacity .12s ease, transform .12s ease, visibility .12s;
+      }
+      .qmark:hover + .qtip, .qmark:focus + .qtip {
+        opacity: 1; visibility: visible; transform: none;
+      }
       dialog input {
         width: 100%;
         padding: 9px 11px;
@@ -1899,6 +1933,11 @@
         <span class="fine" id="imageName"></span>
         <button class="mini" id="imageRemove" type="button" title="Remove the attached image">Remove</button>
       </div>
+      <div class="mode-row" role="group" aria-label="Chat mode">
+        <button id="modePlan" class="mini active" type="button" aria-pressed="true">Plan</button>
+        <button id="modeBuild" class="mini" type="button" aria-pressed="false">Build</button>
+        <span id="modeHint" class="fine">Read-only plan · no browser file writes</span>
+      </div>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Message…"></textarea>
         <label class="attach attach-image" title="Attach a PNG, JPEG or WebP image">
@@ -1974,22 +2013,48 @@
       <div id="accountRow" class="accountRow">
         <span class="fine" id="accountNote">Checking sign-in…</span>
       </div>
-      <label for="settingSystem">System prompt (optional)</label>
-      <textarea id="settingSystem" rows="4" placeholder="Be concise."></textarea>
-      <label for="settingMax">Max tokens</label>
-      <input id="settingMax" type="number" min="64" max="4096" step="64" value="2048" />
-      <label for="settingTemp">Temperature (blank = provider default)</label>
-      <input id="settingTemp" type="number" min="0" max="2" step="0.1" placeholder="0.7" />
-      <label for="settingTools" style="display:flex; gap:8px; align-items:center; margin-top:10px">
-        <input id="settingTools" type="checkbox" style="width:auto" />
-        Workspace tools (testing): let the model list, read and write browser files
-      </label>
-      <div class="fine" style="margin-top:4px">Off by default. When on, the model is told to use these tools; write_file asks first unless Auto-approve browser writes is on.</div>
-      <label for="settingAutoApprove" style="display:flex; gap:8px; align-items:center; margin-top:10px" title="Bypass the Confirm card for write_file only. Tool use must also be on; deleting, revoking and other destructive actions still ask.">
-        <input id="settingAutoApprove" type="checkbox" style="width:auto" aria-describedby="settingAutoApproveHelp" />
-        Auto-approve browser writes
-      </label>
-      <div class="fine" id="settingAutoApproveHelp" style="margin-top:4px">Off by default. This bypasses the Confirm card for write_file only: the model can create or overwrite browser files directly while tools are on. Deleting files, revoking links and other destructive actions still ask.</div>
+      <div class="setting">
+        <div class="settings-head">
+          <label for="settingSystem">System prompt</label>
+          <button class="qmark" type="button" aria-label="More about System prompt" aria-describedby="tipCloudSystem">?</button>
+          <span class="qtip" id="tipCloudSystem" role="tooltip">Optional instruction sent with every request. Use it to set tone, format or constraints; leave it blank to send none.</span>
+        </div>
+        <textarea id="settingSystem" rows="4" placeholder="Optional instructions for every request."></textarea>
+      </div>
+      <div class="setting">
+        <div class="settings-head">
+          <label for="settingMax">Max tokens</label>
+          <button class="qmark" type="button" aria-label="More about Max tokens" aria-describedby="tipCloudMax">?</button>
+          <span class="qtip" id="tipCloudMax" role="tooltip">Caps each reply in tokens. Lower values are faster; the input accepts 64–4096.</span>
+        </div>
+        <input id="settingMax" type="number" min="64" max="4096" step="64" value="2048" />
+        <div class="setting-note">64–4096; lower is faster.</div>
+      </div>
+      <div class="setting">
+        <div class="settings-head">
+          <label for="settingTemp">Temperature</label>
+          <button class="qmark" type="button" aria-label="More about Temperature" aria-describedby="tipCloudTemperature">?</button>
+          <span class="qtip" id="tipCloudTemperature" role="tooltip">Lower values are more focused and repeatable; higher values are more varied. Blank uses the provider's default.</span>
+        </div>
+        <input id="settingTemp" type="number" min="0" max="2" step="0.1" placeholder="0.7" />
+        <div class="setting-note">0 focused · 2 varied · blank uses provider default.</div>
+      </div>
+      <div class="setting">
+        <div class="settings-head">
+          <label class="checkline" for="settingTools"><input id="settingTools" type="checkbox" /> Workspace tools</label>
+          <button class="qmark" type="button" aria-label="More about Workspace tools" aria-describedby="tipCloudTools">?</button>
+          <span class="qtip" id="tipCloudTools" role="tooltip">Lets the model list, read and write files in this browser tab. Writes ask first unless Auto-approve browser writes is on. Off by default; tool-capable models only. When on, the model is told to use these tools.</span>
+        </div>
+        <div class="setting-note">Browser files only; off by default.</div>
+      </div>
+      <div class="setting">
+        <div class="settings-head">
+          <label class="checkline" for="settingAutoApprove"><input id="settingAutoApprove" type="checkbox" aria-describedby="settingAutoApproveHelp" /> Auto-approve browser writes</label>
+          <button class="qmark" type="button" aria-label="More about Auto-approve browser writes" aria-describedby="tipCloudAutoApprove">?</button>
+          <span class="qtip" id="tipCloudAutoApprove" role="tooltip">When tools are on, write_file can create or overwrite browser files without the Confirm card. Deleting files, revoking links and other actions still ask. Off by default.</span>
+        </div>
+        <div class="setting-note" id="settingAutoApproveHelp">Skips Confirm for write_file only; off by default.</div>
+      </div>
       <div class="row" style="justify-content:flex-start; flex-wrap:wrap; margin-top:14px">
         <button class="ghost mini" id="historyBtn" type="button">Saved chats</button>
         <button class="ghost mini" id="promptsBtn" type="button">Prompts</button>
@@ -2028,6 +2093,7 @@
         active: 0,
         messages: [],
         threadId: null,
+        mode: "plan",
         stopRequested: false,
         stats: { requests: 0, ok: 0, failed: 0, lastMs: 0, lastModel: '', tokensIn: 0, tokensOut: 0 },
         busy: false,
@@ -2820,6 +2886,10 @@
       }
       $('thread').addEventListener('click', actOnMessage);
 
+      $("modePlan").addEventListener("click", () => setMode("plan"));
+      $("modeBuild").addEventListener("click", () => setMode("build"));
+      updateModeUi();
+
       $('attach').addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -2830,6 +2900,28 @@
         box.value += `${box.value ? '\n\n' : ''}[Attached file: ${file.name}]\n${text}`;
         box.focus();
       });
+
+      function updateModeUi() {
+        const plan = state.mode !== "build";
+        const p = $("modePlan");
+        const b = $("modeBuild");
+        if (!p || !b) return;
+        p.classList.toggle("active", plan);
+        b.classList.toggle("active", !plan);
+        p.setAttribute("aria-pressed", plan ? "true" : "false");
+        b.setAttribute("aria-pressed", plan ? "false" : "true");
+        if ($("modeHint")) {
+          $("modeHint").textContent = plan
+            ? "Read-only plan · no browser file writes"
+            : "Build · workspace tools follow Settings";
+        }
+      }
+
+      function setMode(mode) {
+        state.mode = mode === "build" ? "build" : "plan";
+        updateModeUi();
+        saveThread();
+      }
 
       async function send() {
         const images = state.attachment ? [state.attachment.dataUrl] : [];
@@ -2850,7 +2942,7 @@
             banner(`Skipped cooling ${skipped} — using ${alternative.id}.`, 'close', () => {});
           }
         }
-        return readSettings().tools ? toolSend(images) : streamSend(images);
+        return state.mode === "build" && readSettings().tools ? toolSend(images) : streamSend(images);
       }
 
       async function streamSend(images = []) {
@@ -2895,7 +2987,11 @@
           const headers = { 'content-type': 'application/json' };
           Object.assign(headers, providerHeaders());
           const settings = readSettings();
-          const system = [settings.system, fileContext()].filter(Boolean).join('\n\n');
+          const planNote =
+            state.mode === "plan"
+              ? "You are in Plan mode. Produce a concrete plan: goal, ordered steps, files or resources, and verification. Do not claim that you wrote files, ran tools, or completed work. Browser workspace tools are disabled in this mode."
+              : "";
+          const system = [settings.system, planNote, fileContext()].filter(Boolean).join('\n\n');
           const outgoing = { provider: state.provider, model: state.model, stream: true };
           outgoing.messages = recentImages(
             withMemoryNote(system ? [{ role: 'system', content: system }, ...state.messages] : state.messages),
@@ -4956,7 +5052,7 @@
         const derived = (firstUser?.content || 'New chat').replace(/\s+/g, ' ').trim().slice(0, 60);
         const title = titleOverride.id === id && titleOverride.title ? titleOverride.title : derived;
         const next = [
-          { id, title, provider: state.provider, model: state.model, messages: state.messages, updatedAt: now },
+          { id, title, provider: state.provider, model: state.model, mode: state.mode, messages: state.messages, updatedAt: now },
           ...threads.filter((thread) => thread.id !== id),
         ]
           .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -5360,6 +5456,8 @@
           (sum, message) => sum + (Number(message.usage?.completion_tokens) || 0),
           0,
         );
+        state.mode = thread.mode === "build" ? "build" : "plan";
+        updateModeUi();
         state.threadId = thread.id;
         setActiveThread(thread.id);
         claimLegacyFiles(thread.id);
@@ -5899,6 +5997,8 @@
         state.threadId = newId();
         setActiveThread(state.threadId);
         state.messages = [];
+        state.mode = "plan";
+        updateModeUi();
         state.stats = { requests: 0, ok: 0, failed: 0, lastMs: 0, lastModel: '', tokensIn: 0, tokensOut: 0 };
         clearPreview();
         resetFileEditor();

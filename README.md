@@ -6,8 +6,9 @@ Ollama. When the model you picked is
 rate-limited, it retries the next free model on the same provider automatically and tells
 you which one answered. It never changes provider unless you do. The model can also use
 tools: read the clock, do exact arithmetic, fetch public web pages, and — in Build — edit
-workspace files, scaffold a page, start a dev server, check a preview and, for vision models,
-capture it with installed Edge or Chrome so the model can inspect the layout.
+workspace files, scaffold a page, start a dev server, check a preview, drive that preview in
+a headless browser (snapshot, click, type, console and network diagnostics), and, for vision
+models, capture it with installed Edge or Chrome so the model can inspect the layout.
 
 Existing settings and chats from earlier versions are carried forward automatically.
 
@@ -15,6 +16,19 @@ In the desktop app a new chat starts in **Plan**. The model can read the workspa
 propose a plan with steps, files and a verification command, but it cannot write or run
 anything; press **Build this plan** to switch to Build and execute it. The composer also has
 a `Plan | Build` switch, and the plan is saved with the chat.
+
+**Undo and bounded repair.** Every model file write, patch or scaffold in Build
+captures the file's previous bytes before it runs. **Undo** in the composer
+restores the newest checkpoint — including deleting a file that did not exist
+before — and only the newest, so an older click cannot throw away a newer edit.
+The selected model is saved with each chat, so reopening it restores the model
+it was using when that free model is still available. Switching models in place
+keeps the transcript and adds a small `Model:` divider between answers.
+
+Checkpoints are in memory and scoped to the chat; they disappear when the app
+exits. When `preview_check`, `run_tests` or `run_check` fails, the model gets the
+exact failure and up to two repair cycles. A third failed check stops further
+tool changes and asks for a final report instead of looping.
 
 The first screen is not a key wall: press **Use OVHcloud instead — no key** and send a message
 straight away. OVHcloud publishes a public demo endpoint with no account, no card and a
@@ -28,7 +42,8 @@ the local server process and is never sent to the browser.
 ## Requirements
 
 Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The single
-`Freeway.exe` needs no Node at all; see below.
+`Freeway.exe` needs no Node at all; see below. The interactive browser tools need Node 22
+or newer for the built-in WebSocket; the rest of the app still runs on Node 20.11.
 
 ### Which file do I use?
 
@@ -366,10 +381,27 @@ between machines.
 | `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
 | `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or an account-backed page snapshot (cloud, signed in) | starts the private preview server, a `#preview=` browser link, or an owner-only `/preview/<id>` snapshot with a sandbox CSP; never a public share |
 | `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, fixed desktop/mobile/tablet sizes, 320 KB cap, at most 2 per run. The Preview panel also has a user Capture / Download PNG flow that does not use a model. |
+| `browser_*` | Drives the local preview in an interactive headless browser: open, snapshot, click/type, wait, console/network diagnostics, screenshot and close | desktop Build only, local loopback preview only, **approved open/click/type**, isolated profile, no app secrets, at most 2 screenshots. The app reloads an open page after a page edit and returns a fresh snapshot automatically. |
 | `git_commit` | Commits only named files | **approved per call**, hooks/signing disabled, never pushes |
 | `git_revert` | Restores tracked files to HEAD | **approved per call**, refuses untracked files, never rewrites history |
-| `github_list` | Repositories, issues, pulls or commits | read-only, 20 rows, 12s timeout |
+| `github_list` | Repositories, repository details, branches, issues, one issue, pulls, one pull, commits, one commit, reviews, comments, Actions workflows, Action runs or releases | read-only, 20 rows, 12s timeout |
 | `github_create_issue` | Opens an issue | **approved per call** |
+| `github_update_issue` | Closes, reopens or relabels an issue | **approved per call**, state and labels validated |
+| `github_comment` | Comments on an issue or pull request | **approved per call** |
+| `github_create_pull` | Opens a pull request from a head branch into a base branch | **approved per call**, branch names validated |
+| `github_review_pull` | Approves, requests changes or comments on a pull request | **approved per call**, review event validated |
+| `github_merge_pull` | Merges an open pull request | **approved per call**, no force or branch-protection bypass |
+| `github_actions` | Dispatches, reruns or cancels a workflow | **approved per call**, workflow and run ids validated |
+| `github_create_release` | Creates a release from a tag | **approved per call** |
+| `github_create_repo` | Creates a private repository with a README | **approved per call**, repository name validated |
+| `github_search` | Searches repositories, issues/pulls or code | read-only, 20 rows, bounded query |
+| `github_pull` | Fast-forwards the current branch of a clone | **approved per call**, plain HTTPS origin only, no merge or rebase |
+| `github_push` | Pushes the current branch to its origin | **approved per call**, no force, tags or other branches, token passed only to the child process |
+| `github_branch` | Creates and switches, or switches, a local branch | **approved per call**, local only, no network |
+| `github_clone` | Clones a repository's latest commit into the workspace | **approved per call**, one new folder directly inside the workspace, shallow copy, refuses an existing folder, token passed only to the child process and never written to the remote URL or git config |
+| `render_chart` | Writes a self-contained SVG line, bar or pie chart as HTML | **approved per call**, 200 points, escaped labels, no scripts or external assets |
+| `notify` | Sends a short message to the configured webhook | **approved per call**, fixed `NOTIFY_WEBHOOK_URL` secret, 4 KB, no redirects |
+| `post_url` | Sends an unauthenticated POST to a public URL | **approved per call**, 16 KB body, no custom headers, redirects refused |
 | `run_command` | Runs one allowlisted program in the workspace | **approved per call**, `shell: false`, filtered env, 60s, 64 KB, streamed output |
 | `run_check` | Runs one package script detected for test, lint, typecheck or build | **approved per call with the exact command and script body**, same allowlist and runner as `run_command` |
 | `run_tests` | Runs the project tests and returns parsed file/line failures | **approved per call** (unless auto-approve is on), same allowlist and runner as `run_command` |
@@ -383,13 +415,35 @@ calls, so a confused model cannot spin forever. Turn tools off entirely in Setti
 editions prepend a short system instruction (`lib/tool-prompt.mjs`) telling the model to use
 them and not to claim a call ran without a result. It is omitted when tools are off, or after
 a model rejects the parameter. By default, anything that writes or executes —
-`write_file`, `apply_patch`, `scaffold_project`, `github_create_issue`, `run_command`,
-`run_check`, `run_tests`, `git_commit`, `git_revert`, `start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
+`write_file`, `apply_patch`, `scaffold_project`, `github_create_issue`, `github_update_issue`,
+`github_comment`, `github_create_pull`, `github_review_pull`, `github_merge_pull`, `github_actions`,
+`github_create_release`, `github_create_repo`, `github_pull`, `github_push`, `github_branch`,
+`github_clone`, `run_command`, `run_check`, `run_tests`, `git_commit`, `git_revert`, `start_process`,
+`stop_process` — stops at an Allow / Deny card first, and a dropped
 connection or a three-minute wait counts as Deny. The off-by-default **Auto-approve Build
 actions** setting can skip those cards for every Build workspace while it is on. Plan mode
 never auto-approves, and the workspace and command allowlist still apply. Each skipped card
 is marked in the transcript. Tool calls are only run when that response was offered tools;
 turning tools off is a hard stop, not a hint.
+
+The GitHub rail connects with a personal access token: a classic token with `repo` and
+`workflow` scopes, or a fine-grained token with Contents, Issues, Pull requests and Actions
+access. The token is checked with GitHub before it replaces an existing connection and is
+stored in the local secrets file; **Disconnect** deletes it. The rail reads repositories,
+issues, pull requests, commits, Actions runs and releases. After approval, the model can
+open and update issues, comment, open/review/merge pull requests, dispatch/rerun/cancel
+Actions, create releases and private repositories, search GitHub, clone, branch, pull and
+push. `github_clone` creates one shallow copy in a new workspace folder. The token is
+supplied only to the git child process through a credential helper and is never put in the
+remote URL or git config. Push sends only the current branch and never forces. Browser OAuth
+is not bundled because it needs an OAuth App client ID; the token connection works without
+shipping a client secret.
+
+The desktop Files rail also exports the current workspace as a ZIP. The export excludes
+secrets, `.git`, dependency folders and symlinks. The Settings panel can export the current
+transcript as DOCX or PDF; both are generated locally without external services, and PDF is
+text-first (no images). To enable `notify`, add `NOTIFY_WEBHOOK_URL` in the Secrets panel
+(Slack, Discord and generic JSON endpoints are detected by host).
 
 `run_command` has no shell at all, so `&&`, pipes and `>` are just text passed to the
 program. It is off until you tick *Allow the model to run commands* and name the programs
