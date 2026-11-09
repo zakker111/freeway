@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.22.2 | 2026-11-09 | Animated speech-bubble brand mark in the header and empty state |
 | 2.22.1 | 2026-11-09 | Cancel-safe Build requests and cooldown cleanup |
 | 2.22.0 | 2026-11-09 | Automatic provider cooldown retry with a live countdown |
 | 2.21.1 | 2026-11-09 | Dismissible cloud download notice, remembered across reloads |
@@ -164,6 +165,19 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.22.2 — 2026-11-09
+
+- **The page logo is now the mark.** The header and the empty state both use the
+  speech-bubble app icon with three typing dots, replacing the old CSS dot and orb.
+- **The dots type.** The three dots pulse in sequence; the empty-state mark keeps its
+  slow float and glow.
+- **Reduced motion is respected.** `prefers-reduced-motion` stops the dot and float
+  animations and shows all three dots at full opacity.
+- **Checked.** 330 unit tests (67 page contracts), 36 CLI, 29 + 29 simulations and 36
+  cloud checks pass.
+- **Live.** Desktop 2.22.2 on port 3002; cloud preview and production report
+  2.22.2-cloud.
 
 ## 2.22.1 — 2026-11-09
 

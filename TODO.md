@@ -6,6 +6,15 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release carrie
 2.20.0 source and Windows archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.22.2 · animated speech-bubble brand mark
+
+- [x] Header uses the speech-bubble page icon instead of the CSS dot
+- [x] Empty-state orb replaced by the larger version of the same mark
+- [x] Three dots pulse in sequence, with a reduced-motion fallback
+- [x] 330 unit (67 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Desktop 2.22.2; preview and production report 2.22.2-cloud
+- [x] Release ZIP rebuilt after the docs; source pushed to GitHub main
+
 ## Done — 2.22.1 · cancel-safe cooldown and GitHub hardening
 
 - [x] Cloud Build requests create and pass an AbortController signal; Stop aborts the request

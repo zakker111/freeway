@@ -1197,8 +1197,26 @@
         position: relative;
         z-index: 20;
       }
+
       .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
-      .brand::before { content: ""; width: 9px; height: 9px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .brand-mark {
+        width: 26px; height: 26px; flex: none; display: block;
+        filter: drop-shadow(0 0 9px var(--glow));
+      }
+      .logo-tile {
+        fill: var(--surface-2);
+        stroke: var(--accent-line);
+        stroke-width: 10;
+      }
+      .logo-bubble { fill: var(--text); }
+      .logo-dot {
+        fill: var(--bg);
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: logo-dot 1.6s ease-in-out infinite;
+      }
+      .logo-dot-2 { animation-delay: .18s; }
+      .logo-dot-3 { animation-delay: .36s; }
       .brand span { color: var(--muted); font-weight: 550; }
       .ver, .tag {
         font-size: 11px;
@@ -1836,28 +1854,18 @@
         opacity: .7;
       }
       .brand { text-shadow: 0 0 26px var(--glow); }
-      .brand::before {
-        width: 10px;
-        height: 10px;
-        border-radius: 3px;
-        background: conic-gradient(from 210deg, var(--accent), var(--accent-line), var(--accent-strong), var(--accent));
-        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px var(--glow);
-        animation: orbit 9s linear infinite;
-      }
+      .brand-mark { filter: drop-shadow(0 0 12px var(--glow)); }
 
       /* Empty state: one floating mark, a lit headline, a framed diagram. */
       .empty { animation: hero-in .55s cubic-bezier(.2, .8, .2, 1) both; }
-      .empty::before {
-        content: "";
-        display: block;
-        width: 46px;
-        height: 46px;
+      .empty-mark {
+        width: 52px;
+        height: 52px;
         margin: 0 auto 18px;
-        border-radius: 15px;
-        background: conic-gradient(from 210deg, var(--accent-soft), var(--accent-line), var(--accent-strong), var(--accent-soft));
-        box-shadow: 0 0 0 1px var(--line), 0 18px 44px var(--glow);
+        filter: drop-shadow(0 18px 44px var(--glow)) drop-shadow(0 0 16px var(--glow));
         animation: hero-orb 7s ease-in-out infinite;
       }
+      .empty-mark svg { display: block; width: 100%; height: 100%; }
       .empty h1 {
         color: var(--text);
         background: linear-gradient(100deg, var(--text) 8%, var(--accent-strong) 48%, var(--muted) 100%);
@@ -2009,6 +2017,15 @@
         0%, 100% { transform: translateY(0) rotate(0deg); }
         50% { transform: translateY(-5px) rotate(8deg); }
       }
+      @keyframes logo-dot {
+        0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
+        24% { opacity: 1; transform: translateY(-20px) scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .brand-mark .logo-dot,
+        .empty-mark .logo-dot { animation: none !important; opacity: 1; transform: none; }
+        .empty-mark { animation: none !important; }
+      }
       @keyframes msg-in {
         from { opacity: 0; transform: translateY(10px) scale(.99); }
         to { opacity: 1; transform: none; }
@@ -2027,7 +2044,7 @@
         to { opacity: 1; transform: none; }
       }
       @media (max-width: 640px) {
-        .empty::before { width: 38px; height: 38px; margin-bottom: 14px; }
+        .empty-mark { width: 42px; height: 42px; margin-bottom: 14px; }
         .mode-row { gap: 6px; }
         .mode-row .mini { padding: 4px 10px; }
       }
@@ -2071,7 +2088,16 @@
 
     <header>
       <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
-      <div class="brand">Free<span>way</span></div>
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+          <rect class="logo-tile" x="2" y="2" width="508" height="508" rx="112" />
+          <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
+          <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
+          <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
+          <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+        </svg>
+        Free<span>way</span>
+      </div>
       <span class="ver" id="ver">v…</span>
       <select id="provider" title="Provider" aria-label="Provider"></select>
       <div class="picker" id="modelPicker">
@@ -2234,6 +2260,15 @@
     <main id="scroller">
       <div class="wrap" id="thread">
         <div class="empty" id="hello">
+          <div class="empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 512 512" focusable="false">
+              <rect class="logo-tile" x="2" y="2" width="508" height="508" rx="112" />
+              <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
+              <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
+              <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
+              <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+            </svg>
+          </div>
           <h1>Free models. Real tools.</h1>
           <p>Ask anything. If a free model is busy, pick another from the list — every model here is free and the list shows what each one can hold.</p>
           <pre class="ascii">      you
