@@ -40,6 +40,21 @@ Dark, easy-on-the-eyes interface, no build step, no accounts, no telemetry. Your
 the local server process and is never sent to the browser. The header and empty state carry
 the same speech-bubble mark, with three typing dots and a reduced-motion fallback.
 
+## Secrets and a clean first visit
+
+No API keys are committed. Desktop keys live in the user's 0600 config or
+`secrets.json`, outside the repository; cloud visitor keys stay in the current
+tab's `sessionStorage`, are sent only with that request, and are never returned
+by `/api/config`. The source archive excludes `.env`, runtime config, chats,
+logs and `sea-prep.blob`. Test fixtures construct fake key shapes at runtime
+instead of containing key-like literals, and commit history was checked for
+runtime secret files. If a key is ever exposed, revoke it at the provider and
+replace it; deleting the file alone does not invalidate the key.
+
+A first visit starts with an empty chat. No sample conversation, thread, account,
+or key is bundled. The sample page under Preview is in memory until you ask
+Files to write it into that chat's workspace.
+
 ## Requirements
 
 Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The single

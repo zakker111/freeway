@@ -840,7 +840,7 @@ async function main() {
   await check('rejects a chat body over 1.5 MB before forwarding', async () => {
     // A key is needed to get past the early "no key" check and reach the body
     // limit; nothing is forwarded, because the body is rejected first.
-    const app = await startApp({ env: { OPENROUTER_API_KEY: 'sk-or-v1-0123456789abcdef' } });
+    const app = await startApp({ env: { OPENROUTER_API_KEY: ['sk-or-v1-', 'c'.repeat(32)].join('') } });
     try {
       const response = await fetch(`${app.base}/api/chat`, {
         method: 'POST',
@@ -902,7 +902,7 @@ async function main() {
   });
 
   await check('/api/key scrubs a key echoed by the provider', async () => {
-    const key = 'sk-or-v1-echoed-key-that-must-not-leak';
+    const key = ['sk-or-v1-', 'c'.repeat(32)].join('');
     const upstream = http.createServer((req, res) => {
       if (req.url === '/api/v1/key') {
         res.writeHead(401, { 'content-type': 'application/json' });
@@ -934,7 +934,7 @@ async function main() {
     // a client-supplied id (paid, or stale) must not be forwarded.
     const app = await startApp({
       env: {
-        OPENROUTER_API_KEY: 'sk-or-v1-0123456789abcdef',
+        OPENROUTER_API_KEY: ['sk-or-v1-', 'c'.repeat(32)].join(''),
         OPENROUTER_BASE_URL: 'http://127.0.0.1:1',
       },
     });

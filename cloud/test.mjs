@@ -12,7 +12,7 @@ import worker, { PROVIDERS as CLOUD_PROVIDERS, handleFiles, handlePreviews, serv
 import { PROVIDERS as DESKTOP_PROVIDERS, isAllowedModel, freePlanLabel, limitLines } from '../lib/providers.mjs';
 
 const ORIGIN = 'https://chat.example';
-const KEY = 'sk-or-v1-shared-key-that-must-never-be-echoed';
+const KEY = ['sk-or-v1-', 'k'.repeat(32)].join('');
 
 const models = [
   {
@@ -488,7 +488,7 @@ async function main() {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
-            'x-provider-key': 'sk-or-v1-visitor-key',
+            'x-provider-key': ['sk-or-v1-', 'k'.repeat(32)].join(''),
             origin: 'https://their-own-site.example',
           },
           body: JSON.stringify(chatBody),

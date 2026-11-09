@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(HERE, '..', 'app.mjs');
-const KEY = 'sk-or-v1-test-key-that-must-never-leak';
+const KEY = ['sk-or-v1-', 's'.repeat(32)].join('');
 
 const models = [
   {

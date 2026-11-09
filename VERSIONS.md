@@ -174,6 +174,8 @@ change. The running app reports its version in the header badge and at `GET /api
   slow float and glow.
 - **Reduced motion is respected.** `prefers-reduced-motion` stops the dot and float
   animations and shows all three dots at full opacity.
+- **Source hygiene.** Key-shaped test fixtures now build fake values at runtime; the
+  source archive omits `sea-prep.blob`, and local runtime secret files stay untracked.
 - **Checked.** 330 unit tests (67 page contracts), 36 CLI, 29 + 29 simulations and 36
   cloud checks pass.
 - **Live.** Desktop 2.22.2 on port 3002; cloud preview and production report
