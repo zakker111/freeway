@@ -2,8 +2,8 @@
 //
 // The page is one self-contained HTML file, so an installed app can still open
 // offline. The shell is network-first: a deployment must replace a broken page
-// on the next load instead of serving an old cached copy forever. API calls and
-// auth redirects are never cached.
+// on the next load instead of serving an old cached copy forever. API calls are
+// never cached.
 const CACHE = 'freeway-shell-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-maskable.svg'];
 
@@ -31,10 +31,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Never serve API data, auth redirects, or the worker itself from cache.
+  // Never serve API data or the worker itself from cache.
   if (
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/auth/') ||
     url.pathname === '/sw.js'
   ) {
     return;

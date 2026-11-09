@@ -31,12 +31,12 @@ exact failure and up to two repair cycles. A third failed check stops further
 tool changes and asks for a final report instead of looping.
 
 The first screen is not a key wall: press **Use OVHcloud instead — no key** and send a message
-straight away. OVHcloud publishes a public demo endpoint with no account, no card and a
+straight away. OVHcloud publishes a public demo endpoint with no key, no card and a
 2-requests-a-minute-per-model budget, so you can judge the app before signing up anywhere.
 At that demo limit the app reports the limit and keeps OVHcloud selected; it does not silently
 switch the answer to a different provider.
 
-Dark, easy-on-the-eyes interface, no build step, no accounts, no telemetry. Your API key stays in
+Dark, easy-on-the-eyes interface, no build step, no sign-in, no telemetry. Your API key stays in
 the local server process and is never sent to the browser. The header and empty state carry
 the same speech-bubble mark, with three typing dots and a reduced-motion fallback.
 
@@ -54,9 +54,9 @@ error redaction also covers PEM blocks and common CI/cloud token shapes. If a ke
 is ever exposed, revoke it at the provider and replace it; deleting the file
 alone does not invalidate the key.
 
-A first visit starts with an empty chat. No sample conversation, thread, account,
-or key is bundled. The sample page under Preview is in memory until you ask
-Files to write it into that chat's workspace.
+A first visit starts with an empty chat. No sample conversation, thread, or key is bundled.
+The sample page under Preview is in memory until you ask Files to write it into that chat's
+workspace.
 
 ## Requirements
 
@@ -79,8 +79,7 @@ The sample is shown in memory, so a new chat stays empty; **Files → Sample** w
 
 Each chat owns its files and Preview. A new desktop chat gets a folder under the app
 config (`workspaces/<chat-id>`); older chats keep the folder from Settings, so upgrading
-does not hide a project. The cloud edition namespaces browser files and account files by
-chat, and an old account file is claimed by the first existing chat opened after upgrade.
+does not hide a project. The cloud edition namespaces browser files by chat.
 
 Desktop HTML previews use a private server on `127.0.0.1`, so linked files, relative ES
 modules, same-origin `fetch()` and absolute `/assets` paths behave like a normal dev server.
@@ -158,7 +157,7 @@ the port and OpenRouter reachability without starting the app.
    address and where the config file lives; your browser opens at
    <http://127.0.0.1:3002>.
 4. Paste your OpenRouter key (`sk-or-…`) into the first screen and press **Save** — or press
-   **Use OVHcloud instead — no key** to send a message with no account at all.
+   **Use OVHcloud instead — no key** to send a message without signing up.
 5. Type `hello` and press Enter. An answer appears with `answered by <model>` under it.
 
 Close the console window to stop the app. Nothing is installed, no service is left
@@ -323,9 +322,10 @@ between machines.
 - **Automatic model retry.** Within the selected provider, OpenRouter's `models` array can
   fail over server-side and the app retries the next free model itself — at most 3 attempts,
   never after text has started streaming. The provider is never changed for you.
-- **Automatic cooldown retry.** If a provider returns 429 with a cooling delay, the answer
-  bubble shows a live countdown and the same turn is resent once when it expires, so you do
-  not need to paste the message again. The provider's `Retry-After` is honoured; a missing
+- **Automatic cooldown retry.** If a provider — or the cloud edition's one-minute address
+  throttle — returns 429 with a cooling delay, the answer bubble shows a live countdown and
+  the same turn is resent once when it expires, so you do not need to paste the message again.
+  The provider's `Retry-After` is honoured; a missing
   value falls back to 60 seconds, and waits over 15 minutes are reported instead of held.
   Auth, credit, network and tool errors are never retried, and nothing is retried after text
   has started streaming. Stop cancels the wait and an in-flight Build request.
@@ -404,7 +404,7 @@ between machines.
 | `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff** (unless auto-approve is on), every find must be unique, 1 MB cap |
 | `scaffold_project` | Creates a three-file static starter site | **approved per call**, refuses to overwrite, workspace-contained |
 | `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
-| `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or an account-backed page snapshot (cloud, signed in) | starts the private preview server, a `#preview=` browser link, or an owner-only `/preview/<id>` snapshot with a sandbox CSP; never a public share |
+| `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or a browser-local `#preview=` link (cloud) | starts the private preview server or returns a browser-local link that reopens a file from IndexedDB; uploads nothing and is never a public share |
 | `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, fixed desktop/mobile/tablet sizes, 320 KB cap, at most 2 per run. The Preview panel also has a user Capture / Download PNG flow that does not use a model. |
 | `browser_*` | Drives the local preview in an interactive headless browser: open, snapshot, click/type, wait, console/network diagnostics, screenshot and close | desktop Build only, local loopback preview only, **approved open/click/type**, isolated profile, no app secrets, at most 2 screenshots. The app reloads an open page after a page edit and returns a fresh snapshot automatically. |
 | `git_commit` | Commits only named files | **approved per call**, hooks/signing disabled, never pushes |
@@ -516,6 +516,7 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `build/bundle.mjs` | builds that single file |
 | `test/cli.mjs` | tests the flags and the single-file build |
 | `test/ui-preview.mjs` | real Chromium check for preview cards and frame visibility |
+| `test/ui-cooldown.mjs` | real Chromium check for cooldown countdowns and one-resend behavior on both editions |
 
 ## Commands
 
@@ -543,6 +544,9 @@ npm run build:single # regenerate freeway.mjs
   (default 1200), `NO_OPEN=1` to stop the browser from opening automatically.
 
 ## Security notes
+
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting and [PRIVACY.md](PRIVACY.md)
+for the desktop and hosted-cloud data flows.
 
 - The server binds to `127.0.0.1` by default, so nothing on your network can reach it.
   `--host 0.0.0.0` changes that deliberately; the warning it prints is not decorative.
@@ -577,7 +581,7 @@ models this app will send.
 | **Aion Labs** | <https://www.aionlabs.ai/> → console | opaque | free plan: 15 requests/min, 20,000 tokens/day |
 | **Z.AI** | <https://z.ai/model-api> → API key | opaque | `glm-4.7-flash` only; paid GLM models are refused |
 | **Cloudflare Workers AI** | <https://dash.cloudflare.com/profile/api-tokens> → Create token; Account ID from the dashboard | opaque + 32-character Account ID | 10,000 Neurons/day; the listed Workers AI chat models only |
-| **OVHcloud** | none — keyless | — | public demo endpoint: 2 requests/min per model, no account |
+| **OVHcloud** | none — keyless | — | public demo endpoint: 2 requests/min per model, no sign-up |
 
 1. Open the link for the provider you want, sign in, and create a key.
 2. Copy it immediately — most consoles show it only once.
@@ -629,25 +633,24 @@ with that message, chat still answering, settings still saving, nothing in the s
 
 The desktop app needs Node because it writes threads, reads files and runs commands. The
 `cloud/` folder is a smaller program for people who just want to chat: one Cloudflare
-Worker serves the page, lists free models, proxies a single turn to OpenRouter, syncs
-chats and account files when you sign in, and leaves the GitHub token in the browser.
+Worker serves the page, lists free models, proxies chat turns, and keeps chats and files in
+this browser. There is no sign-in, and the GitHub token stays in the browser.
 
 - **No key on the deployment?** The page asks for one, keeps it in that tab
   (`sessionStorage`) and sends it per request. The Worker never stores or echoes it. The
   same dialog offers **Use OVHcloud instead — no key**, which selects the keyless provider and
-  starts a chat without an account.
+  starts a chat without a key.
 - **Key on the deployment?** Add `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`,
   `MISTRAL_API_KEY`, `COHERE_API_KEY`, `SAMBANOVA_API_KEY`, `AION_API_KEY`, `ZAI_API_KEY`,
   `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`) under **Sites → Secrets** and
   visitors never see a key field for that provider.
 - **Free only, checked on the server:** the requested id must still be free in the live
   OpenRouter catalog, so a hand-edited request cannot reach a paid model.
-- **Chats follow your account.** Saved chats live in this browser (`localStorage`) and, when
-  you sign in, sync both ways with your account in D1, so they reopen on another device.
-  Guest chats are claimed by the first account that signs in. Prompts, the file workspace and
-  Markdown export stay browser-local. The desktop filesystem tools, command runner and
-  managed dev servers have no cloud equivalent. The cloud GitHub rail is a browser-side
-  repository list; GitHub tools that write remain desktop-only.
+- **Chats stay in this browser.** Saved chats live in `localStorage`, with no sign-in and no
+  server-side history. Prompts, the file workspace and Markdown export are browser-local too.
+  The desktop filesystem tools, command runner and managed dev servers have no cloud
+  equivalent. The cloud GitHub rail is a browser-side repository list; GitHub tools that write
+  remain desktop-only.
 - **GitHub in the tab.** Save a fine-grained or classic PAT as `GITHUB_TOKEN` under
   **Secrets**. The GitHub rail calls `https://api.github.com` directly, keeps the token in
   `sessionStorage`, and never sends it to the Worker. It disappears when the tab closes;
@@ -663,36 +666,28 @@ OPENROUTER_API_KEY=sk-or-… node dev.mjs   # pretend the deployment has a key
 ```
 
 Routes: `GET /`, `GET /healthz`, `GET /api/config`, `GET /api/models?provider=…`,
-`GET /api/quota`, `GET /api/budget`, `GET /api/me`, `GET|PUT|DELETE /api/files[/:name]`,
-`GET /api/threads`, `PUT|DELETE /api/threads/:id`, `POST /api/chat`, and
-`/auth/freebuff/*` when sign-in is configured. The GitHub rail is browser-to-GitHub and has
-no Worker route.
+`GET /api/quota`, `GET /api/budget`, and `POST /api/chat`. The GitHub rail is
+browser-to-GitHub and has no Worker route.
 
 `POST /api/chat` streams Server-Sent Events: `{"delta":"…"}` frames as tokens arrive, then one
 `{"done":true,"model":…,"ms":…}` frame. Pass `stream:false` for the old single JSON reply.
 
 The page also keeps a prompt library, a 200-chat history (200 messages per chat) and exports
-the current chat as Markdown. Prompts and Markdown export stay browser-local; chats work
-without an account and sync to the signed-in account when there is one.
+the current chat as Markdown. Chats, prompts and Markdown export are browser-local; there is
+no sign-in.
 
-**Files in the cloud edition** have two homes, both scoped to the open chat. **This browser** is a text workspace in
-IndexedDB; names always travel with a request, and ticking a file includes up to 12,000
+**Files in the cloud edition** are scoped to the open chat and stored in this browser's
+IndexedDB. Names always travel with a request, and ticking a file includes up to 12,000
 characters of its text. You can upload text/HTML/SVG/Markdown, download the editor, and preview
 `.html`, `.htm`, `.svg` or `.md` in a sandboxed iframe that cannot reach the session or this
-site's API. Signed
-in, **Account files** stores the same text in R2 under your subject — 1 MB per file, 40 files and
-8 MB per account — so it follows you to another device. Both workspaces are text-only; images
-belong in the composer. On the desktop the model reads real files through tools, with an Allow/Deny card before
-anything is written; cloud browser writes ask the same way unless **Auto-approve browser
-writes** is enabled there.
+site's API. The workspace is text-only; images belong in the composer. On the desktop the model
+reads real files through tools, with an Allow/Deny card before anything is written; cloud
+browser writes ask the same way unless **Auto-approve browser writes** is enabled there.
 
-**Preview links that follow you.** With workspace tools on and a signed-in account, a cloud
-`preview_link` saves a self-contained snapshot in R2 and returns `/preview/<id>`. Re-sharing
-the same chat file updates that URL. The page is served only to the owning account under a
-sandbox CSP; another account gets 404 and a signed-out visitor gets a sign-in page. Links are
-limited to 1.5 MB each, 40 shares / 8 MB per account, and deleting the account file revokes
-its snapshots. Signed out, the link stays the browser-only `#preview=` form. The cloud
-**Shares** panel lists saved links with open, copy, revoke and revoke-all actions.
+**Preview links stay in this browser.** A cloud `preview_link` returns a `#preview=` URL that
+reopens the saved file in the Preview panel only where that file exists in IndexedDB. It is
+not a public share and uploads nothing. The link can be copied, but another browser or device
+will correctly show that the file is missing.
 
 **Previewing files.** Both editions preview HTML, SVG and Markdown. Linked CSS, classic
 JavaScript and SVG bundle into one sandboxed document; on the desktop the loopback server also
@@ -721,10 +716,7 @@ Publish it yourself:
 2. Deploy with the manifest at `cloud/deploy.json` (entry `worker.mjs`, assets `public/`).
 3. Check the preview URL: page loads, model list fills, a chat turn answers or says why not.
 4. Production → **Publish**, then add `OPENROUTER_API_KEY` under **Sites → Secrets**.
-5. Account files need an R2 bucket bound as `FILES` (Sites → Storage, preview and production
-   separately; deploy again after creating it). Without it the panel says account files are not
-   enabled, and the browser workspace still works.
-6. Revisit the production URL; the key field should be gone and chat should just work.
+5. Revisit the production URL; the key field should be gone and chat should just work.
 
 ## Known limits
 

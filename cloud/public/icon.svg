@@ -1,8 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Freeway">
-  <rect width="512" height="512" rx="96" fill="#0f0f0f" />
-  <rect x="44" y="44" width="424" height="424" rx="72" fill="#171717" stroke="#2c2c2c" stroke-width="6" />
-  <path d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" fill="#e8e8e8" />
-  <circle cx="196" cy="256" r="16" fill="#0f0f0f" />
-  <circle cx="256" cy="256" r="16" fill="#0f0f0f" />
-  <circle cx="316" cy="256" r="16" fill="#0f0f0f" />
+  <style>
+    .logo-tile { fill: #000; stroke: #fff; stroke-width: 12; animation: logo-ring 3.8s ease-in-out infinite; }
+    .logo-chat { transform-box: fill-box; transform-origin: center; animation: logo-chat 4.8s ease-in-out infinite; }
+    .logo-bubble { fill: #000; stroke: #fff; stroke-width: 11; stroke-linejoin: round; }
+    .logo-dot { fill: #fff; transform-box: fill-box; transform-origin: center; animation: logo-dot 1.6s ease-in-out infinite; }
+    .logo-dot-2 { animation-delay: .18s; }
+    .logo-dot-3 { animation-delay: .36s; }
+    @keyframes logo-ring { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: 1; } }
+    @keyframes logo-chat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+    @keyframes logo-dot {
+      0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
+      24% { opacity: 1; transform: translateY(-20px) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .logo-tile, .logo-chat, .logo-dot { animation: none; opacity: 1; transform: none; }
+      .logo-tile { stroke-opacity: 1; }
+    }
+  </style>
+  <rect class="logo-tile" x="6" y="6" width="500" height="500" rx="110" />
+  <g class="logo-chat">
+    <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
+    <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
+    <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
+    <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+  </g>
 </svg>

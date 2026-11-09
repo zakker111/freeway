@@ -1,7 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Freeway">
-  <rect width="512" height="512" fill="#0f0f0f" />
-  <path d="M160 196h192a20 20 0 0 1 20 20v104a20 20 0 0 1-20 20H240l-60 46v-46h-20a20 20 0 0 1-20-20V216a20 20 0 0 1 20-20z" fill="#e8e8e8" />
-  <circle cx="212" cy="266" r="13" fill="#0f0f0f" />
-  <circle cx="256" cy="266" r="13" fill="#0f0f0f" />
-  <circle cx="300" cy="266" r="13" fill="#0f0f0f" />
+  <style>
+    .logo-tile { fill: #000; stroke: #fff; stroke-width: 12; animation: logo-ring 3.8s ease-in-out infinite; }
+    .logo-chat { transform-box: fill-box; transform-origin: center; animation: logo-chat 4.8s ease-in-out infinite; }
+    .logo-bubble { fill: #000; stroke: #fff; stroke-width: 11; stroke-linejoin: round; }
+    .logo-dot { fill: #fff; transform-box: fill-box; transform-origin: center; animation: logo-dot 1.6s ease-in-out infinite; }
+    .logo-dot-2 { animation-delay: .18s; }
+    .logo-dot-3 { animation-delay: .36s; }
+    @keyframes logo-ring { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: 1; } }
+    @keyframes logo-chat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+    @keyframes logo-dot {
+      0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
+      24% { opacity: 1; transform: translateY(-20px) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .logo-tile, .logo-chat, .logo-dot { animation: none; opacity: 1; transform: none; }
+      .logo-tile { stroke-opacity: 1; }
+    }
+  </style>
+  <rect width="512" height="512" fill="#000" />
+  <g class="logo-chat">
+    <path class="logo-bubble" d="M160 196h192a20 20 0 0 1 20 20v104a20 20 0 0 1-20 20H240l-60 46v-46h-20a20 20 0 0 1-20-20V216a20 20 0 0 1 20-20z" />
+    <circle class="logo-dot logo-dot-1" cx="212" cy="266" r="13" />
+    <circle class="logo-dot logo-dot-2" cx="256" cy="266" r="13" />
+    <circle class="logo-dot logo-dot-3" cx="300" cy="266" r="13" />
+  </g>
 </svg>

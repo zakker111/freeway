@@ -194,6 +194,16 @@ async function main() {
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${appPort}/` });
     await waitForPage(cdp, 'document.readyState === "complete" && !!document.querySelector("#railBtn")');
 
+    // A first run gets its own managed workspace under the config folder. The
+    // configured workspace is intentionally not reused for a new chat, so put
+    // these fixtures in the folder the first chat actually shows.
+    const chatId = await waitForPage(cdp, 'state.threadId || ""');
+    const chatWorkspace = path.join(temp, 'workspaces', chatId);
+    fs.mkdirSync(chatWorkspace, { recursive: true });
+    for (const name of ['phase3-demo.md', 'style.scss', 'broken.html']) {
+      fs.copyFileSync(path.join(workspace, name), path.join(chatWorkspace, name));
+    }
+
     await evaluate(cdp, 'document.querySelector("#railBtn").click()');
     await waitForPage(cdp, '!![...document.querySelectorAll(".fs-row")].find((node) => node.textContent.includes("style.scss"))');
     assert.equal(await evaluate(cdp, clickRow('style.scss')), true);

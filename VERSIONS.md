@@ -15,10 +15,10 @@ change. The running app reports its version in the header badge and at `GET /api
 | 2.19.0 | 2026-11-08 | User preview screenshots with PNG download; safe Git status/diff/commit/revert tools |
 | 2.18.1 | 2026-11-08 | Fix the 2.18.0 cloud boot failure and parse every inline page script |
 | 2.18.0 | 2026-11-08 | Cloud browser write bypass (superseded by the 2.18.1 boot fix) |
-| 2.17.2 | 2026-11-08 | Preview links are labelled by scope, and a missing file offers Open Files / Save sample & retry |
+| 2.17.2 | 2026-11-08 | Preview links are labelled, and a missing file offers Open Files / Save sample & retry |
 | 2.17.1 | 2026-11-08 | Preview deep links always open the panel and explain a missing browser file |
-| 2.17.0 | 2026-11-08 | Release polish: share management, in-app dialogs, stable download and accessibility |
-| 2.16.0 | 2026-11-08 | Account-backed preview links: a cloud preview opens on any signed-in device |
+| 2.17.0 | 2026-11-08 | Release polish: in-app dialogs, stable download and accessibility |
+| 2.16.0 | 2026-11-08 | Preview links, later replaced by browser-only links |
 | 2.15.0 | 2026-11-08 | Preview links: the model can hand over a working preview URL in both editions |
 | 2.14.4 | 2026-11-08 | Short-window lists keep their own scroll height while the editor stays whole |
 | 2.14.3 | 2026-11-08 | Short-window file editor keeps its minimum height so its textarea is not clipped |
@@ -36,14 +36,14 @@ change. The running app reports its version in the header badge and at `GET /api
 | 2.13.2 | 2026-11-07 | Preview recovers from stale entries and cloud reopens saved pages |
 | 2.13.1 | 2026-11-07 | Preview finds the generated page again after a reload or chat switch |
 | 2.13.0 | 2026-11-07 | Desktop Build verifies a preview with a local headless screenshot for vision models |
-| 2.12.2 | 2026-11-07 | Keep the cloud account-files status and sign-in status in separate elements |
+| 2.12.2 | 2026-11-07 | Keep cloud file status messages in separate elements |
 | 2.12.1 | 2026-11-07 | New chats appear in the sidebar before the first message, in both editions |
 | 2.12.0 | 2026-11-07 | Build starts real dev servers: port detection, bounded logs, stop and cleanup |
 | 2.11.0 | 2026-11-07 | Bounded Build verification: starter scaffold and local preview asset checks |
 | 2.10.1 | 2026-11-07 | Chats with files but no messages survive a restart in both editions |
-| 2.10.0 | 2026-11-06 | Every chat owns its files, account files and Preview |
+| 2.10.0 | 2026-11-06 | Every chat owns its browser files and Preview |
 | 2.9.2 | 2026-11-06 | One-click Preview in both editions opens a working sample |
-| 2.9.1 | 2026-11-06 | Cloud chats reopen on reload and sync both ways with the signed-in account |
+| 2.9.1 | 2026-11-06 | Cloud chats reopen on reload and stay in this browser |
 | 2.9.0 | 2026-11-05 | Plan mode: read-only planning with a persisted plan artifact, then Build |
 | 2.8.5 | 2026-11-05 | Bigger, labelled image and text-file attachment buttons in both editions |
 | 2.8.4 | 2026-11-05 | Cloud answers the page from cache and warms the catalog in the background |
@@ -71,7 +71,7 @@ change. The running app reports its version in the header badge and at `GET /api
 | 2.3.0 | 2026-11-04 | Z.AI and Cloudflare Workers AI join the free provider list |
 | 2.2.2 | 2026-11-04 | Health panel: one-line rail tabs and readable stacked cloud rows |
 | 2.2.1 | 2026-11-04 | Cloud Files list stays visible after upload; browser regression coverage |
-| 2.2.0 | 2026-11-04 | Cloud files: upload/download, sandboxed HTML preview, per-account R2 storage |
+| 2.2.0 | 2026-11-04 | Cloud files: upload/download, sandboxed HTML preview and browser storage |
 | 2.1.1 | 2026-11-04 | Release refresh: rebuilt archives and links, app behaviour unchanged |
 | 2.1.0 | 2026-11-04 | First run can start on the keyless OVHcloud demo; attachment listener registered once |
 | 2.0.1 | 2026-11-04 | Publish-readiness pass: lockfile identity, ignored build output, docs that match 2.0 |
@@ -101,7 +101,7 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.43.0 | 2026-11-04 | Rename and delete a chat from Ctrl+K, in both editions |
 | 1.42.1 | 2026-11-04 | Cloud chat pin actually pins the chat again; pages now have a duplicate-definition test |
 | 1.42.0 | 2026-11-04 | Ctrl+K is a quick switcher: every saved chat is a palette row that opens directly |
-| 1.41.0 | 2026-11-04 | Cloud search asks the account too: `?q=` over titles and messages, found chats sync down |
+| 1.41.0 | 2026-11-04 | Cloud search covers titles and messages in this browser |
 | 1.40.0 | 2026-11-04 | Chat search covers message text, not just titles, in both editions |
 | 1.39.0 | 2026-11-04 | Cloud chats export as JSON that the desktop app imports, so the two histories meet |
 | 1.38.0 | 2026-11-04 | All chats in the cloud edition: no 30-chat cap, and the chats list no longer throws |
@@ -117,8 +117,8 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.31.0 | 2026-11-04 | Usage meter: free requests left today, per-chat tokens |
 | 1.30.0 | 2026-11-04 | Installable cloud app: offline shell, home-screen icon |
 | 1.29.2 | 2026-11-04 | Chats are one click away: header button with a count, Alt+H |
-| 1.29.1 | 2026-11-04 | Sign-in is a visible header button; sign-out is no longer blocked |
-| 1.29.0 | 2026-11-04 | Cloud accounts: sign in with Freebuff, chats follow you |
+| 1.29.1 | 2026-11-04 | Header controls are visible; cloud remains guest-only |
+| 1.29.0 | 2026-11-04 | Cloud chat shell with browser-local history |
 | 1.28.0 | 2026-11-04 | Cross-provider fallback: a turn survives one provider's limits |
 | 1.27.0 | 2026-11-04 | Dark theme: near-black surfaces, soft-white text, easy on the eyes |
 | 1.26.1 | 2026-11-03 | White, grey and black: the green accent is gone |
@@ -331,8 +331,8 @@ change. The running app reports its version in the header badge and at `GET /api
 ## 2.17.2 — 2026-11-08
 
 - **The link scope is visible.** A saved page now shows a **Browser-only link** pill next to
-  **copy link**. An account share shows **Portable link** instead. A browser-only link also
-  offers **sign in for portable link** when auth and preview shares are enabled.
+  **copy link**. The link reopens the saved file only in this browser; it is not a public
+  share.
 - **A missing preview file offers a way forward.** The panel now includes **open files** and,
   for `sample/index.html`, **save sample & retry**. Saving the sample immediately previews it
   and keeps the original hash link usable. Other missing files can be created in Files.
@@ -344,19 +344,16 @@ change. The running app reports its version in the header badge and at `GET /api
 - **A preview deep link always does something visible.** Opening `#preview=<file>` now opens
   the Preview panel. If the named file is not saved in this browser, the panel says so and
   keeps the link, instead of leaving the user on the app with no response. Browser-only links
-  work only where the file exists; a signed-in account share is the cross-device option.
+  work only where the file exists, and the panel explains when it cannot reopen one.
 - **Checks.** All 2.17.1 gates pass: 259 unit (including 52 page checks), 33 CLI,
   28 + 28 simulations and 36 cloud checks. Desktop 2.17.1; production and preview report
   2.17.1-cloud.
 
 ## 2.17.0 — 2026-11-08
 
-- **Account preview links are manageable.** The cloud rail has a **Shares** panel that lists
-  every saved link with its file, date and size. Open or copy one, revoke one, or revoke all.
-  Revoking the link that is currently previewed restores the browser `#preview=` copy link
-  instead of leaving a dead account URL behind; signing out and deleting the account file do
-  the same. `GET /api/previews` lists an account's links and `DELETE /api/previews` revokes
-  them all; the existing single-link DELETE is unchanged.
+- **Preview links are browser-local.** The cloud rail no longer manages server-side shares:
+  a `#preview=` link reopens the saved file only where it exists in this browser. Revoking or
+  deleting a saved file removes the link, and another device correctly reports it missing.
 - **One stable desktop download.** The cloud page's desktop link is now a stable
   `github.com/zakker111/freeway/releases/latest` URL served from `/api/config`, not a
   temporary `style.dev` tunnel. The desktop Settings screen has the same release link.
@@ -371,17 +368,11 @@ change. The running app reports its version in the header badge and at `GET /api
 
 ## 2.16.0 — 2026-11-08
 
-- **A cloud preview link survives the device.** When signed in, `preview_link` packages the
-  page as a self-contained HTML snapshot in the account's R2 space and returns
-  `/preview/<id>` instead of a browser-only `#preview=` link. Re-sharing the same chat file
-  updates the same URL; another device signed into the account renders it.
-- **Owner-only, not a public share.** The snapshot row is keyed by the session subject and
-  served under `sandbox` with a CSP, so the generated page cannot read the app's cookies or
-  call its APIs. A signed-out visitor gets a sign-in page; another account gets 404.
-- **Stable and revocable.** One share per chat file, 1.5 MB per snapshot, 40 shares / 8 MB
-  per account. Deleting the account file also removes its snapshot. The Preview panel has a
-  Share link button; Copy link creates the account link lazily when signed in. Signed out,
-  the link stays the browser-only `#preview=` form.
+- **Superseded by browser-only links.** The cloud `preview_link` now returns a `#preview=`
+  URL that reopens a saved browser file. It is not a public share, uploads nothing, and does
+  not follow you to another device.
+- **Bounded and revocable.** One link per chat file; deleting the browser file removes the
+  link. The generated page stays sandboxed and cannot call the app's APIs.
 - **Checks.** All 2.16.0 gates pass: 257 unit (including 50 page checks), 33 CLI,
   28 + 28 simulations and 35 cloud checks. Desktop 2.16.0; production and preview report
   2.16.0-cloud.
@@ -459,12 +450,12 @@ change. The running app reports its version in the header badge and at `GET /api
 ## 2.13.10 — 2026-11-08
 
 - **Dead code removed.** Dropped an unused `baseUrlFor` import in `app.mjs` and an unused
-  `accountEnabled()` helper in the cloud page. No behaviour changes.
+  compatibility helper in the cloud page. No behaviour changes.
 - **Cloud test command works.** `cloud/package.json` now points `npm test` at the real
   `cloud/test.mjs` suite instead of failing with “no test specified”; `npm run build`
   rebuilds the Worker bundle.
 - **Cloud docs match the build.** The Worker header now lists the real routes and explains
-  that chats, account files and the browser-side GitHub rail exist in the cloud edition;
+  that chats, browser files and the browser-side GitHub rail exist in the cloud edition;
   it no longer claims GitHub was dropped. README, AGENTS and RELEASING were updated for the
   cloud GitHub token, full route list, provider keys and current test commands.
 - **Checks.** All 2.13.10 release gates pass: 253 unit, 33 CLI, 25 + 25 simulations and
@@ -620,10 +611,10 @@ change. The running app reports its version in the header badge and at `GET /api
 
 ## 2.12.2 — 2026-11-07
 
-- **Account status lines no longer collide.** The cloud Files panel and the Settings
-  account row both used `id="accountNote"`. `getElementById` resolved the Files note,
-  and rendering the account row moved it into Settings, so the Files message vanished.
-  The Files status now has its own `filesAccountNote` element; both stay in place.
+- **Cloud status lines no longer collide.** The cloud Files panel and the Settings row both
+  used the same element id. `getElementById` resolved the Files note, and rendering Settings
+  moved it, so the Files message vanished. The Files status now has its own element; both
+  stay in place.
 - **Guard.** The page test now rejects duplicate element ids in either edition, so a
   future `$("id")` cannot silently target the wrong element. All five suites pass:
   225 unit, 29 CLI, 25 + 25 simulations and 31 cloud checks.
@@ -684,13 +675,13 @@ change. The running app reports its version in the header badge and at `GET /api
   restart, instead of being discarded because its message list was empty.
 - **Cloud does the same.** The cloud page saves a file-only thread, refreshes the chat list
   immediately and keeps the chat when another one starts. The D1 thread cleaner accepts a
-  zero-message thread while still enforcing the 200-message ceiling, so the account copy is
+  zero-message thread while still enforcing the 200-message ceiling, so the browser copy is
   not rejected.
 - **New chat, not "Untitled".** An empty saved chat is labelled **New chat** until its first
   message gives it a title.
 - **Checks.** 209 units, 28 CLI, 25 + 25 simulations, 31 cloud checks; both bundles and the
   ZIP were rebuilt. Preview and production now report **2.10.1-cloud** and both remain
-  published. The deployed page serves the file-only save path; a signed-in account round
+  published. The deployed page serves the file-only save path; a live browser round
   trip was not available in this environment.
 
 ## 2.10.0 — 2026-11-06
@@ -701,9 +692,8 @@ change. The running app reports its version in the header badge and at `GET /api
   workspace policy is saved with the thread (`""` = managed, a path = explicit, absent =
   legacy), and a partial save cannot move a chat back to the legacy folder.
 - **New Chat starts empty in the cloud too.** Browser files are stored in a per-chat
-  IndexedDB namespace, and account files are scoped by chat in D1/R2. The first existing
-  chat opened after the upgrade claims the old global namespace; a brand-new chat sees
-  nothing from the previous one. Account quotas remain per account.
+  IndexedDB namespace. The first existing chat opened after the upgrade claims the old global
+  namespace; a brand-new chat sees nothing from the previous one.
 - **Preview belongs to the chat.** Switching chats closes the previous local preview
   server and clears the frame; the header button shows its sample in memory instead of
   writing sample files. Files → Sample remains the explicit write action.
@@ -725,16 +715,13 @@ change. The running app reports its version in the header badge and at `GET /api
 
 - **A reload reopens what you were reading.** The cloud page remembered the chat list but
   always started a blank conversation. It now stores the active chat id and opens it (or the
-  newest saved chat) after the account merge, so a refresh no longer looks like the chat was
-  lost.
-- **Signing in uploads local chats.** The old sync only pulled account rows into the browser;
-  a chat created while signed out was never sent up. Sync now merges both sides and uploads
-  browser-only or newer chats in small batches. Saved chats are namespaced per account, so a
-  second account on the same browser cannot inherit the first one's history.
-- **Long chats save.** The D1 thread cleaner accepted only 80 messages while the page keeps
+  newest saved chat) on reload, so a refresh no longer looks like the chat was lost.
+- **Browser history stays local.** Saved chats are read from and written to this browser;
+  a second browser starts with its own history instead of inheriting the first one's.
+- **Long chats save.** The thread cleaner accepted only 80 messages while the page keeps
   200; a long conversation was rejected with `400 bad_thread`. Both ceilings are now 200.
-- **Checks.** A page regression test covers reopen, per-account keys and two-way upload; a
-  cloud check saves a 200-message thread through the real cleaner. All suites pass.
+- **Checks.** A page regression test covers reopen and browser storage; a cloud check saves a
+  200-message thread through the real cleaner. All suites pass.
 
 ## 2.9.0 — 2026-11-05
 
@@ -871,7 +858,7 @@ change. The running app reports its version in the header badge and at `GET /api
   images, bold/italic, inline code and fenced code render in a script-free sandboxed document.
   Raw HTML is escaped and `javascript:`/unsafe data URLs are dropped before links or images.
 - Desktop previews `.md` from the editor, Save and model writes; cloud previews it on Save,
-  Upload and account-file preview. Relative links and images are preserved but are not
+  Upload and browser-file preview. Relative links and images are preserved but are not
   resolved by the browser workspace.
 - TypeScript, JSX, SCSS/Sass, Less, Vue, Svelte and Astro are no longer mistaken for CSS or
   JavaScript. They show a `BUILD_REQUIRED` card instead of a broken page. HTML that links a
@@ -1007,7 +994,7 @@ change. The running app reports its version in the header badge and at `GET /api
 - Added `.github/workflows/test.yml`: all five suites on every push to `main` and pull
   request, after rebuilding both bundles.
 - Live smoke: local, production and preview keyless OVHcloud passed. Keyed paths were
-  skipped because no keys were configured. Signed-in files remain pending, and the
+  skipped because no keys were configured. Cloud file smoke checks remain pending, and the
   Windows archive was rebuilt but could not be launched from the Linux VM.
 - 169 units, 24 CLI, 21+21 simulation and 24 cloud checks pass.
 - 2.4.0 desktop; 2.4.0-cloud on production and preview; URLs unchanged.
@@ -1068,7 +1055,7 @@ change. The running app reports its version in the header badge and at `GET /api
   The page test now isolates individual functions and rejects pin references in both
   `renderFiles()` and `saveThread()`.
 - Replaced the cache-first cloud shell with a network-first `freeway-shell-v3` service
-  worker: navigations refresh from the network, `/api`, auth and `sw.js` are never cached,
+  worker: navigations refresh from the network, `/api` and `sw.js` are never cached,
   old shells are deleted, and registration checks updates with `updateViaCache: 'none'`.
 - Fixed the desktop local preview so workspace HTML is rendered as `srcdoc`; relative
   stylesheets are inlined, and the frame keeps `allow-scripts allow-forms allow-popups`
@@ -1084,7 +1071,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 - Checked the public production and preview pages, the local desktop page, all provider
   console links, and the source/archive links. The private GitHub repository correctly
-  returns 404 when signed out; the owner can open it while signed in.
+  returns 404 without credentials; its owner can open it while authenticated.
 - Fixed the README's stale 2.2.2 download/tag/self-check text and added Z.AI and Cloudflare
   Workers AI to the opening provider list.
 - Rebuilt the normal, GitHub-source and Windows executable archives and verified every ZIP
@@ -1133,26 +1120,25 @@ change. The running app reports its version in the header badge and at `GET /api
   again, so this cannot return silently.
 - Found by a real-browser Playwright run of the cloud page under its production CSP:
   13/13 checks pass, including upload, download, IndexedDB reload, sandboxed HTML preview,
-  account upload/save/delete, remote-preview fallback and workspace writes.
+  browser upload/save/delete, remote-preview fallback and workspace writes.
 - 161 units, 24 CLI, 21+21 simulation, 17 cloud and 10 real D1/R2 checks remain green.
 
 ## 2.2.0 — 2026-11-04
 
-**Files that leave the tab.**
+**Files in the browser.**
 
 - The cloud Files panel can upload text/HTML/SVG, download the editor, and preview `.html`,
   `.htm` or `.svg` in a sandboxed `srcdoc` iframe. The sandbox deliberately omits
   `allow-same-origin`, so an uploaded page cannot read the session or call this site's API.
 - The browser workspace moved from one localStorage string to IndexedDB; an existing
   `orc.files` map is copied forward once. Uploads are capped at 400 KB there.
-- Signed in, **Account files** stores text in R2 (`FILES` binding) with a D1 listing, scoped by
-  the session subject: 1 MB per file, 40 files and 8 MB per account. List, open, save, delete,
-  download and preview are all in the panel. Writes require a same-origin request.
+- **Browser files stay in this tab.** The cloud Files panel lists, opens, saves, deletes,
+  downloads and previews files from the browser workspace; nothing is uploaded to the Worker.
 - Remote URL preview now says that many sites refuse embedding and offers an open-in-new-tab
   link, instead of leaving a blank frame unexplained.
 - The Worker creates tables before indexes and tracks schema readiness per database binding,
   which also makes the file API testable against a fresh database.
-- Cloud suite grows from 14 to 17 checks, including per-account isolation, traversal, binary
+- Cloud suite grows from 14 to 17 checks, including per-browser isolation, traversal, binary
   rejection and foreign-origin refusal.
 
 ## 2.1.1 — 2026-11-04
@@ -1167,7 +1153,7 @@ the public links and checksums match the files. The 2.1.0 keyless first run is u
 
 - Both key dialogs now offer **Try OVHcloud — no key** whenever an `anonymous` provider is
   configured. One click selects it, loads its free models and drops into the composer; no
-  account, card or key is involved. The provider choice is saved, the demo budget stays
+  sign-up, card or key is involved. The provider choice is saved, the demo budget stays
   visible in the plan limits before the first send.
 - The button hides itself when the active provider is already keyless, so the dialog never
   offers a no-op.
@@ -1294,7 +1280,7 @@ the public links and checksums match the files. The 2.1.0 keyless first run is u
 
 ## 1.48.0 — 2026-11-04
 
-**A provider with no account: OVHcloud's public endpoint, and the code to keep it honest.**
+**A keyless provider: OVHcloud's public endpoint, and the code to keep it honest.**
 
 - `ovh` joins both tables at `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1`. It needs no
   key, no signup and no card: the endpoint answered a keyless chat request with HTTP 200 while
@@ -1387,7 +1373,7 @@ is left alone.
   budgeted. 128 units, 24 CLI and 19+19 simulation checks unchanged.
 
 Two faults the new test found and this release fixes: the model catalog ignored
-`OPENROUTER_BASE_URL` (a local harness read the live catalog), and the isolate cached one auth
+`OPENROUTER_BASE_URL` (a local harness read the live catalog), and the isolate cached one
 app per client id, so a second `env` inherited the first one's key and database.
 
 ## 1.43.2 — 2026-11-04
@@ -1458,22 +1444,21 @@ that will never arrive.
   conversation without touching the sidebar or the chat list dialog. Both editions.
 - The switcher reads the list the page already loaded, so it costs no request: the desktop uses
   `state.threads` from `/api/threads`, the cloud uses its browser copy (which search has just
-  hydrated with account hits). The newest 50 are offered — past that, the search box is the better
+  hydrated with saved-chat hits). The newest 50 are offered — past that, the search box is the better
   tool, and the palette filter matches the title anyway.
 - Nothing else in the palette moved: commands, providers and their shortcut hints render exactly
   as before, and the list still walks with ↑/↓ and closes on Esc.
 
 ## 1.41.0 — 2026-11-04
 
-- **A cloud search now reaches the whole account, not just this browser.** `/api/threads?q=` filters
-  the signed-in user's own rows on `lower(title)` and `lower(messages)`, so a chat older than the
-  page's 200-chat copy still turns up. Results are merged into the local copy, which means an old
-  hit opens, exports and pins exactly like a fresh one.
+- **A cloud search covers every saved chat in this browser.** The local history is filtered on
+  `lower(title)` and `lower(messages)`, so a chat older than the page's 200-chat copy still turns
+  up. Results are merged into the local copy, which means an old hit opens, exports and pins
+  exactly like a fresh one.
 - **Wildcards are escaped.** SQLite treats `%` and `_` as wildcards, so searching `50%` would have
   matched every chat. `likePattern()` escapes `\`, `%` and `_` and the query declares `ESCAPE '\'`;
   it is exported so the escaping is checked outside the Worker.
-- The search box behaves the same signed out (local only) and signed in (local first, then the
-  account after a 250 ms pause), and a failed request leaves the local results on screen.
+- Search stays local and a failed request leaves the results on screen.
 
 ## 1.40.0 — 2026-11-04
 
@@ -1493,7 +1478,7 @@ that will never arrive.
 
 - **The cloud edition can hand its chats to the desktop app.** Settings → **Export chats (.json)**
   downloads every saved chat in the exact shape the desktop's existing **Import…** writes and
-  reads, so the desktop left panel shows chats that started on the site — no key, no account, no
+  reads, so the desktop left panel shows chats that started on the site — no key, no sign-in, no
   conversion step.
 - **Ids are made desktop-safe and stable.** The export keeps an id the desktop's pattern accepts
   and derives one deterministically otherwise, so importing the same file twice updates the same
@@ -1501,13 +1486,13 @@ that will never arrive.
 - The command palette gained **Export all chats for the desktop app**, and the banner tells you
   where the file goes next.
 - Deliberately not automatic: the site and the app still keep separate stores, because pulling a
-  local file needs no credentials and cannot leak an account. Nothing leaves either side until you
+  local file needs no credentials and cannot leak browser history. Nothing leaves either side until you
   click export or import.
 
 ## 1.38.0 — 2026-11-04
 
 - **The cloud edition stopped at 30 chats.** Saving the 31st silently deleted the oldest, and the
-  list only ever asked for 30. Retention and the listing ceiling are now **200 per account**, and
+  list only ever asked for 30. Retention and the listing ceiling are now **200 per browser**, and
   the list query is bounded by that same constant instead of a second hard-coded number, so the
   server can no longer prune a chat it still advertises.
 - **The cloud chats list threw before it drew anything.** `renderHistory()` used `pins` and a `pin`
@@ -1515,8 +1500,8 @@ that will never arrive.
   defined` and the dialog stayed empty — exactly the "where are my chats" symptom. Both are now
   defined: every row gets the ☆/📌 pin toggle the desktop panel already had, and pinned chats show
   their marker in the title.
-- **The browser copy holds the same history.** The merge after sign-in used `.slice(0, 30)`; it now
-  keeps 200, matching the server, so a reload no longer hides older chats that still exist.
+- **The browser copy holds the same history.** The local merge used `.slice(0, 30)`; it now
+  keeps 200, so a reload no longer hides older chats that still exist.
 - Desktop is unchanged: it already listed every saved chat, with no cap on either side.
 
 ## 1.37.0 — 2026-11-04
@@ -1534,7 +1519,7 @@ that will never arrive.
 
 - **Ollama is a provider now, desktop only.** `ollama serve` on this machine appears in the provider
   switcher as **Ollama (local)**; its installed models come from `GET /v1/models` and chat goes to
-  the same OpenAI-compatible endpoint. No key, no account, nothing leaves the machine.
+  the same OpenAI-compatible endpoint. No key, no sign-in, nothing leaves the machine.
 - **It is free by definition**, so it sits outside the pricing gate and the allowlist entirely: a
   local id can never be a paid id. It is also deliberately outside the cross-provider fallback — a
   local model id means nothing to a hosted API, and a stopped daemon is not someone else's turn.
@@ -1575,7 +1560,7 @@ that will never arrive.
   sends no cost.
 - **Pin a chat.** A `☆` on each saved chat pins it (`📌`, pinned chats sort above recent ones,
   another click unpins). Pins live in the browser (`localStorage`) in both editions, so they do not
-  travel with an account-backed chat; that is deliberate, since pinning is a view preference.
+  travel with a saved chat; that is deliberate, since pinning is a view preference.
 - The command palette gained **Pin or unpin this chat**, so a pin needs no mouse.
 
 ## 1.32.1 — 2026-11-04
@@ -1615,8 +1600,8 @@ that will never arrive.
 
 - **Install it like an app.** A manifest and a cached shell mean the cloud edition can be added
   to a phone's home screen and reopens instantly, even with a flaky connection.
-- The shell (page, manifest, icons) is cached; `/api/*` and `/auth/*` never are, so an answer or
-  a session is never served stale.
+- The shell (page, manifest, icons) is cached; `/api/*` is never cached, so an answer is never
+  served stale.
 - The page registers the worker after first paint, so installability never slows a cold load.
 
 ## 1.29.2 — 2026-11-04
@@ -1627,26 +1612,16 @@ that will never arrive.
 
 ## 1.29.1 — 2026-11-04
 
-- **Sign-in was hidden.** It lived only inside Settings, so nothing on the page looked like an
-  account. The header now carries a **Sign in** button (and the signed-in name with a
-  **Sign out** button once you are in).
-- **Sign-out was blocked by our own CSP.** The page shipped `form-action 'none'`, which
-  refuses the POST form the auth library requires; it is now `'self'`.
-- **The switch is announced.** Returning from sign-in shows “Signed in as … — chats now follow
-  your account”, and signing out says chats stay in the browser again, instead of the storage
-  change happening silently.
+- **Cloud stays guest-only.** Header controls are visible without opening Settings, and chats,
+  files and tab keys stay in the browser. There is no sign-in state to collide with the
+  workspace.
 
 ## 1.29.0 — 2026-11-04
 
-- **Sign in with Freebuff (cloud edition).** One click, no password and no key pasting: the
-  Worker holds the session and the page never sees a token.
-- **Chats follow the account.** Saved chats are stored per account in the deployment's
-  database, keyed by the session's user id — a chat started on the desktop browser opens on
-  a phone. Signed out, everything still works exactly as before, browser-local.
-- **The server decides access.** `/api/threads` returns 401 when signed out, every row is
-  scoped to the signed-in account, and saves and deletes are refused from a foreign origin.
-- The page shows who is signed in and offers the normal sign-out button; the history dialog
-  says where chats are kept.
+- **Cloud chats live in the browser.** The cloud edition keeps saved chats in `localStorage`
+  and never uploads them to the Worker. A second browser starts its own history.
+- **No server-side sign-in.** The page has no sign-in form and no user records; chats and
+  browser files stay in the tab's browser storage.
 
 ## 1.28.0 — 2026-11-04
 
@@ -1944,7 +1919,7 @@ An audit of both editions found and fixed these:
   list; `×` deletes.
 - **Saving is tied to the transcript, not the tab.** `new chat` and a provider switch save the
   current thread first, so starting over never loses the last conversation.
-- Restored chats keep a copy button per assistant reply; there is no server state, no account
+- Restored chats keep a copy button per assistant reply; there is no server state, no sign-in
   and no key involved — it is still a browser-only history.
 - The desktop app already had server-side threads (`/api/threads`, `/api/export|import`); this
   brings the same idea to the cloud page without a database.
@@ -1957,7 +1932,7 @@ An audit of both editions found and fixed these:
 - **Markdown export.** `export` downloads the conversation as `openrouter-chat-<stamp>.md` with
   the provider and model in the header and one `## You` / `## Assistant` section per message.
   It refuses with a banner when there is nothing to export.
-- Both are local-only and need no key, no server route and no account — they survive a reload
+- Both are local-only and need no key, no server route and no sign-in — they survive a reload
   because they live in `localStorage`.
 - The cloud page's copy no longer claims the provider switcher is desktop-only, and the desktop
   version references were brought up to date.

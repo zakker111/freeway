@@ -81,7 +81,7 @@ configured key that is rate-limited is a skip with a reason, not a green result.
 | Cloud production keyless | Send one small `ovh` prompt to production. | Pass — `cloud smoke ok` |
 | Cloud preview keyless | Send one small `ovh` prompt to preview. | Pass — `preview smoke ok` |
 | Cloud keyed | If `/api/config` reports `hasKey: true`, send one free model. | Skipped — no server key in either cloud environment |
-| Cloud signed-in files | Sign in, upload, reload, download and delete a file. | Pending — no browser session in this run |
+| Cloud guest files | Upload, reload, download and delete a file without a sign-in prompt. | Pending — no browser session in this run |
 | Cloud model retry | Covered by `cloud/test.mjs`; live only when a provider actually returns 404/429/5xx. | Pass in the mock suite; not forced live |
 | Windows | Run `Freeway.exe --version` and launch it once on Windows. | Pending — Linux VM; use Actions or a Windows machine |
 

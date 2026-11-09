@@ -57,3 +57,8 @@ jobs:
         env:
           NODE_OPTIONS: --experimental-sqlite
         run: node cloud/test.mjs
+
+      - name: Browser cooldown regression
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm run test:cooldown

@@ -20,8 +20,8 @@ const TYPES = {
   '.json': 'application/json',
 };
 
-// A D1-shaped shim over Node's built-in SQLite, so the history routes can be
-// exercised locally: prepare().bind().all()/run() and batch(), nothing more.
+// A D1-shaped shim over Node's built-in SQLite, so the shared-key budget can
+// be exercised locally: prepare().bind().all()/run() and batch(), nothing more.
 let DB = null;
 try {
   const { DatabaseSync } = await import('node:sqlite');
@@ -57,10 +57,6 @@ try {
 
 const env = {
   DB,
-  // Empty unless a real development client is supplied: with no client id the
-  // Worker stays signed out, which is exactly what the local checks cover.
-  FREEBUFF_CLIENT_ID: process.env.FREEBUFF_CLIENT_ID || '',
-  FREEBUFF_ISSUER: process.env.FREEBUFF_ISSUER || '',
   APP_ORIGIN: process.env.APP_ORIGIN || '',
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',

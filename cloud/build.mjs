@@ -1,6 +1,6 @@
 // Bundle the Worker into the single module the deploy manifest uploads.
 // The deployer uploads files, it never runs npm, so anything the Worker imports
-// (@freebuff/auth) has to be inlined here first.
+// has to be inlined here first.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';

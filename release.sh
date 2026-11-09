@@ -57,7 +57,7 @@ node build/bundle.mjs
 
 echo "== rebuilding the cloud worker bundle =="
 # The deployer uploads files and never runs npm, so the Worker's imports
-# (@freebuff/auth) must be bundled before cloud/deploy.json points at it.
+# must be bundled before cloud/deploy.json points at it.
 if [ -d cloud/node_modules ]; then
   ( cd cloud && node build.mjs )
 else

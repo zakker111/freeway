@@ -13,6 +13,7 @@
     "simulate": "node test/simulate.mjs",
     "test:cli": "node test/cli.mjs",
     "test:ui": "node test/ui-preview.mjs",
+    "test:cooldown": "node test/ui-cooldown.mjs",
     "build:single": "node build/bundle.mjs"
   }
 }

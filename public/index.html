@@ -1088,7 +1088,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <title>Freeway</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171717'/%3E%3Cpath d='M18 20h28v7H26v6h16v7H26v12h-8z' fill='%23f2f0ed'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='M14 16h36a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4H28l-10 9v-9h-4a4 4 0 0 1-4-4V20a4 4 0 0 1 4-4z' fill='%23000' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='25' cy='29' r='2.5' fill='%23fff'/%3E%3Ccircle cx='32' cy='29' r='2.5' fill='%23fff'/%3E%3Ccircle cx='39' cy='29' r='2.5' fill='%23fff'/%3E%3C/svg%3E" />
     <style>
       /* -------------------------------------------------------------- tokens
          One dark palette in black, grey and soft white: a near-black page,
@@ -1201,16 +1201,27 @@
       }
       .brand-mark {
         width: 26px; height: 26px; flex: none; display: block;
-        filter: drop-shadow(0 0 9px var(--glow));
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, .2));
       }
       .logo-tile {
-        fill: var(--surface-2);
-        stroke: var(--accent-line);
-        stroke-width: 10;
+        fill: #000;
+        stroke: #fff;
+        stroke-width: 12;
+        animation: logo-ring 3.8s ease-in-out infinite;
       }
-      .logo-bubble { fill: var(--text); }
+      .logo-bubble {
+        fill: #000;
+        stroke: #fff;
+        stroke-width: 11;
+        stroke-linejoin: round;
+      }
+      .logo-chat {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: logo-chat 4.8s ease-in-out infinite;
+      }
       .logo-dot {
-        fill: var(--bg);
+        fill: #fff;
         transform-box: fill-box;
         transform-origin: center;
         animation: logo-dot 1.6s ease-in-out infinite;
@@ -2216,13 +2227,27 @@
         0%, 100% { transform: translateY(0) rotate(0deg); }
         50% { transform: translateY(-5px) rotate(8deg); }
       }
+      @keyframes logo-ring {
+        0%, 100% { stroke-opacity: .55; }
+        50% { stroke-opacity: 1; }
+      }
+      @keyframes logo-chat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-14px); }
+      }
       @keyframes logo-dot {
         0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
         24% { opacity: 1; transform: translateY(-20px) scale(1); }
       }
       @media (prefers-reduced-motion: reduce) {
+        .brand-mark .logo-tile,
+        .brand-mark .logo-chat,
+        .empty-mark .logo-tile,
+        .empty-mark .logo-chat,
         .brand-mark .logo-dot,
         .empty-mark .logo-dot { animation: none !important; opacity: 1; transform: none; }
+        .brand-mark .logo-tile,
+        .empty-mark .logo-tile { stroke-opacity: 1; }
         .empty-mark { animation: none !important; }
       }
       @keyframes msg-in {
@@ -2256,11 +2281,13 @@
       <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
-          <rect class="logo-tile" x="2" y="2" width="508" height="508" rx="112" />
-          <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
-          <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
-          <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
-          <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+          <rect class="logo-tile" x="6" y="6" width="500" height="500" rx="110" />
+          <g class="logo-chat">
+            <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
+            <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
+            <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
+            <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+          </g>
         </svg>
         Free<span>way</span>
       </div>
@@ -2287,11 +2314,13 @@
         <div class="empty" id="empty">
           <div class="empty-mark" aria-hidden="true">
             <svg viewBox="0 0 512 512" focusable="false">
-              <rect class="logo-tile" x="2" y="2" width="508" height="508" rx="112" />
-              <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
-              <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
-              <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
-              <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+              <rect class="logo-tile" x="6" y="6" width="500" height="500" rx="110" />
+              <g class="logo-chat">
+                <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
+                <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
+                <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
+                <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
+              </g>
             </svg>
           </div>
           <h1>Free models. Real tools.</h1>
@@ -4106,7 +4135,7 @@
         if (open) refreshFiles();
       }
 
-      function showRailTab(tab) {
+      function showRailTab(tab, discover = true) {
         for (const button of document.querySelectorAll(".rail-tab")) {
           button.classList.toggle("active", button.dataset.rail === tab);
         }
@@ -4120,7 +4149,7 @@
         if (tab === "secrets") refreshSecrets();
         if (tab === "files") refreshFiles();
         if (tab === "github") refreshGithub();
-        if (tab === "preview") openPreview();
+        if (tab === "preview" && discover) openPreview();
         if (tab === "status") refreshStatus();
       }
 
@@ -4731,7 +4760,9 @@
         frame.style.display = "none";
         clearTimeout(state.pvTimer);
         railOpen(true);
-        showRailTab("preview");
+        // Show the failure card without asking openPreview() to discover and
+        // replace it with another HTML file in the same workspace.
+        showRailTab("preview", false);
         const box = $("pvError");
         box.innerHTML = FreewayPreview.renderError(error);
         box.hidden = false;
@@ -5922,7 +5953,9 @@
       const AUTO_RETRY_MAX_MS = 15 * 60_000;
       function autoRetryDelay(error) {
         const code = String(error?.code || error?.reason || "");
-        if (code !== "rate-limit" && code !== "upstream_rate") return 0;
+        // 429 can mean a provider limit or an address-level throttle. Wait
+        // for either; a long daily budget is not retried automatically.
+        if (!["rate-limit", "upstream_rate", "rate_limited"].includes(code)) return 0;
         const raw = Number(error?.retryAfterMs) || 0;
         const ms = raw > 0 ? raw : 60_000;
         return ms <= AUTO_RETRY_MAX_MS ? ms + 750 : 0;

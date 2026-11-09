@@ -12,6 +12,7 @@ proxies the model calls. No framework, no bundler, no dependencies, no user buil
 | End-to-end simulation | `node test/simulate.mjs` |
 | Simulation against the single file | `APP_PATH=freeway.mjs node test/simulate.mjs` |
 | Cloud Worker suite | `node cloud/build.mjs && node cloud/test.mjs` (or `npm --prefix cloud test` after a build) |
+| Browser cooldown regression | `CHROME_BIN=/path/to/chrome npm run test:cooldown` |
 | Rebuild the single file | `node build/bundle.mjs` |
 | Run | `node app.mjs` or `node freeway.mjs` |
 
@@ -96,7 +97,7 @@ generated, never edited by hand.
 | `lib/secrets.mjs` | `secrets.json` at 0600; the API exposes names and hints only |
 | `lib/status.mjs` | bounded in-memory attempt log behind the Status tab and `/api/status` |
 | `public/index.html` | the entire UI — markup, CSS and JS in one file |
-| `cloud/worker.mjs` | Cloudflare Worker: cloud routes, auth, D1 chats and account files |
+| `cloud/worker.mjs` | Cloudflare Worker: guest-only cloud routes, shared-key budget and OpenRouter proxy |
 | `cloud/public/index.html` | cloud UI: same shell, browser workspace and GitHub rail |
 | `cloud/test.mjs` | cloud Worker suite; imports the built `cloud/dist/worker.mjs` |
 | `build/bundle.mjs` | inlines libs + app + page into `freeway.mjs` |

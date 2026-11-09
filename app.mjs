@@ -34,7 +34,7 @@ import { scrubSecrets } from './lib/redact.mjs';
 import { createWorkspace } from './lib/workspace.mjs';
 import { scaffoldLayout } from './lib/scaffold.mjs';
 import { createPreviewServer } from './lib/preview-server.mjs';
-import { captureScreenshot, screenshotAllowed, screenshotViewport } from './lib/screenshot.mjs';
+import { browserEnv, captureScreenshot, screenshotAllowed, screenshotViewport } from './lib/screenshot.mjs';
 import { openSecrets } from './lib/secrets.mjs';
 import { createGithub } from './lib/github.mjs';
 import { cloneGithubRepo, pullGithubRepo, pushGithubRepo, switchGithubBranch } from './lib/github-clone.mjs';
@@ -2621,7 +2621,9 @@ async function route(req, res) {
       }
       return sendJson(res, 405, { error: 'Method not allowed.' });
     } catch (error) {
-      return sendJson(res, error.status ?? 500, { error: String(error.message ?? error) });
+      return sendJson(res, error.status ?? 500, {
+        error: scrubSecrets(String(error?.message ?? error)),
+      });
     }
   }
 
@@ -2653,7 +2655,9 @@ async function route(req, res) {
       });
       return sendJson(res, 200, { ...served, entry: file.path });
     } catch (error) {
-      return sendJson(res, error.status ?? 500, { error: error.message });
+      return sendJson(res, error.status ?? 500, {
+        error: scrubSecrets(String(error?.message ?? error)),
+      });
     }
   }
 
@@ -2711,7 +2715,9 @@ async function route(req, res) {
         viewport: body?.viewport || 'desktop',
       });
     } catch (error) {
-      return sendJson(res, error.status ?? 500, { error: String(error.message ?? error) });
+      return sendJson(res, error.status ?? 500, {
+        error: scrubSecrets(String(error?.message ?? error)),
+      });
     }
   }
 
@@ -2817,17 +2823,22 @@ async function route(req, res) {
 function openBrowser(target) {
   if (process.env.NO_OPEN === '1') return;
   try {
+    // The launcher and the browser it starts are local programs, not trusted
+    // code. A normal desktop launch must not hand them the provider keys that
+    // happen to be in this process's environment.
+    const env = browserEnv(process.env);
     if (process.platform === 'win32') {
       // Edge gets a window without tabs; a PC without Edge exits non-zero, and
       // 'error' never fires because cmd itself started fine. Both paths fall
       // back to the default browser.
       const fallback = () => {
-        spawn('cmd', ['/c', 'start', '', target], { stdio: 'ignore', windowsHide: true }).on(
+        spawn('cmd', ['/c', 'start', '', target], { env, stdio: 'ignore', windowsHide: true }).on(
           'error',
           () => {},
         );
       };
       const child = spawn('cmd', ['/c', 'start', '', 'msedge', `--app=${target}`], {
+        env,
         stdio: 'ignore',
         windowsHide: true,
       });
@@ -2836,13 +2847,13 @@ function openBrowser(target) {
         if (code !== 0) fallback();
       });
     } else if (process.platform === 'darwin') {
-      spawn('open', [target], { stdio: 'ignore' }).on('error', () => {});
+      spawn('open', [target], { env, stdio: 'ignore' }).on('error', () => {});
     } else {
       // No xdg-open (a server, WSL, a bare container) must not kill the app:
       // spawn reports a missing program as an asynchronous 'error' event, and an
       // unhandled one takes the whole process down a moment after it started.
       // The URL is printed either way, so failing to open a browser is harmless.
-      spawn('xdg-open', [target], { stdio: 'ignore' }).on('error', () => {});
+      spawn('xdg-open', [target], { env, stdio: 'ignore' }).on('error', () => {});
     }
   } catch {
     /* the URL is printed below either way */
