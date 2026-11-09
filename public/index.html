@@ -4607,6 +4607,15 @@
         } else if (event.name === "stop_process") {
           const id = typeof args.id === "string" && args.id ? args.id : "every managed process";
           detail.textContent = `Stop ${id} and free its port. Already stopped processes are left alone.`;
+        } else if (event.name === "run_check") {
+          const list = Array.isArray(event.args) ? event.args : [];
+          const script = typeof event.script === "string" ? event.script : "";
+          const body = typeof event.scriptBody === "string" ? event.scriptBody : "";
+          detail.textContent =
+            `$ ${[event.program || "?", ...list].join(" ")}` +
+            (event.cwd ? `\n\nin /${event.cwd}` : "\n\nin the workspace root") +
+            (script ? `\n\npackage.json script "${script}":\n${body || "(empty)"}` : "") +
+            "\n\nThe command is resolved from package.json and must be on the command allowlist. No model-supplied program or arguments are accepted.";
         } else if (event.name === "run_tests") {
           const list = Array.isArray(args.args) ? args.args : ["test"];
           detail.textContent =

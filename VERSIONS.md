@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.20.0 | 2026-11-09 | Workspace intelligence: glob search, Git history, project detection and detected checks |
 | 2.19.0 | 2026-11-08 | User preview screenshots with PNG download; safe Git status/diff/commit/revert tools |
 | 2.18.1 | 2026-11-08 | Fix the 2.18.0 cloud boot failure and parse every inline page script |
 | 2.18.0 | 2026-11-08 | Cloud browser write bypass (superseded by the 2.18.1 boot fix) |
@@ -159,6 +160,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.20.0 — 2026-11-09
+
+- **Four workspace-intelligence tools.** `find_files` matches names and globs (`*`, `**`, `?`)
+  with a bounded walk that skips generated folders, secret files and symlinks. `git_history`
+  reads either a bounded `log` or one `show`, with validated refs and no mutation. `project_info`
+  detects the package manager, lockfile, scripts, frameworks and available checks. `run_check`
+  runs one declared test, lint, typecheck or build script.
+- **`run_check` is confirmed and narrow.** It resolves the command from `package.json` on the
+  server; the Allow card shows the exact program, arguments and script body. The model cannot
+  supply a program or arguments, and execution uses the existing command allowlist, filtered
+  environment, 60 s timeout and 64 KB output cap. It is not available in Plan.
+- **Plan stays read-only.** `find_files`, `git_history` and `project_info` join the Plan
+  allowlist; `run_check` is refused before a card appears.
+- **Bundle repair.** The single-file build now includes `lib/testparse.mjs`; it was previously
+  imported by `run_tests` but omitted from `freeway.mjs`, which would have failed when that tool
+  actually ran. `lib/project.mjs` is included too.
+- **Checks.** All 2.20.0 gates pass: 276 unit tests, 34 CLI checks, 28 + 28 simulations and
+  36 cloud checks. The tool list is now 30.
+- **Live.** Desktop 2.20.0 is running on port 3002; preview and production report
+  2.20.0-cloud. The site bindings are unchanged.
 
 ## 2.19.0 — 2026-11-08
 

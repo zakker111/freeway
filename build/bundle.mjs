@@ -55,6 +55,8 @@ function collectNames(code, label) {
 const page = read('public/index.html');
 const models = stripModule(read('lib/models.mjs'), 'lib/models.mjs');
 const memory = stripModule(read('lib/memory.mjs'), 'lib/memory.mjs');
+const testparseMod = stripModule(read('lib/testparse.mjs'), 'lib/testparse.mjs');
+const projectMod = stripModule(read('lib/project.mjs'), 'lib/project.mjs');
 const scaffoldMod = stripModule(read('lib/scaffold.mjs'), 'lib/scaffold.mjs');
 const gitMod = stripModule(read('lib/git.mjs'), 'lib/git.mjs');
 const previewCheckMod = stripModule(read('lib/preview-check.mjs'), 'lib/preview-check.mjs');
@@ -77,6 +79,8 @@ const app = stripModule(read('app.mjs'), 'app.mjs');
 
 collectNames(models.code, 'lib/models.mjs');
 collectNames(memory.code, 'lib/memory.mjs');
+collectNames(testparseMod.code, 'lib/testparse.mjs');
+collectNames(projectMod.code, 'lib/project.mjs');
 collectNames(scaffoldMod.code, 'lib/scaffold.mjs');
 collectNames(gitMod.code, 'lib/git.mjs');
 collectNames(previewCheckMod.code, 'lib/preview-check.mjs');
@@ -143,6 +147,8 @@ function mergeImports(lines) {
 const imports = mergeImports([
   ...models.imports,
   ...memory.imports,
+  ...testparseMod.imports,
+  ...projectMod.imports,
   ...scaffoldMod.imports,
   ...previewCheckMod.imports,
   ...tools.imports,
@@ -180,6 +186,14 @@ ${models.code}
 /* --------------------------------------------------------- lib/memory.mjs */
 
 ${memory.code}
+
+/* ------------------------------------------------------ lib/testparse.mjs */
+
+${testparseMod.code}
+
+/* -------------------------------------------------------- lib/project.mjs */
+
+${projectMod.code}
 
 /* ------------------------------------------------------- lib/scaffold.mjs */
 

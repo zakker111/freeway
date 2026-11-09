@@ -72,6 +72,7 @@ generated, never edited by hand.
 | `app.mjs` | CLI, config, HTTP routes, SSE chat loop, tool wiring |
 | `lib/models.mjs` | catalog filtering, free-model chain, token estimate |
 | `lib/tools.mjs` | tool definitions and implementations (no I/O except `fetch`) |
+| `lib/project.mjs` | package/lockfile and framework detection, declared check commands, tsc/eslint diagnostics; read-only detection |
 | `lib/scaffold.mjs` | three-file static starter generator; no overwrite, escaped copy |
 | `lib/preview-check.mjs` | read-only local HTML/CSS asset checker; no JavaScript execution |
 | `lib/tool-prompt.mjs` | shared system instruction for turns that actually offer tools |
@@ -79,10 +80,10 @@ generated, never edited by hand.
 | `lib/store.mjs` | `threads.json`: threads, drafts, `rev` for conflict detection |
 | `lib/redact.mjs` | strips `sk-…` secrets from logs, SSE errors and 5xx bodies |
 | `lib/memory.mjs` | deterministic long-chat compaction (no model call, no history loss) |
-| `lib/workspace.mjs` | the one folder tools may touch; realpath containment, size caps |
+| `lib/workspace.mjs` | the one folder tools may touch; list/read/find/search, realpath containment, size caps |
 | `lib/preview-server.mjs` | loopback preview origin: token cookie, workspace containment, MIME, SPA fallback |
 | `lib/screenshot.mjs` | local headless Edge/Chrome capture: browser discovery, filtered env, fixed desktop/mobile/tablet viewports, 320 KB cap |
-| `lib/git.mjs` | bounded Git status/diff/commit/revert; fixed executable, no shell, filtered env, hooks disabled |
+| `lib/git.mjs` | bounded Git status/diff/history/commit/revert; fixed executable, no shell, filtered env, hooks disabled |
 | `lib/preview-bridge.mjs` | shared runtime-error bridge, injected into srcdoc and served previews |
 | `shared/preview.js` | one preview core: static bundler, Markdown renderer, build adapters |
 | `build/sync-preview.mjs` | inlines the shared core into both pages; function replacer required |
@@ -173,6 +174,10 @@ new version. Full checklist: `RELEASING.md`.
 
 ## Workspace editing tools
 
+- `find_files` is read-only and walks the workspace itself. It supports `*`, `**` and `?`, skips generated folders, secret files and symlinks, and caps the walk at 5,000 files / 200 results. Keep it in the Plan allowlist.
+- `git_history` is read-only and supports only `log` and `show`. Validate refs against option injection and control characters, keep the commit cap at 30 and use `runGit` for its 64 KB / 15 s limits. Keep it in the Plan allowlist.
+- `project_info` only detects package manager, lockfile, scripts, frameworks and check commands. It never runs a package manager or a script. Keep it in the Plan allowlist.
+- `run_check` is state-changing and must go through `runToolConfirmed`. Resolve the command from `package.json` server-side, show the exact program, arguments and script body on the card, and never accept a model-supplied program or arguments. It uses the same allowlist and runner as `run_command`; it is not a Plan tool.
 - `search_files` and `read_many` are read-only and run without a confirmation, like
   `read_file`. Both are bounded (2,000 files / 80 matches, 8 files / 320 KB).
 - `scaffold_project` is state-changing and must go through `runToolConfirmed`. It writes

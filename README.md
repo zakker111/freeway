@@ -63,9 +63,9 @@ provide.
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
-end to end on commit `94715e4` (run 41940445555). The 2.19.0 Windows executable was built and smoke-tested on the Windows Actions
-workflow and attached to the 2.19.0 release; the matching source ZIP is built by
-`release.sh` and attached too. The earlier 2.4.1 download was cross-built from Linux
+end to end on commit `94715e4` (run 41940445555). The 2.20.0 Windows executable is built
+and smoke-tested on the Windows Actions workflow and attached to the 2.20.0 release; the
+matching source ZIP is built by `release.sh` and attached too. The earlier 2.4.1 download was cross-built from Linux
 with the same steps (see `RELEASING.md`).
 
 Get it:
@@ -75,7 +75,7 @@ Get it:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.19.0 `.exe` was built and smoke-tested by the Windows workflow. The earlier 2.4.1 `.exe` was assembled outside Windows and could not be launched in the build machine, so treat its
+The 2.20.0 `.exe` is built and smoke-tested by the Windows workflow. The earlier 2.4.1 `.exe` was assembled outside Windows and could not be launched in the build machine, so treat its
 first run as a smoke test. If the published `.exe` refuses to start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
@@ -304,7 +304,7 @@ between machines.
 - **Request budget.** Set a soft cap on free requests per conversation; the footer counts
   up and warns as you approach it. It warns, it never blocks.
 - **Tools.** Clock, exact calculator, public web fetch, workspace file tools, GitHub helpers
-  (desktop only; cloud has a browser-side repository rail) and allowlisted commands (see below). Only offered to models whose catalog entry supports
+  (desktop only; cloud has a browser-side repository rail), Git history, project detection and allowlisted commands/checks (see below). Only offered to models whose catalog entry supports
   tool calling; when they are on, the server tells the model to use them instead of guessing.
   If a model rejects the parameter the app retries once without tools. A tool call returned
   when tools were not offered is ignored, not executed.
@@ -352,12 +352,15 @@ between machines.
 | `calculate` | Exact arithmetic: `+ - * / % ^`, parentheses, decimals | Hand-written parser, never `eval` |
 | `fetch_url` | Reads a public page and returns its text | http(s) only, private/local addresses refused, 8s timeout, 20k char cap |
 | `list_files` | Lists a folder in the workspace | Opt-in root, `node_modules`/`.git` skipped, 500 entries |
+| `find_files` | Finds files by name or glob (`*`, `**`, `?`) | read-only, generated folders and secret files skipped, 5,000 files / 200 results |
+| `project_info` | Detects package manager, scripts, frameworks and checks | read-only, never runs a script |
 | `read_file` | Reads a text file from the workspace | realpath containment, 256 KB cap, binaries refused |
 | `write_file` | Writes a text file in the workspace | **approved per call** (unless auto-approve is on), 1 MB cap, realpath containment |
 | `search_files` | Greps text across the workspace, with line numbers | literal by default or regex, generated folders skipped, 2,000 files, 80 matches |
 | `read_many` | Reads up to 8 files in one call | 320 KB total, per-file errors reported |
 | `git_status` | Branch, changed and untracked files | read-only, bounded output |
 | `git_diff` | Unified diff, optionally one path or the staged index | read-only, no external diff, bounded output |
+| `git_history` | Recent commits, or one commit with stat and optional patch | read-only, validated refs, 30 commits / 64 KB, no mutation |
 | `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff** (unless auto-approve is on), every find must be unique, 1 MB cap |
 | `scaffold_project` | Creates a three-file static starter site | **approved per call**, refuses to overwrite, workspace-contained |
 | `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
@@ -368,6 +371,7 @@ between machines.
 | `github_list` | Repositories, issues, pulls or commits | read-only, 20 rows, 12s timeout |
 | `github_create_issue` | Opens an issue | **approved per call** |
 | `run_command` | Runs one allowlisted program in the workspace | **approved per call**, `shell: false`, filtered env, 60s, 64 KB, streamed output |
+| `run_check` | Runs one package script detected for test, lint, typecheck or build | **approved per call with the exact command and script body**, same allowlist and runner as `run_command` |
 | `run_tests` | Runs the project tests and returns parsed file/line failures | **approved per call** (unless auto-approve is on), same allowlist and runner as `run_command` |
 | `start_process` | Starts a dev server or watcher that keeps running | **approved per call**, allowlisted program, max 3, port detected once it listens, stopped on quit |
 | `process_logs` | Reads a managed process's recent output and port | read-only, newest 8 KB, status and uptime |
@@ -380,7 +384,7 @@ editions prepend a short system instruction (`lib/tool-prompt.mjs`) telling the 
 them and not to claim a call ran without a result. It is omitted when tools are off, or after
 a model rejects the parameter. By default, anything that writes or executes —
 `write_file`, `apply_patch`, `scaffold_project`, `github_create_issue`, `run_command`,
-`git_commit`, `git_revert`, `start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
+`run_check`, `run_tests`, `git_commit`, `git_revert`, `start_process`, `stop_process` — stops at an Allow / Deny card first, and a dropped
 connection or a three-minute wait counts as Deny. The off-by-default **Auto-approve Build
 actions** setting can skip those cards for every Build workspace while it is on. Plan mode
 never auto-approves, and the workspace and command allowlist still apply. Each skipped card

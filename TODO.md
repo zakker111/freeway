@@ -3,8 +3,19 @@
 Ticked items are in the shipped build. Every step ends the same way: full test suite,
 rebuilt single file, rebuilt ZIP, and a redeploy to the same public link. The live URLs and
 the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release carries the
-2.19.0 source and Windows archives, and the cloud site is open
+2.20.0 source and Windows archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
+
+## Done — 2.20.0 · workspace intelligence tools
+
+- [x] `find_files` glob discovery with secret/generated-folder and symlink protection
+- [x] `git_history` log/show with validated refs and bounded read-only output
+- [x] `project_info` package manager, scripts, framework and check detection
+- [x] `run_check` runs one declared script after exact-command confirmation
+- [x] Read-only tools stay in Plan; `run_check` is refused in Plan and uses the command allowlist
+- [x] Bundle now includes `lib/testparse.mjs` and the new `lib/project.mjs`
+- [x] 276 unit, 34 CLI, 28 + 28 simulation and 36 cloud checks pass
+- [x] Desktop 2.20.0; preview and production report 2.20.0-cloud
 
 ## Done — 2.19.0 · preview captures and Git tools
 

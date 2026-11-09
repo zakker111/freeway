@@ -14,6 +14,7 @@ import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, t
 import { compactMessages } from './lib/memory.mjs';
 import { TOOL_DEFINITIONS, runTool, parseTextToolCalls } from './lib/tools.mjs';
 import { normalizePlan, PLAN_TOOL_NAMES } from './lib/plan.mjs';
+import { resolveCheck } from './lib/project.mjs';
 import { withToolInstruction } from './lib/tool-prompt.mjs';
 import {
   PROVIDERS,
@@ -221,7 +222,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.19.0';
+const VERSION = '2.20.0';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -629,6 +630,24 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
     const allowed = await approve();
     if (!allowed) {
       return { ok: false, content: 'The user declined this process action. Do not retry it without asking first.' };
+    }
+  } else if (name === 'run_check') {
+    let check;
+    try {
+      check = resolveCheck(ctx.workspace, args);
+    } catch (error) {
+      return { ok: false, content: `Error: ${error?.message ?? error}` };
+    }
+    const allowed = await approve({
+      kind: check.kind,
+      program: check.program,
+      args: check.args,
+      cwd: check.cwd,
+      script: check.script,
+      scriptBody: check.scriptBody,
+    });
+    if (!allowed) {
+      return { ok: false, content: 'The user declined this check. Do not retry it without asking first.' };
     }
   } else if (
     name === 'write_file' ||
