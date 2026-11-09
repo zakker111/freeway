@@ -48,8 +48,11 @@ tab's `sessionStorage`, are sent only with that request, and are never returned
 by `/api/config`. The source archive excludes `.env`, runtime config, chats,
 logs and `sea-prep.blob`. Test fixtures construct fake key shapes at runtime
 instead of containing key-like literals, and commit history was checked for
-runtime secret files. If a key is ever exposed, revoke it at the provider and
-replace it; deleting the file alone does not invalidate the key.
+runtime secret files. Workspace tools and previews refuse credential files by
+their resolved path too, so a symlink cannot turn an ordinary note into `.env`;
+error redaction also covers PEM blocks and common CI/cloud token shapes. If a key
+is ever exposed, revoke it at the provider and replace it; deleting the file
+alone does not invalidate the key.
 
 A first visit starts with an empty chat. No sample conversation, thread, account,
 or key is bundled. The sample page under Preview is in memory until you ask

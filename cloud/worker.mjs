@@ -38,7 +38,7 @@ import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs'
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.22.2-cloud';
+const VERSION = '2.22.3-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -75,9 +75,10 @@ const PAGE_CSP = [
 // ---------------------------------------------------------------- catalog
 
 let catalogCache = { at: 0, models: [], error: null };
-// OpenRouter's per-key quota, shared by every visitor on a server key. The key
-// is identified only by its last few characters so a change is noticed.
-let quotaCache = { at: 0, tail: '', data: null };
+// OpenRouter's per-key quota, shared by every visitor on a server key. Keep the
+// exact key with the entry: a short suffix is not an identity, and two keys that
+// happen to share one must never share cached quota data.
+let quotaCache = { at: 0, key: '', data: null };
 const hits = new Map();
 
 function json(body, status = 200, extra = {}) {
@@ -1941,8 +1942,7 @@ async function handle(request, env, ctx) {
         if (!quotaKey) {
           return json({ ok: false, reason: 'no-key', source: 'none' }, 200, { 'cache-control': 'private, no-store' });
         }
-        const tail = quotaKey.slice(-6);
-        if (quotaCache.data && quotaCache.tail === tail && Date.now() - quotaCache.at < 60_000) {
+        if (quotaCache.data && quotaCache.key === quotaKey && Date.now() - quotaCache.at < 60_000) {
           return json({ ...quotaCache.data, cached: true }, 200, { 'cache-control': 'private, no-store' });
         }
         try {
@@ -1968,7 +1968,7 @@ async function handle(request, env, ctx) {
             isFreeTier: Boolean(data.is_free_tier),
             source: quotaSource,
           };
-          quotaCache = { at: Date.now(), tail, data: quota };
+          quotaCache = { at: Date.now(), key: quotaKey, data: quota };
           return json(quota, 200, { 'cache-control': 'private, no-store' });
         } catch {
           return json({ ok: false, reason: 'network' }, 200, { 'cache-control': 'private, no-store' });

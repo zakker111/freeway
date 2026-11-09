@@ -6,6 +6,16 @@ the desktop ZIP checksum are in `../CURRENT-LINK.txt`; the GitHub release carrie
 2.20.0 source and Windows archives, and the cloud site is open
 to visitors, no password — only the `/api` data routes ask you to sign in.
 
+## Done — 2.22.3 · deep security audit
+
+- [x] Secret files are refused by resolved target, closing the workspace symlink bypass
+- [x] Credential aliases and whole credential folders are denied
+- [x] PEM blocks, CI tokens, cloud keys and JWTs are redacted from errors and logs
+- [x] The browser DevTools port no longer accepts arbitrary web origins
+- [x] The cloud quota cache requires an exact key match
+- [x] 332 unit (67 page), 36 CLI, 29 + 29 simulation and 36 cloud checks pass
+- [x] Release ZIP rebuilt after the docs; source pushed to GitHub main
+
 ## Done — 2.22.2 · animated speech-bubble brand mark
 
 - [x] Header uses the speech-bubble page icon instead of the CSS dot

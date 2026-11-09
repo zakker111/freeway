@@ -46,7 +46,9 @@ generated, never edited by hand.
    its own off-by-default `autoApproveWrites`; it may skip only its browser `write_file`
    card, never file deletion, link revocation or another destructive rail action.
 7. **Secrets are write-only from the browser.** The API returns names and a four
-   character hint; values never leave the process.
+   character hint; values never leave the process. Every workspace operation must check
+   the resolved target, not only the requested name: a symlink must not bypass the
+   credential denylist.
 8. **Version sync.** `VERSION` in `app.mjs` and `version` in `package.json` must be
    identical — `test/cli.mjs` asserts it.
 9. **Every provider declares how free is decided.** `lib/providers.mjs` holds the only

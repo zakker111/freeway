@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.22.3 | 2026-11-09 | Security audit: secret symlinks, DevTools origin and quota cache hardened |
 | 2.22.2 | 2026-11-09 | Animated speech-bubble brand mark in the header and empty state |
 | 2.22.1 | 2026-11-09 | Cancel-safe Build requests and cooldown cleanup |
 | 2.22.0 | 2026-11-09 | Automatic provider cooldown retry with a live countdown |
@@ -165,6 +166,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.22.3 — 2026-11-09
+
+- **A credential file cannot be reached through a workspace symlink.** Every workspace
+  operation now checks the resolved target as well as the requested name, so a harmless-looking
+  link cannot read, overwrite, checkpoint or restore `.env`, `secrets.json`, `config.json` or
+  another credential file.
+- **More credential locations are refused.** The denylist now covers `.ssh`, `.gnupg`, `.aws`,
+  `.azure`, `.kube`, GitHub/Google Cloud CLI folders, npm/Cargo/Gem/Gradle credentials,
+  `.pypirc`, `.terraformrc`, `.vault-token` and Terraform credential files.
+- **Redaction covers more token shapes.** PEM private-key blocks, GitHub/GitLab/Hugging Face
+  tokens, npm/PyPI tokens, `ASIA` AWS keys and JWTs are scrubbed from errors and logs.
+- **The interactive browser no longer allows arbitrary web origins to attach to its DevTools
+  port.** Node's CDP client sends no `Origin` header, so the wildcard allowance was unnecessary.
+- **The cloud quota cache now requires an exact key match.** Two keys that happen to share a
+  suffix can no longer reuse each other's cached quota data.
+- **Checks.** 332 unit tests (67 page contracts), 36 CLI, 29 + 29 simulations and 36 cloud
+  checks pass. The browser-argument change is covered by unit tests; no local Chrome or Edge was
+  available for a live CDP run in this environment.
+- **Artifacts.** Desktop source and ZIP 2.22.3; cloud source is 2.22.3-cloud but was not
+  redeployed by this security-only change.
 
 ## 2.22.2 — 2026-11-09
 
