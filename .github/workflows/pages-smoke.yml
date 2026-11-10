@@ -2,15 +2,11 @@ name: Pages smoke
 
 # Verifies the deployed GitHub Pages site, not the source: the served files must
 # match docs/, unknown paths must use the custom 404, and every public link must
-# resolve. Runs after docs changes and on a weekly schedule.
+# resolve. Runs after every push to main, plus a weekly schedule.
 
 on:
   push:
     branches: [main]
-    paths:
-      - "docs/**"
-      - "scripts/check-pages.mjs"
-      - ".github/workflows/pages-smoke.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 6 * * 1"

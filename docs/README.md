@@ -17,28 +17,14 @@ JavaScript requirement.
 - `.nojekyll` — tells GitHub Pages to serve the files exactly as written instead of running
   Jekyll.
 
-## Publish it
+## Publishing
 
-### 1. Commit and push
+Pages is already configured for this repository: **Deploy from a branch**, branch `main`,
+folder `/docs`. Every push to `main` republishes the site automatically; there is no manual
+deploy step. The **Pages smoke** workflow checks the deployed bytes and public links after
+each push.
 
-From the repository root:
-
-```bash
-git add docs
-git commit -m "docs: add GitHub Pages landing page"
-git push origin main
-```
-
-### 2. Enable Pages
-
-1. Open <https://github.com/zakker111/freeway/settings/pages>.
-2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
-3. Choose **Branch: `main`** and **Folder: `/docs`**.
-4. Press **Save**.
-
-GitHub Pages will build the folder after every push to `main`.
-
-### 3. Open the site
+Open the site
 
 The project URL is:
 

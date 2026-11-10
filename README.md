@@ -79,9 +79,9 @@ or newer for the built-in WebSocket; the rest of the app still runs on Node 20.1
 
 - **Hosted cloud — production:** <https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page>
 - **Hosted cloud — preview:** <https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page>
-- **Release downloads:** [Freeway 2.23.2](https://github.com/zakker111/freeway/releases/tag/v2.23.2)
+- **Release downloads:** [latest release](https://github.com/zakker111/freeway/releases/latest)
 - **Repository:** <https://github.com/zakker111/freeway>
-- **GitHub Pages project page:** ready in [`docs/`](docs/README.md); the publish steps are in that folder.
+- **GitHub Pages project page:** <https://zakker111.github.io/freeway/> — published from [`docs/`](docs/README.md) on every push to `main`.
 
 
 ### Which file do I use?
@@ -199,7 +199,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.24.0 — self-check
+Freeway 2.24.1 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable

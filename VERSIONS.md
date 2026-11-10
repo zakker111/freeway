@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.24.1 | 2026-11-10 | GitHub Pages smoke follows lazy release assets and runs after every push |
 | 2.24.0 | 2026-11-10 | Full-screen previews, Chatty's first-run tour, a livelier cat, one soft ready chime, and an animated wordmark |
 | 2.23.2 | 2026-11-10 | Chatty gains 15 more useful tips, for 46 total |
 | 2.23.1 | 2026-11-10 | Chatty greets visitors as the Freeway cat; white animated logo confirmed |
@@ -170,6 +171,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.24.1 — 2026-11-10
+
+- **Publishing to GitHub verifies the live site.** The Pages smoke workflow now runs after
+  every push to `main`, not only docs changes, and follows GitHub's lazy
+  `expanded_assets` fragment before checking that the latest release exposes a ZIP. This
+  removes the false "latest release has no ZIP download" failure.
+- **Clear publishing boundary.** README and the Pages guide now point at the live Pages
+  site and the latest release, and state that Pages republishes `docs/` automatically
+  while the Freebuff cloud app is deployed separately.
+- **Checks.** 343 unit tests, 36 CLI, 29 + 29 simulations, 29 cloud checks and the live
+  Pages smoke pass. Desktop and cloud source report 2.24.1; `freeway.mjs` and `freeway.cjs`
+  were rebuilt at 2.24.1 and the cloud Worker at 2.24.1-cloud.
+- **Release state.** Published release is **v2.24.1**, with both cloud environments on
+  **2.24.1-cloud**; the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.24.1](https://github.com/zakker111/freeway/releases/tag/v2.24.1).
 
 ## 2.24.0 — 2026-11-10
 

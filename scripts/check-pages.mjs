@@ -224,6 +224,20 @@ async function check404() {
   }
 }
 
+// GitHub loads release assets lazily into an expanded-assets fragment, so the
+// initial release page contains no /releases/download/ URLs. Follow that
+// fragment before deciding whether the latest release has a ZIP.
+function releaseExpandedAssetsUrl(html) {
+  const match = /<include-fragment[^>]+src="([^"]*\/releases\/expanded_assets\/[^"]+)"/i.exec(html);
+  if (!match) return '';
+  try {
+    const url = new URL(match[1].replace(/&amp;/g, '&'), 'https://github.com');
+    return url.hostname === 'github.com' ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
 async function checkExternal(urls) {
   for (const url of urls) {
     let response;
@@ -242,7 +256,19 @@ async function checkExternal(urls) {
       } else {
         pass(`link ${url} -> ${response.status}`);
         if (new URL(url).pathname.endsWith('/releases/latest')) {
-          const body = await response.text();
+          let body = await response.text();
+          if (!/\/releases\/download\/[^"']+\.zip/.test(body)) {
+            const assetsUrl = releaseExpandedAssetsUrl(body);
+            if (assetsUrl) {
+              try {
+                const assets = await get(assetsUrl);
+                if (assets.ok) body += await assets.text();
+                else warn(`latest release assets fragment -> HTTP ${assets.status}`);
+              } catch (cause) {
+                warn(`latest release assets fragment unreachable: ${cause.message}`);
+              }
+            }
+          }
           if (/\/releases\/download\/[^"']+\.zip/.test(body)) pass('latest release exposes a ZIP download');
           else fail('latest release has no ZIP download');
         }
