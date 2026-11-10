@@ -66,6 +66,15 @@ Expected: both return `HTTP/2 200`. Open the page and check:
 - source, security, and privacy links resolve;
 - the layout works at phone width and desktop width.
 
+For the complete check — deployed bytes, the custom 404, and every link on both pages — run:
+
+```bash
+node scripts/check-pages.mjs
+```
+
+`PAGES_WAIT_SECONDS=900` keeps retrying while a fresh Pages build is rolling out. The
+**Pages smoke** workflow runs the same check after pushes that touch `docs/`.
+
 ## Update it
 
 Edit `docs/index.html`, `docs/404.html` or replace `docs/icon.svg`, then push to `main`. Pages

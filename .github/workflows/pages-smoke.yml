@@ -1,0 +1,40 @@
+name: Pages smoke
+
+# Verifies the deployed GitHub Pages site, not the source: the served files must
+# match docs/, unknown paths must use the custom 404, and every public link must
+# resolve. Runs after docs changes and on a weekly schedule.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "scripts/check-pages.mjs"
+      - ".github/workflows/pages-smoke.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-smoke
+  cancel-in-progress: true
+
+jobs:
+  live:
+    name: Live site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Compare the deployed site and check its links
+        env:
+          PAGES_WAIT_SECONDS: "900"
+        run: node scripts/check-pages.mjs
