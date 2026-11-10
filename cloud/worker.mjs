@@ -28,7 +28,7 @@ import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs'
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.32.0-cloud';
+const VERSION = '2.33.0-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -355,6 +355,24 @@ export const PROVIDERS = {
     fallback: ['glm-4.7-flash'],
     note: 'GLM-4.7-Flash is free, with 200K context and 128K output. Only that Flash id is offered; paid GLM models are refused.',
   },
+  freeai: {
+    id: 'freeai',
+    label: 'Free.ai',
+    keyHint: 'sk-free-…',
+    base: 'https://api.free.ai/v1',
+    // Free.ai answers at /v1/chat/, not /v1/chat/completions.
+    chatPath: '/chat/',
+    keyEnv: 'FREEAI_API_KEY',
+    keysUrl: 'https://free.ai/signup/?next=/account/?tab=api',
+    policy: 'allowlist',
+    freePlan: 'daily-quota',
+    limits: { perMinute: 60, tokensPerDay: 30000, perMonth: 1000 },
+    allow: [/^qwen[\w.-]*$/i],
+    // External ids are namespaced with a slash and cost purchased credits.
+    deny: [/\//, /premium/i, /image/i, /video/i, /tts/i, /whisper/i, /embed/i, /audio/i, /music/i, /ocr/i, /translat/i, /upscal/i],
+    fallback: ['qwen7b'],
+    note: 'Free plan: 30,000 tokens a day, 60 requests/min, no card. Only the self-hosted Qwen chat model is offered; external GPT, Claude and Gemini ids spend purchased credits.',
+  },
   cloudflare: {
     id: 'cloudflare',
     label: 'Cloudflare Workers AI',
@@ -457,7 +475,7 @@ function modelsUrlFor(provider, env, account = '') {
 }
 
 function chatUrlFor(provider, env, account = '') {
-  return `${baseFor(provider, env, account)}/chat/completions`;
+  return `${baseFor(provider, env, account)}${provider.chatPath ?? '/chat/completions'}`;
 }
 
 function isAllowed(provider, id) {

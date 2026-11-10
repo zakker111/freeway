@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.33.0 | 2026-11-10 | Free.ai provider: its own /v1/chat/ path, self-hosted chat model only |
 | 2.32.0 | 2026-11-10 | Cat school steps move Chatty to a new edge with her tour hop |
 | 2.31.2 | 2026-11-10 | Malformed catalogs degrade cleanly; split dev-server URLs still detect their port |
 | 2.31.1 | 2026-11-10 | Phone shell fits at 320px; cloud drawer no longer hides under the header |

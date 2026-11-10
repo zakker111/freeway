@@ -301,7 +301,38 @@ async function clickAndSample(cdp, action, delay = 90) {
   );
 }
 
+async function tourTarget(cdp, selectors) {
+  return evaluate(
+    cdp,
+    `(() => {
+      const spot = document.querySelector('.chatty-spot');
+      if (!spot) return null;
+      const spotRect = spot.getBoundingClientRect();
+      const cx = spotRect.left + spotRect.width / 2;
+      const cy = spotRect.top + spotRect.height / 2;
+      return ${JSON.stringify(selectors)}.find((selector) => {
+        const node = document.querySelector(selector);
+        if (!node) return false;
+        const rect = node.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return false;
+        return (
+          Math.abs(rect.left + rect.width / 2 - cx) <= 2 &&
+          Math.abs(rect.top + rect.height / 2 - cy) <= 2
+        );
+      }) || null;
+    })()`,
+  );
+}
+
 async function prepareChatty(cdp) {
+  const hadKeyCard = await evaluate(
+    cdp,
+    `(() => {
+      const overlay = document.querySelector('#keyOverlay');
+      return Boolean(overlay && !overlay.classList.contains('hidden'));
+    })()`,
+  );
+  assert.equal(hadKeyCard, true, 'the first-run key card did not open');
   await evaluate(
     cdp,
     `(() => {
@@ -314,7 +345,6 @@ async function prepareChatty(cdp) {
       });
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       if (!window.FreewayChatty.isEnabled()) window.FreewayChatty.setEnabled(true);
-      window.FreewayChatty.show();
       return true;
     })()`,
   );
@@ -349,9 +379,9 @@ async function loadChatty(cdp, origin, reduced) {
     'document.readyState === "complete" && typeof window.FreewayChatty?.tutor === "function"',
     15_000,
   );
-  // The first-run key card is shown after the page starts. Let that settle,
-  // then make sure it is closed before Chatty's modal guard is asked to show.
-  await sleep(800);
+  // Let Chatty's first appearance attempt see the key card and back off. The
+  // dismissal must bring her back immediately, not wait for the 22-second retry.
+  await sleep(2600);
   await prepareChatty(cdp);
 }
 
@@ -452,35 +482,97 @@ async function runTutor(cdp, origin) {
 }
 
 async function runTour(cdp) {
+  const targets = [
+    ['#sideBtn'],
+    ['#newChatBtn'],
+    ['#modelBtn'],
+    ['#quota', '#keyBtn'],
+    ['#input'],
+    ['#attachLabel'],
+    ['#modePlan'],
+    ['#modeBuild'],
+    ['#quickPreview'],
+    ['#railBtn'],
+    ['#settingsBtn'],
+  ];
   await evaluate(cdp, 'window.FreewayChatty.tour(); true');
   await waitForPage(
     cdp,
     `document.querySelector('.chatty-label')?.textContent?.startsWith('Tour 1/')`,
     5000,
   );
-  await sleep(MOVE_SETTLE_MS);
-  const t1 = await state(cdp);
-  assert.match(t1.label, /^Tour 1\/\d+$/, `the tour did not start (${t1.label})`);
-  assert.equal(t1.bubble, true, 'the first tour stop has no bubble');
-  assert.equal(t1.spot, true, 'the first tour stop has no spotlight');
 
-  const next = await clickAndSample(cdp, 'next');
-  assert.equal(next.found, true, 'the tour has no Next stop action');
-  assert.equal(next.touring, true, 'the tour stop did not enter the movement state');
-  assert.equal(next.anim, 'chatty-tour-hop', 'the tour stop did not hop');
-  await sleep(MOVE_SETTLE_MS);
-  const t2 = await state(cdp);
-  assert.match(t2.label, /^Tour 2\/\d+$/, `the tour did not advance (${t2.label})`);
-  assert.notDeepEqual(t2.xy, t1.xy, 'the tour stop did not move Chatty');
-  assert.equal(t2.bubble, true, 'the second tour stop has no bubble');
-  assert.equal(t2.spot, true, 'the second tour stop has no spotlight');
+  const positions = [];
+  const matched = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    const number = index + 1;
+    await waitForPage(
+      cdp,
+      `document.querySelector('.chatty-label')?.textContent?.startsWith('Tour ${number}/')`,
+      5000,
+    );
+    await sleep(MOVE_SETTLE_MS);
+    const stop = await state(cdp);
+    assert.match(stop.label, new RegExp(`^Tour ${number}\\/\\d+$`), `tour stop ${number} is ${stop.label}`);
+    assert.equal(stop.bubble, true, `tour stop ${number} has no bubble`);
+    assert.equal(stop.spot, true, `tour stop ${number} has no spotlight`);
+    const target = await tourTarget(cdp, targets[index]);
+    assert.ok(target, `tour stop ${number} highlights no target (${targets[index].join(', ')})`);
+    matched.push(target);
+    positions.push(stop.xy.join(':'));
 
+    if (number < targets.length) {
+      const next = await clickAndSample(cdp, 'next');
+      assert.equal(next.found, true, `tour stop ${number} has no Next action`);
+      assert.equal(next.touring, true, `tour stop ${number} did not enter the movement state`);
+      assert.equal(next.anim, 'chatty-tour-hop', `tour stop ${number} did not hop`);
+    }
+  }
+
+  assert.equal(matched.length, targets.length, 'the tour did not reach every stop');
+  assert.equal(
+    new Set(positions).size,
+    targets.length,
+    `the tour reused a position (${positions.join(' | ')})`,
+  );
   assert.equal(await clickAction(cdp, 'skip'), true, 'the tour has no End tour action');
   await waitForPage(
     cdp,
     `document.querySelector('#chatty')?.hidden === true`,
     5000,
   );
+}
+
+async function runPlanReady(cdp) {
+  await evaluate(
+    cdp,
+    `(() => {
+      document.querySelector('#modePlan')?.click();
+      window.FreewayChatty.planReady();
+      return true;
+    })()`,
+  );
+  await waitForPage(
+    cdp,
+    `document.querySelector('.chatty-label')?.textContent === 'Plan ready' &&
+     Boolean(document.querySelector('[data-chatty-action="build"]'))`,
+    5000,
+  );
+  const ready = await state(cdp);
+  assert.equal(ready.label, 'Plan ready', `plan ready label is ${ready.label}`);
+  assert.match(ready.text, /plan is ready/i, 'the plan-ready tip does not explain the hand-off');
+  assert.ok(ready.actions.includes('build'), 'the plan-ready tip has no Build action');
+  assert.ok(ready.actions.includes('later'), 'the plan-ready tip cannot be deferred');
+
+  const switched = await clickAndSample(cdp, 'build');
+  assert.equal(switched.found, true, 'the plan-ready Build action is missing');
+  assert.equal(
+    await evaluate(cdp, `document.querySelector('#modeBuild').classList.contains('active')`),
+    true,
+    'the plan-ready Build action did not switch mode',
+  );
+  assert.match((await state(cdp)).text, /Build mode is on/i, 'the Build hand-off gave no confirmation');
+  await evaluate(cdp, `document.querySelector('#modePlan').click(); true`);
 }
 
 async function runSwitch(cdp) {
@@ -584,7 +676,11 @@ async function main() {
 
     stage = 'tour';
     await runTour(cdp);
-    console.log('  PASS  tour movement, spotlight and end');
+    console.log('  PASS  all 11 tour stops, targets, movement and end');
+
+    stage = 'plan-ready notice';
+    await runPlanReady(cdp);
+    console.log('  PASS  plan-ready notice and Build shortcut');
 
     stage = 'settings switch';
     await runSwitch(cdp);

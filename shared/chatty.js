@@ -18,6 +18,7 @@
   const TOUR_LIMIT = 2;
   const PLAY_MIN_MS = 26 * 1000;
   const PLAY_MAX_MS = 44 * 1000;
+  const IDLE_MIN_MS = 12 * 1000;
   const WELCOME =
     "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
   const TOUR_INVITE =
@@ -30,6 +31,16 @@
     { action: 'tour', label: 'Tour' },
     { action: 'later', label: 'Later' },
   ];
+  const PLAN_ACTIONS = [
+    { action: 'build', label: 'Switch to Build', primary: true },
+    { action: 'later', label: 'Not yet' },
+  ];
+  const PROMPT_LESSON = 'The Three-Paw Prompt';
+  const PROMPT_ACTIONS = [
+    { action: 'prompt-lesson', label: 'Prompt lesson', primary: true },
+    { action: 'later', label: 'Not now' },
+  ];
+  const PROMPT_COACH_GAP = 10 * 60 * 1000;
   const TIPS = [
     'Press Enter to send, or Shift + Enter for a new line.',
     'Open the command palette with Ctrl + K.',
@@ -105,8 +116,8 @@
       'Preview refuses credential files. Keep keys in Secrets instead of .env files.',
     ],
     secrets: [
-      'Keep keys in the Secrets rail, never in chat. They stay out of the transcript and workspace.',
-      'The Secrets rail lists names and hints, not your key values.',
+      'Keep keys in Settings → Secrets, never in chat. They stay out of the transcript and workspace.',
+      'Settings → Secrets lists names and hints, not your key values.',
       'Deleting a secret does not revoke it. If a key leaks, revoke it at the provider and save a new one.',
     ],
   };
@@ -179,9 +190,9 @@
     {
       title: 'Secret Keeper',
       steps: [
-        'Keys go in Secrets, not chat. Chat is a window; Secrets is the locked cupboard.',
+        'Keys go in Settings → Secrets, not chat. Chat is a window; the secret store is the locked cupboard.',
         'Never paste a key into a prompt or a file. If it leaks, revoke it at the provider and make a new one.',
-        'A .env file is still a file. The Secrets rail keeps me from pretending I have thumbs.',
+        'A .env file is still a file. Settings → Secrets keeps me from pretending I have thumbs.',
       ],
       finish: 'Safe, sound, still fluffy. Now rotate the key you definitely did not paste anywhere.',
     },
@@ -243,7 +254,7 @@
     },
     {
       selectors: ['#railBtn'],
-      tip: 'The rail lives here: Files, Secrets, GitHub, Preview and Health.',
+      tip: 'The rail lives here: Files, GitHub, Preview and Health. Secrets are in Settings.',
     },
     {
       selectors: ['#settingsBtn'],
@@ -802,6 +813,7 @@
   let pointer = null;
   let audioContext = null;
   let lastReadyChime = 0;
+  let lastActivity = Date.now();
   let spotNode = null;
   let tourCursor = 0;
   let tourTarget = null;
@@ -810,6 +822,8 @@
   let tutorLesson = null;
   let tutorStep = -1;
   let lastLesson = -1;
+  let lastPromptKey = '';
+  let lastPromptCoachAt = 0;
   let ballNode = null;
   let playTimer = 0;
   let playEndTimer = 0;
@@ -830,6 +844,10 @@
     } catch {
       /* a private window may refuse storage; Chatty still works for this page */
     }
+  }
+
+  function noteActivity() {
+    lastActivity = Date.now();
   }
 
   function unlockAudio() {
@@ -893,13 +911,120 @@
     );
   }
 
+  function promptKey(text, source) {
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      hash = (hash * 31 + text.charCodeAt(i)) | 0;
+    }
+    return `${source}:${text.length}:${hash}`;
+  }
+
+  // Read only the local composer and the rendered user bubble. Prompt text is
+  // never sent anywhere; the coach just names the piece that is missing.
+  function readPromptSnapshot() {
+    if (typeof document === 'undefined') return null;
+    if (document.querySelector('#stopBtn:not([disabled]), #stop:not([disabled])')) return null;
+    const input = document.querySelector('#input');
+    const draft = input && typeof input.value === 'string' ? input.value.trim() : '';
+    let latest = '';
+    const bubbles = document.querySelectorAll('.msg.user .bubble');
+    if (bubbles.length) latest = (bubbles[bubbles.length - 1].textContent || '').trim();
+    const source = draft ? 'draft' : latest ? 'last' : '';
+    if (!source) return null;
+    const text = (draft || latest).slice(0, 8000);
+    return text ? { text, source, key: promptKey(text, source) } : null;
+  }
+
+  function promptCoach(force = false) {
+    const snapshot = readPromptSnapshot();
+    if (!snapshot) return null;
+    const now = Date.now();
+    if (!force && snapshot.key === lastPromptKey && now - lastPromptCoachAt < PROMPT_COACH_GAP) {
+      return null;
+    }
+    const { text, source, key } = snapshot;
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const lead = source === 'draft' ? 'That draft' : 'That last prompt';
+    const reply = (message) => {
+      lastPromptKey = key;
+      lastPromptCoachAt = now;
+      return { message, label: 'Prompt coach', actions: PROMPT_ACTIONS };
+    };
+
+    if (
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text) ||
+      /\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})\b/.test(text) ||
+      /(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}/i.test(text)
+    ) {
+      return reply('Whoa — that looks like a credential. Take it out before sending and keep it in Settings → Secrets; I will not repeat it.');
+    }
+
+    if (/^(?:yes|no|ok|okay|sure|go|go ahead|do it|continue|try again|thanks|thank you|please|yep|nope|perfect|great)[.!?\s]*$/i.test(text)) {
+      return null;
+    }
+
+    if (
+      words <= 4 ||
+      /^(?:fix|fix this|fix it|help|help me|do it|make it better|change it|update it|try again|what now|not working|broken|look at this|check this|review this|improve this|continue)\b/i.test(text)
+    ) {
+      return reply(`${lead} is a whisker short. Give me the goal, one clue from the code, and the check that proves it. Try: "In <file>, <goal>. Keep <constraint>. Verify with <check>."`);
+    }
+
+    const hasGoal = /\b(?:add|build|fix|change|update|remove|make|write|create|implement|explain|review|debug|test|refactor|improve|find|check|rename|move|delete|convert|show|tell|compare|summarize|design|investigate|why|how|help|mean)\b/i.test(text);
+    const hasContext = /```|`[^`]+`|\.(?:js|mjs|cjs|ts|tsx|jsx|html|css|json|md|py|rb|go|rs|java|sh|yml|yaml|toml|lock)\b|\b(?:error|exception|traceback|stack|line \d+|http \d{3}|console|terminal|log|repro|screenshot)\b|(?:^|\s)(?:\/|\.{1,2}\/)[^\s]+/i.test(text);
+    const hasConstraint = /\b(?:keep|without|don't|do not|only|must|should|avoid|no new|preserve|limit|at most|and nothing else)\b/i.test(text);
+    const hasProof = /\b(?:test|tests|check|verify|run|pass|fail|works?|expected|actual|screenshot|result|reproduce|confirm|prove)\b/i.test(text);
+    const hasFormat = /\b(?:table|list|json|markdown|diff|patch|steps|summary|bullet|code block|schema|one paragraph|short answer)\b/i.test(text);
+
+    if ((words > 260 || text.length > 1800) && !hasFormat) {
+      return reply(`${lead} is a lot at once. Put the goal on the first line, the clues next, and the proof last. One screen is easier to chase than twenty.`);
+    }
+    if (!hasGoal) {
+      return reply(`${lead} has the detail but not the finish line. Start with the outcome: "Fix X so Y" or "Add X to Y".`);
+    }
+    if (!hasContext) {
+      return reply(`${lead} names the outcome. Add one concrete clue — the file, the error, or what you see — so I do not guess.`);
+    }
+    if (!hasProof) {
+      return reply(`${lead} says what to change but not how to prove it. Add: "Run <check> and show me the result."`);
+    }
+    if (!hasConstraint) {
+      return reply(`${lead} has the goal, the clue and a check. Add one constraint — what must stay unchanged — and it is a three-paw prompt.`);
+    }
+    return reply(`${lead} has good bones: goal, constraints and a check. Keep the next one just as focused.`);
+  }
+
+  function showPromptCoach(force = false) {
+    if (!enabled || !rootNode || isBlocked()) return false;
+    if (tourStep >= 0 || tutorStep >= 0) return false;
+    const tip = promptCoach(force);
+    if (!tip) return false;
+    clearTimeout(appearTimer);
+    fitToComposer();
+    if (rootNode.hidden) {
+      wanderCount = 0;
+      choosePosition();
+      rootNode.hidden = false;
+    }
+    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    showTip(tip.message, 17000, tip.actions, tip.label);
+    armHide(32000);
+    pouncePet();
+    return true;
+  }
+
   function tipContext() {
     if (typeof document === 'undefined') return '';
     const visible = (selector) => {
       const node = document.querySelector(selector);
       return Boolean(node) && !node.hidden && !node.classList.contains('hidden');
     };
-    if (visible('#rail') && visible('#railSecrets')) return 'secrets';
+    if (
+      document.querySelector('#settingsDialog[open], #settingsOverlay:not(.hidden)') &&
+      visible('#settingsSecrets')
+    ) {
+      return 'secrets';
+    }
     if (visible('#rail') && visible('#railPreview')) return 'preview';
     if (document.querySelector('#modeBuild')?.classList.contains('active')) return 'build';
     if (document.querySelector('#modePlan')?.classList.contains('active')) return 'plan';
@@ -1557,7 +1682,7 @@
     armHide(180000);
   }
 
-  function startTutor() {
+  function startTutor(title = '') {
     if (!enabled || !rootNode || isBlocked()) return;
     clearTimeout(appearTimer);
     clearTimeout(hideTimer);
@@ -1571,7 +1696,13 @@
       rootNode.classList.remove('is-wandering');
     }
     const wasHidden = rootNode.hidden;
-    tutorLesson = pickLesson();
+    const requested = title ? LESSONS.findIndex((lesson) => lesson.title === title) : -1;
+    if (requested >= 0) {
+      lastLesson = requested;
+      tutorLesson = LESSONS[requested];
+    } else {
+      tutorLesson = pickLesson();
+    }
     tutorStep = 0;
     makeVisible();
     showTutorStep({ move: !wasHidden });
@@ -1659,11 +1790,34 @@
         showTip(TOUR_INVITE, 20000, WELCOME_ACTIONS);
         armHide(28000);
       }
-    } else if (Math.random() < 0.58) {
-      showTip(pickMessage(), 13000, TUTOR_ACTIONS);
+    } else if (Math.random() < 0.72) {
+      if (!showPromptCoach()) showTip(pickMessage(), 13000, TUTOR_ACTIONS);
     }
     if (tourDone) scheduleWander();
     if (pointer) lookAt();
+  }
+
+  // A finished plan is a real hand-off point: bring Chatty up even when the
+  // composer still has focus, and put the mode switch one click away.
+  function planReady() {
+    if (!enabled || !rootNode) return;
+    if (isBlocked() || tourStep >= 0 || tutorStep >= 0) return;
+    clearTimeout(appearTimer);
+    fitToComposer();
+    if (rootNode.hidden) {
+      wanderCount = 0;
+      choosePosition();
+      rootNode.hidden = false;
+    }
+    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    armHide(36000);
+    showTip(
+      'The plan is ready. Review the steps, then switch to Build when you approve. Build still asks before it writes anything.',
+      22000,
+      PLAN_ACTIONS,
+      'Plan ready',
+    );
+    pouncePet();
   }
 
   function hide(cooldown = 42000 + Math.random() * 33000) {
@@ -1703,11 +1857,16 @@
     hide(DISMISS_MIN_MS + Math.random() * (DISMISS_MAX_MS - DISMISS_MIN_MS));
   }
 
-  function schedule(delay) {
+  function schedule(delay, force = false) {
     clearTimeout(appearTimer);
     if (!enabled) return;
     appearTimer = setTimeout(() => {
       if (!enabled) return;
+      const idleFor = Date.now() - lastActivity;
+      if (!force && idleFor < IDLE_MIN_MS) {
+        schedule(IDLE_MIN_MS - idleFor + 350);
+        return;
+      }
       if (isBlocked()) {
         schedule(22000);
         return;
@@ -1761,7 +1920,7 @@
       resetLook();
       return;
     }
-    schedule(1400);
+    schedule(1400, true);
     scheduleBall(10000 + Math.random() * 8000);
   }
 
@@ -1835,12 +1994,23 @@
       const action = button.dataset.chattyAction;
       if (action === 'settings') openSettings();
       else if (action === 'tutor') startTutor();
+      else if (action === 'prompt-lesson') startTutor(PROMPT_LESSON);
       else if (action === 'tutor-next') advanceTutor();
       else if (action === 'tutor-another') startTutor();
       else if (action === 'tutor-stop') stopTutor();
       else if (action === 'tour') startTour();
       else if (action === 'next') advanceTour();
       else if (action === 'skip') abandonTour();
+      else if (action === 'build') {
+        const build = document.querySelector('#modeBuild');
+        if (!build) {
+          showTip('I cannot find the Build switch on this page. The plan card can start it when you are ready.', 9000);
+          return;
+        }
+        build.click();
+        showTip('Build mode is on. The first write or command still asks for your approval.', 14000);
+        armHide(30000);
+      }
       else if (action === 'later') dismiss();
     });
     bubbleNode.addEventListener('click', (event) => {
@@ -1872,8 +2042,13 @@
         return;
       }
       if (bubbleNode.hidden) {
-        if (readFlag(TOUR_KEY, '') === '1') showTip(pickMessage(), 13000, TUTOR_ACTIONS);
-        else showTip(WELCOME, 24000, WELCOME_ACTIONS);
+        if (readFlag(TOUR_KEY, '') === '1' && showPromptCoach()) {
+          // The prompt coach owns this bubble and its Prompt lesson action.
+        } else if (readFlag(TOUR_KEY, '') === '1') {
+          showTip(pickMessage(), 13000, TUTOR_ACTIONS);
+        } else {
+          showTip(WELCOME, 24000, WELCOME_ACTIONS);
+        }
       } else hideTip();
       pouncePet();
       spawnHeart();
@@ -1893,6 +2068,12 @@
       armHide(26000);
       if (readFlag(TOUR_KEY, '') === '1') scheduleWander();
     });
+
+    for (const eventName of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'touchmove']) {
+      document.addEventListener(eventName, noteActivity, { passive: true });
+    }
+    document.addEventListener('scroll', noteActivity, { passive: true, capture: true });
+    document.addEventListener('focusin', noteActivity);
 
     document.addEventListener(
       'pointermove',
@@ -1914,8 +2095,12 @@
     });
     window.addEventListener('blur', resetLook);
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) hide();
-      else if (enabled) schedule(5000);
+      if (document.hidden) {
+        hide();
+      } else if (enabled) {
+        noteActivity();
+        schedule(5000);
+      }
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && bubbleNode && !bubbleNode.hidden) {
@@ -2001,6 +2186,8 @@
     tour: () => startTour(),
     settings: () => openSettings(),
     ready: playReadyChime,
+    planReady: () => planReady(),
+    coach: () => showPromptCoach(true),
     tip: (message) => {
       if (!enabled) return;
       if (!rootNode || rootNode.hidden) show();

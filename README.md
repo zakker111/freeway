@@ -1,7 +1,7 @@
 # Freeway
 
 Freeway is a local chat app for **free** models across OpenRouter, Groq, Gemini,
-Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Cloudflare Workers AI, OVHcloud and local
+Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Free.ai, Cloudflare Workers AI, OVHcloud and local
 Ollama. A tiny black cat named **Chatty** lives at the edge of the page: she offers a short
 tip, an occasional joke, a pounce, a double-click trick, an idle game of yarn ball — she bats
 it a few times, slips toward the edge and peeks back — and **Cat school**, eight playful
@@ -312,16 +312,18 @@ Free models need no credits, but a negative balance blocks even them.
 
 ## What it does
 
-### Ten hosted providers, straight from the picker
+### Eleven hosted providers, straight from the picker
 
 **OpenRouter** (`sk-or-…`, free model ids only), **Groq** (`gsk_…`), **Gemini** (`AIza…`),
-**Mistral AI**, **Cohere**, **SambaNova**, **Aion Labs**, **Z.AI**, **Cloudflare Workers AI**
-and **OVHcloud** are all in the header picker from the first start —
-the desktop app and the cloud edition offer the same ten hosted providers. The desktop app adds an
-eleventh, **Ollama (local)**, which runs on your own machine and needs no key; the cloud edition
+**Mistral AI**, **Cohere**, **SambaNova**, **Aion Labs**, **Z.AI**, **Free.ai** (`sk-free-…`),
+**Cloudflare Workers AI** and **OVHcloud** are all in the header picker from the first start —
+the desktop app and the cloud edition offer the same eleven hosted providers. The desktop app adds a
+twelfth, **Ollama (local)**, which runs on your own machine and needs no key; the cloud edition
 cannot reach your computer, so it does not appear there. A provider without a key is still
 listed, marked `— add key`: select it and the key screen shows that provider's console link.
-Switching provider loads its free-model list. Z.AI admits only `glm-4.7-flash`; Cloudflare
+Switching provider loads its free-model list. Z.AI admits only `glm-4.7-flash`; Free.ai admits
+only its self-hosted Qwen chat model, because its external GPT, Claude and Gemini ids spend
+purchased credits; Cloudflare
 Workers AI needs its API token and the 32-character Account ID shown in the dashboard, and only
 admits the listed free Workers AI chat models.
 
@@ -699,7 +701,7 @@ Both are guest-only.
   equivalent. The cloud GitHub rail is a browser-side repository list; GitHub tools that write
   remain desktop-only.
 - **GitHub in the tab.** Save a fine-grained or classic PAT as `GITHUB_TOKEN` under
-  **Secrets**. The GitHub rail calls `https://api.github.com` directly, keeps the token in
+  **Settings → Secrets**. The GitHub rail calls `https://api.github.com` directly, keeps the token in
   `sessionStorage`, and never sends it to the Worker. It disappears when the tab closes;
   no token is configured on the deployment, and the panel only lists repositories.
 
@@ -749,7 +751,7 @@ previews also collect script errors, failed assets and unhandled promise rejecti
 small problems card under the frame, instead of leaving a silent blank page. Remote
 http(s) previews are cross-origin, so their errors stay in the browser console.
 
-The cloud edition carries the **same ten hosted providers** as the desktop app. A key comes
+The cloud edition carries the **same eleven hosted providers** as the desktop app. A key comes
 from a Sites secret (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`,
 `COHERE_API_KEY`, `SAMBANOVA_API_KEY`, `AION_API_KEY`, `ZAI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
 `CLOUDFLARE_ACCOUNT_ID`) or, when no secret is set, from the page — kept in that tab's
