@@ -10,9 +10,10 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.23.2**.
-- Chatty ships in both browser pages behind a Settings switch; its tips, jokes, close
-  cooldown and reduced-motion behavior are covered by the page suite.
+- Desktop and cloud source are **2.24.0**.
+- Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
+  tips, jokes, pounce, close cooldown, single soft completion chime and reduced-motion
+  behavior are covered by the page suite.
 - The latest published GitHub release is **v2.23.2**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
@@ -25,6 +26,8 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
+- [ ] Deploy cloud preview and production at **2.24.0-cloud** and cut the **2.24.0**
+      GitHub release when a release is requested.
 - [x] Deploy cloud preview and production at **2.23.2-cloud**; both pages serve the
       46 unique Chatty tips and report the matching version.
 - [x] Cut a **2.23.2** GitHub release from current `main` so the newest published source

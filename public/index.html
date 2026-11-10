@@ -6067,6 +6067,7 @@
         let model = null;
         let usage = null;
         let aborted = false;
+        let stopped = false;
         let chain = [];
         const log = [];
 
@@ -6303,6 +6304,7 @@
                   } else if (/:free$/.test(String(event.model || state.model))) {
                     bits.push("free");
                   }
+                  if (event.stopped) stopped = true;
                   if (event.stopped) bits.push("stopped");
                   addMeta(node, bits.join(" · ") || "done", false);
                   setStatus("");
@@ -6321,6 +6323,7 @@
             node.classList.add("error");
             bubble.textContent = "No answer was returned. Try another model, or send again.";
           }
+          if (answer.trim() && !stopped) window.FreewayChatty?.ready();
           break;
             } catch (error) {
               const wait = autoRetryDelay(error);
@@ -7420,12 +7423,22 @@
   'use strict';
 
   const ENABLED_KEY = 'freeway.chatty.enabled';
-  const SEEN_KEY = 'freeway.chatty.seen.v2';
+  const SEEN_KEY = 'freeway.chatty.seen.v3';
+  const TOUR_KEY = 'freeway.chatty.tour.v1';
   const POSITIONS = ['br', 'bl', 'rm', 'lm'];
   const DISMISS_MIN_MS = 2 * 60 * 1000;
   const DISMISS_MAX_MS = 3.5 * 60 * 1000;
+  const WANDER_MIN_MS = 12 * 1000;
+  const WANDER_MAX_MS = 17 * 1000;
+  const TOUR_LIMIT = 2;
   const WELCOME =
-    "Hello! I'm Chatty, the Freeway cat. Click me for a tip, double-click for a trick, and switch me off in Settings whenever you like.";
+    "Psst! I'm Chatty, the Freeway cat. I can show you where everything lives. Click me to see me pounce, or take the quick tour?";
+  const TOUR_INVITE =
+    'The quick tour is still ready when you are. I can point out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings.';
+  const WELCOME_ACTIONS = [
+    { action: 'tour', label: 'Show me around', primary: true },
+    { action: 'later', label: 'Later' },
+  ];
   const TIPS = [
     'Press Enter to send, or Shift + Enter for a new line.',
     'Open the command palette with Ctrl + K.',
@@ -7452,7 +7465,7 @@
     'I am a cat of few words. This bubble is already a lot.',
     'Cats need naps. I will slip away in a moment.',
     'You can turn me off. I will not take it personally. Probably.',
-    'I know where your cursor is. It is my only party trick.',
+    'I know where your cursor is. Click me and I will pounce at it.',
     'Free models do the heavy lifting; I supervise.',
     'If a reply is long, use the copy button at the top of it.',
     'A clean slate is one New chat away.',
@@ -7488,6 +7501,36 @@
     'Good news: the error message is clearer than my handwriting.',
     'If it compiles, ship it. Wait, no. Preview first.',
   ];
+  const TOUR_STOPS = [
+    {
+      selectors: ['#newChatBtn', '#clearBtn'],
+      tip: 'New starts a clean chat. Your saved chats stay in the panel, so start fresh whenever you like.',
+    },
+    {
+      selectors: ['#modelBtn'],
+      tip: 'This is the model picker. Every model inside is free; press Ctrl + M to open it.',
+    },
+    {
+      selectors: ['#input'],
+      tip: 'This is where we chat. Type here and press Enter to send; Shift + Enter adds a line.',
+    },
+    {
+      selectors: ['#modeBuild'],
+      tip: 'Plan maps the work. Build is where I make files; switch here when you are ready to build.',
+    },
+    {
+      selectors: ['#quickPreview'],
+      tip: 'Preview opens what we made. The rail next to it holds Files, Preview and Health.',
+    },
+    {
+      selectors: ['#railBtn'],
+      tip: 'The rail lives here: Files, Secrets, GitHub, Preview and Health.',
+    },
+    {
+      selectors: ['#settingsBtn'],
+      tip: 'Settings holds your key, workspace and my own switch. This is the gear.',
+    },
+  ];
   const FUNNY_CHANCE = 0.3;
 
   const REDUCE_MOTION =
@@ -7507,6 +7550,22 @@
     }
     .chatty[hidden] { display: none; }
     .chatty.is-in { opacity: 1; transform: translate(0, 0) scale(1); }
+    .chatty.is-in.is-wandering {
+      opacity: .12;
+      transform: translateY(8px) scale(.92);
+    }
+    .chatty.is-in.is-wandering .chatty-pet { pointer-events: none; }
+    .chatty-spot {
+      position: fixed;
+      z-index: 45;
+      pointer-events: none;
+      border: 1.5px dashed var(--accent, #f0f0f0);
+      border-radius: 10px;
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    .chatty-spot.is-on { opacity: .68; }
+    .chatty-spot[hidden] { display: none; }
     .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); }
     .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); }
     .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh); }
@@ -7525,6 +7584,7 @@
       color: inherit;
       cursor: pointer;
       pointer-events: auto;
+      transform-origin: 50% 100%;
       -webkit-tap-highlight-color: transparent;
       filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .30));
       transition: filter .22s ease;
@@ -7555,9 +7615,10 @@
     .chatty.is-in .chatty-head { animation: chatty-head 10.6s ease-in-out infinite; }
     .chatty.is-in .chatty-paw-left { animation: chatty-paw 7.8s ease-in-out infinite; }
     .chatty.is-in .chatty-paw-right { animation: chatty-paw 9.2s ease-in-out 2.1s infinite; }
-    .chatty.is-in .chatty-pet.chatty-poke { animation: chatty-poke .32s ease-out; }
+    .chatty.is-in .chatty-pet.chatty-pounce { animation: chatty-pounce .62s cubic-bezier(.2,.8,.2,1); }
     .chatty.is-in .chatty-pet.chatty-spin { animation: chatty-spin .82s cubic-bezier(.2,.8,.2,1); }
-    .chatty-pet.chatty-poke { animation: chatty-poke .32s ease-out; }
+    .chatty-pet.chatty-pounce { animation: chatty-pounce .62s cubic-bezier(.2,.8,.2,1); }
+    .chatty.is-in.is-winking .chatty-eye-right { animation: chatty-wink .58s ease; }
     .chatty-iris { transition: transform .18s ease-out; }
     .chatty-eye { transform-box: fill-box; transform-origin: center; }
     .chatty-ear { transform-box: fill-box; transform-origin: 50% 100%; }
@@ -7597,6 +7658,20 @@
       border-bottom: 1px solid var(--line-2, #3f3f3f);
       transform: rotate(45deg);
     }
+    .chatty[data-bubble="below"] .chatty-bubble {
+      top: calc(100% + 10px);
+      bottom: auto;
+    }
+    .chatty[data-bubble="below"] .chatty-bubble::after {
+      top: -5px;
+      bottom: auto;
+      border-right: 0;
+      border-bottom: 0;
+      border-top: 1px solid var(--line-2, #3f3f3f);
+      border-left: 1px solid var(--line-2, #3f3f3f);
+    }
+    .chatty[data-bubble-side="left"] .chatty-bubble { right: auto; left: 0; }
+    .chatty[data-bubble-side="left"] .chatty-bubble::after { right: auto; left: 18px; }
     .chatty[data-pos="bl"] .chatty-bubble,
     .chatty[data-pos="lm"] .chatty-bubble { right: auto; left: 0; }
     .chatty[data-pos="bl"] .chatty-bubble::after,
@@ -7611,6 +7686,36 @@
       text-transform: uppercase;
     }
     .chatty-text { display: block; color: var(--muted, #b3b3b3); }
+    .chatty-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .chatty-actions[hidden] { display: none; }
+    .chatty-action {
+      min-height: 26px;
+      padding: 4px 8px;
+      border: 1px solid var(--line-2, #3f3f3f);
+      border-radius: 999px;
+      background: var(--surface-3, #262626);
+      box-shadow: none;
+      color: var(--text, #e8e8e8);
+      font: 600 11px/1.2 "Segoe UI", system-ui, -apple-system, sans-serif;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .chatty-action:hover {
+      background: var(--surface-2, #1d1d1d);
+      border-color: var(--line-2, #3f3f3f);
+    }
+    .chatty-action.primary {
+      border-color: transparent;
+      background: var(--accent, #f0f0f0);
+      color: var(--accent-ink, #101010);
+    }
+    .chatty-action.primary:hover { filter: brightness(1.06); }
+    .chatty-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .chatty-close {
       position: absolute;
       top: 3px;
@@ -7651,11 +7756,13 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-4px); }
     }
-    @keyframes chatty-poke {
-      0% { transform: scale(1) rotate(0); }
-      35% { transform: scale(1.06) rotate(-4deg); }
-      70% { transform: scale(.98) rotate(3deg); }
-      100% { transform: scale(1) rotate(0); }
+    @keyframes chatty-pounce {
+      0% { transform: translateY(0) scale(1) rotate(0); }
+      18% { transform: translateY(4px) scale(1.06, .92) rotate(-1.5deg); }
+      42% { transform: translateY(-16px) scale(.95, 1.06) rotate(3deg); }
+      58% { transform: translateY(-9px) scale(1.01, .99) rotate(-2deg); }
+      76% { transform: translateY(3px) scale(1.04, .96) rotate(1deg); }
+      100% { transform: translateY(0) scale(1) rotate(0); }
     }
     @keyframes chatty-tip-in {
       from { opacity: 0; transform: translateY(4px) scale(.97); }
@@ -7664,6 +7771,10 @@
     @keyframes chatty-blink {
       0%, 92%, 100% { transform: scaleY(1); }
       95%, 97% { transform: scaleY(.08); }
+    }
+    @keyframes chatty-wink {
+      0%, 100% { transform: scaleY(1); }
+      35%, 68% { transform: scaleY(.04); }
     }
     @keyframes chatty-tail {
       0%, 55%, 100% { transform: rotate(0deg); }
@@ -7678,10 +7789,10 @@
       95% { transform: rotate(0deg); }
     }
     @keyframes chatty-head {
-      0%, 70%, 100% { transform: rotate(0deg); }
-      75% { transform: rotate(-2.2deg); }
-      81% { transform: rotate(1.4deg); }
-      87% { transform: rotate(0deg); }
+      0%, 70%, 100% { transform: rotate(var(--chatty-head-tilt, 0deg)); }
+      75% { transform: rotate(calc(var(--chatty-head-tilt, 0deg) - 2.2deg)); }
+      81% { transform: rotate(calc(var(--chatty-head-tilt, 0deg) + 1.4deg)); }
+      87% { transform: rotate(var(--chatty-head-tilt, 0deg)); }
     }
     @keyframes chatty-paw {
       0%, 82%, 100% { transform: translateY(0); }
@@ -7709,6 +7820,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .chatty, .chatty-art, .chatty-iris, .chatty-bubble { transition: none; }
+      .chatty-spot { transition: none; }
       .chatty.is-in .chatty-pet,
       .chatty.is-in .chatty-eye,
       .chatty.is-in .chatty-tail,
@@ -7717,10 +7829,12 @@
       .chatty.is-in .chatty-head,
       .chatty.is-in .chatty-paw-left,
       .chatty.is-in .chatty-paw-right,
+      .chatty.is-in .chatty-pet.chatty-pounce,
       .chatty.is-in .chatty-pet.chatty-spin,
+      .chatty.is-in.is-winking .chatty-eye-right,
       .chatty-heart { animation: none; }
       .chatty-heart { display: none; }
-      .chatty-pet.chatty-poke { animation: none; }
+      .chatty-pet.chatty-pounce { animation: none; }
     }
   `;
 
@@ -7790,7 +7904,7 @@
           <circle cx="86" cy="111" r="1.6" fill="#fff" opacity=".65"/>
         </g>
       </g>
-      <g class="chatty-eye">
+      <g class="chatty-eye chatty-eye-right">
         <path d="M157 104q-17-17-37-3 7 20 27 19 10-1 10-16z" fill="#fff6e3"/>
         <path d="M157 104q-17-17-37-3" fill="none" stroke="#09090f" stroke-width="5" stroke-linecap="round"/>
         <g class="chatty-iris" data-eye="right">
@@ -7819,17 +7933,31 @@
   let petNode = null;
   let bubbleNode = null;
   let textNode = null;
+  let labelNode = null;
+  let actionsNode = null;
   let appearTimer = 0;
   let hideTimer = 0;
   let tipTimer = 0;
-  let pokeTimer = 0;
+  let pounceTimer = 0;
   let spinTimer = 0;
+  let winkTimer = 0;
+  let wanderTimer = 0;
+  let moveTimer = 0;
   let raf = 0;
   let lastTip = -1;
   let lastJoke = -1;
   let lastWasFunny = false;
+  let lastWink = 0;
+  let wanderCount = 0;
   let lastPosition = '';
   let pointer = null;
+  let audioContext = null;
+  let lastReadyChime = 0;
+  let spotNode = null;
+  let tourCursor = 0;
+  let tourTarget = null;
+  let tourStep = -1;
+  let tourBusy = false;
 
   function readFlag(key, fallback) {
     try {
@@ -7845,6 +7973,49 @@
       localStorage.setItem(key, value);
     } catch {
       /* a private window may refuse storage; Chatty still works for this page */
+    }
+  }
+
+  function unlockAudio() {
+    if (audioContext) {
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+      return;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      audioContext = new Ctx();
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    } catch {
+      audioContext = null;
+    }
+  }
+
+  // One quiet note when a finished answer means the composer is ready again.
+  function playReadyChime() {
+    if (!audioContext) return;
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(playReadyChime).catch(() => {});
+      return;
+    }
+    if (audioContext.state !== 'running') return;
+    const now = Date.now();
+    if (now - lastReadyChime < 700) return;
+    lastReadyChime = now;
+    try {
+      const start = audioContext.currentTime;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(523.25, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.018, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.23);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.25);
+    } catch {
+      /* Audio is optional; a device problem must not break a finished turn. */
     }
   }
 
@@ -7888,7 +8059,99 @@
     return funny ? pickJoke() : pickTip();
   }
 
+  function clearTourPlacement() {
+    if (!rootNode) return;
+    rootNode.style.left = '';
+    rootNode.style.right = '';
+    rootNode.style.top = '';
+    rootNode.style.bottom = '';
+    delete rootNode.dataset.bubble;
+    delete rootNode.dataset.bubbleSide;
+  }
+
+  function visibleTarget(target) {
+    if (!target) return false;
+    const rect = target.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    if (rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) return false;
+    const style = getComputedStyle(target);
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  function nextTourStop() {
+    for (let i = 0; i < TOUR_STOPS.length; i += 1) {
+      const stop = TOUR_STOPS[tourCursor % TOUR_STOPS.length];
+      tourCursor += 1;
+      for (const selector of stop.selectors) {
+        const target = document.querySelector(selector);
+        if (visibleTarget(target)) return { stop, target };
+      }
+    }
+    return null;
+  }
+
+  function findTourTarget(start = 0) {
+    for (let i = Math.max(0, start); i < TOUR_STOPS.length; i += 1) {
+      const stop = TOUR_STOPS[i];
+      for (const selector of stop.selectors) {
+        const target = document.querySelector(selector);
+        if (visibleTarget(target)) return { stop, target, index: i };
+      }
+    }
+    return null;
+  }
+
+  function tourActions(index) {
+    const last = index >= TOUR_STOPS.length - 1;
+    return [
+      { action: 'next', label: last ? 'Finish tour' : 'Next stop', primary: true },
+      { action: 'skip', label: 'End tour' },
+    ];
+  }
+
+  function placeNear(target) {
+    const rect = target.getBoundingClientRect();
+    const box = petNode.getBoundingClientRect();
+    const width = box.width || 84;
+    const height = box.height || width * 1.14;
+    const gap = 10;
+    const below = rect.bottom + gap;
+    const above = rect.top - height - gap;
+    const y = below + height <= innerHeight - 8 ? below : Math.max(8, above);
+    const x = Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
+    rootNode.dataset.pos = 'tour';
+    rootNode.style.left = `${Math.round(x)}px`;
+    rootNode.style.top = `${Math.round(y)}px`;
+    rootNode.style.right = 'auto';
+    rootNode.style.bottom = 'auto';
+    rootNode.dataset.bubble = y > rect.bottom ? 'below' : 'above';
+    rootNode.dataset.bubbleSide = x + width / 2 < innerWidth / 2 ? 'left' : 'right';
+  }
+
+  function showSpotlight(target) {
+    if (!spotNode || !visibleTarget(target)) {
+      hideSpotlight();
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    tourTarget = target;
+    spotNode.style.left = `${Math.max(4, Math.round(rect.left - 4))}px`;
+    spotNode.style.top = `${Math.max(4, Math.round(rect.top - 4))}px`;
+    spotNode.style.width = `${Math.max(16, Math.round(rect.width + 8))}px`;
+    spotNode.style.height = `${Math.max(16, Math.round(rect.height + 8))}px`;
+    spotNode.hidden = false;
+    spotNode.classList.add('is-on');
+  }
+
+  function hideSpotlight() {
+    tourTarget = null;
+    if (!spotNode) return;
+    spotNode.classList.remove('is-on');
+    spotNode.hidden = true;
+  }
+
   function choosePosition() {
+    clearTourPlacement();
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
     rootNode.dataset.pos = lastPosition;
@@ -7896,10 +8159,25 @@
 
   function resetLook() {
     if (!rootNode) return;
+    clearTimeout(winkTimer);
+    rootNode.classList.remove('is-winking');
     rootNode.style.setProperty('--chatty-tilt', '0deg');
+    rootNode.style.setProperty('--chatty-head-tilt', '0deg');
     for (const iris of rootNode.querySelectorAll('.chatty-iris')) {
       iris.style.transform = 'translate(0, 0)';
     }
+  }
+
+  function maybeWink(dx, dy) {
+    if (REDUCE_MOTION || !rootNode || rootNode.classList.contains('is-winking')) return;
+    if (Math.abs(dx) > 0.8 || Math.abs(dy) > 0.8) return;
+    const now = Date.now();
+    if (now - lastWink < 8000) return;
+    if (Math.random() > 0.012) return;
+    lastWink = now;
+    rootNode.classList.add('is-winking');
+    clearTimeout(winkTimer);
+    winkTimer = setTimeout(() => rootNode.classList.remove('is-winking'), 620);
   }
 
   function lookAt() {
@@ -7908,23 +8186,54 @@
     if (!rect.width || !rect.height) return;
     const dx = Math.max(-1, Math.min(1, (pointer.x - (rect.left + rect.width / 2)) / (rect.width * 0.72)));
     const dy = Math.max(-1, Math.min(1, (pointer.y - (rect.top + rect.height / 2)) / (rect.height * 0.72)));
-    rootNode.style.setProperty('--chatty-tilt', `${(dx * 2.2).toFixed(2)}deg`);
+    rootNode.style.setProperty('--chatty-tilt', `${(dx * 1.1).toFixed(2)}deg`);
+    rootNode.style.setProperty('--chatty-head-tilt', `${(dx * 4.6).toFixed(2)}deg`);
     for (const iris of rootNode.querySelectorAll('.chatty-iris')) {
-      iris.style.transform = `translate(${(dx * 2.2).toFixed(2)}px, ${(dy * 1.4).toFixed(2)}px)`;
+      iris.style.transform = `translate(${(dx * 3).toFixed(2)}px, ${(dy * 1.8).toFixed(2)}px)`;
+    }
+    maybeWink(dx, dy);
+  }
+
+  function pouncePet() {
+    if (!petNode || REDUCE_MOTION) return;
+    petNode.classList.remove('chatty-pounce');
+    void petNode.offsetWidth;
+    petNode.classList.add('chatty-pounce');
+    clearTimeout(pounceTimer);
+    pounceTimer = setTimeout(() => petNode.classList.remove('chatty-pounce'), 680);
+  }
+
+  function renderActions(actions) {
+    if (!actionsNode) return;
+    actionsNode.replaceChildren();
+    const list = Array.isArray(actions) ? actions : [];
+    actionsNode.hidden = !list.length;
+    for (const item of list) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chatty-action' + (item.primary ? ' primary' : '');
+      button.dataset.chattyAction = item.action;
+      button.textContent = item.label;
+      actionsNode.append(button);
     }
   }
 
-  function showTip(message) {
+  function showTip(message, duration = 13000, actions = null, label = 'Chatty') {
     if (!bubbleNode) return;
+    hideSpotlight();
     textNode.textContent = message;
+    if (labelNode) labelNode.textContent = label;
+    renderActions(actions);
     bubbleNode.hidden = false;
     clearTimeout(tipTimer);
-    tipTimer = setTimeout(hideTip, 13000);
+    if (duration > 0) tipTimer = setTimeout(hideTip, duration);
   }
 
   function hideTip() {
     clearTimeout(tipTimer);
     if (bubbleNode) bubbleNode.hidden = true;
+    renderActions(null);
+    hideSpotlight();
   }
 
   function armHide(delay) {
@@ -7932,28 +8241,196 @@
     hideTimer = setTimeout(hide, delay);
   }
 
+  function scheduleWander(delay) {
+    clearTimeout(wanderTimer);
+    if (!enabled) return;
+    wanderTimer = setTimeout(
+      wander,
+      delay || WANDER_MIN_MS + Math.random() * (WANDER_MAX_MS - WANDER_MIN_MS),
+    );
+  }
+
+  function wander() {
+    wanderTimer = 0;
+    if (!enabled || !rootNode || rootNode.hidden || wanderCount >= TOUR_LIMIT) return;
+    if (isBlocked()) {
+      hide();
+      return;
+    }
+    if (isEditable(document.activeElement)) {
+      scheduleWander(6000);
+      return;
+    }
+    if (bubbleNode && !bubbleNode.hidden) {
+      scheduleWander(4000);
+      return;
+    }
+    wanderCount += 1;
+    const tour = nextTourStop();
+    const message = tour ? tour.stop.tip : pickTip();
+    const arrive = () => {
+      moveTimer = 0;
+      if (!enabled || !rootNode || rootNode.hidden) return;
+      if (isBlocked()) {
+        hide();
+        return;
+      }
+      if (tour && visibleTarget(tour.target)) {
+        placeNear(tour.target);
+        showTip(message, 10000);
+        showSpotlight(tour.target);
+      } else {
+        choosePosition();
+        hideSpotlight();
+        showTip(message);
+      }
+      rootNode.classList.remove('is-wandering');
+      if (!REDUCE_MOTION) {
+        petNode.classList.remove('chatty-pounce');
+        void petNode.offsetWidth;
+        petNode.classList.add('chatty-pounce');
+        clearTimeout(pounceTimer);
+        pounceTimer = setTimeout(() => petNode.classList.remove('chatty-pounce'), 680);
+      }
+      armHide(wanderCount < TOUR_LIMIT ? 30000 : 15000);
+      if (wanderCount < TOUR_LIMIT) scheduleWander();
+    };
+    if (REDUCE_MOTION) {
+      arrive();
+      return;
+    }
+    hideTip();
+    rootNode.classList.add('is-wandering');
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(arrive, 240);
+  }
+
+  function startTour() {
+    if (!enabled || !rootNode || isBlocked()) return;
+    clearTimeout(appearTimer);
+    clearTimeout(hideTimer);
+    clearTimeout(wanderTimer);
+    clearTimeout(moveTimer);
+    writeFlag(SEEN_KEY, '1');
+    wanderCount = TOUR_LIMIT;
+    tourStep = -1;
+    tourBusy = false;
+    if (rootNode.hidden) {
+      choosePosition();
+      rootNode.hidden = false;
+      requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    }
+    showTourStep(0);
+  }
+
+  function showTourStep(start) {
+    if (!enabled || !rootNode || rootNode.hidden) return;
+    const found = findTourTarget(start);
+    if (!found) {
+      finishTour();
+      return;
+    }
+    tourStep = found.index;
+    tourBusy = true;
+    hideTip();
+    clearTimeout(hideTimer);
+    clearTimeout(wanderTimer);
+    const arrive = () => {
+      moveTimer = 0;
+      if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+      if (!visibleTarget(found.target)) {
+        tourBusy = false;
+        rootNode.classList.remove('is-wandering');
+        showTourStep(found.index + 1);
+        return;
+      }
+      placeNear(found.target);
+      showTip(
+        found.stop.tip,
+        0,
+        tourActions(found.index),
+        `Tour ${found.index + 1}/${TOUR_STOPS.length}`,
+      );
+      showSpotlight(found.target);
+      rootNode.classList.remove('is-wandering');
+      pouncePet();
+      tourBusy = false;
+      armHide(180000);
+    };
+    if (REDUCE_MOTION) {
+      arrive();
+      return;
+    }
+    rootNode.classList.add('is-wandering');
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(arrive, 240);
+  }
+
+  function advanceTour() {
+    if (!enabled || tourStep < 0 || tourBusy) return;
+    if (tourStep >= TOUR_STOPS.length - 1) {
+      finishTour();
+      return;
+    }
+    showTourStep(tourStep + 1);
+  }
+
+  function finishTour() {
+    tourStep = -1;
+    tourBusy = false;
+    writeFlag(TOUR_KEY, '1');
+    writeFlag(SEEN_KEY, '1');
+    wanderCount = TOUR_LIMIT;
+    hideSpotlight();
+    showTip(
+      "That's the tour! You know where everything lives now. Click me any time for a tip, a joke, or a pounce.",
+      16000,
+    );
+    spawnHeart(3);
+    armHide(28000);
+  }
+
+  function abandonTour() {
+    tourStep = -1;
+    tourBusy = false;
+    writeFlag(TOUR_KEY, '1');
+    writeFlag(SEEN_KEY, '1');
+    if (labelNode) labelNode.textContent = 'Chatty';
+    renderActions(null);
+    hide(60000);
+  }
+
   function show() {
     if (!enabled || isBlocked()) {
       if (enabled) schedule(22000);
       return;
     }
+    if (tourStep >= 0) return;
     clearTimeout(appearTimer);
     if (!rootNode) return;
     if (rootNode.hidden) {
+      wanderCount = 0;
       choosePosition();
       rootNode.hidden = false;
     }
     requestAnimationFrame(() => rootNode.classList.add('is-in'));
-    armHide(19000);
+    armHide(26000);
+    const tourDone = readFlag(TOUR_KEY, '') === '1';
     if (isEditable(document.activeElement)) {
       hideTip();
-    } else if (readFlag(SEEN_KEY, '') !== '1') {
-      writeFlag(SEEN_KEY, '1');
-      showTip(WELCOME);
-      armHide(24000);
+    } else if (!tourDone) {
+      if (readFlag(SEEN_KEY, '') !== '1') {
+        writeFlag(SEEN_KEY, '1');
+        showTip(WELCOME, 24000, WELCOME_ACTIONS);
+        armHide(36000);
+      } else {
+        showTip(TOUR_INVITE, 20000, WELCOME_ACTIONS);
+        armHide(28000);
+      }
     } else if (Math.random() < 0.58) {
       showTip(pickMessage());
     }
+    if (tourDone) scheduleWander();
     if (pointer) lookAt();
   }
 
@@ -7961,11 +8438,22 @@
     clearTimeout(appearTimer);
     clearTimeout(hideTimer);
     clearTimeout(tipTimer);
+    clearTimeout(pounceTimer);
     clearTimeout(spinTimer);
+    clearTimeout(winkTimer);
+    clearTimeout(wanderTimer);
+    clearTimeout(moveTimer);
     if (!rootNode) return;
     if (rootNode.contains(document.activeElement)) document.activeElement.blur();
+    if (tourStep >= 0 || tourBusy) {
+      tourStep = -1;
+      tourBusy = false;
+      if (labelNode) labelNode.textContent = 'Chatty';
+    }
+    renderActions(null);
     hideTip();
-    petNode.classList.remove('chatty-spin');
+    petNode.classList.remove('chatty-spin', 'chatty-pounce');
+    rootNode.classList.remove('is-winking', 'is-wandering');
     rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
     rootNode.classList.remove('is-in');
     setTimeout(() => {
@@ -8017,9 +8505,17 @@
     if (!enabled) {
       clearTimeout(appearTimer);
       clearTimeout(hideTimer);
+      clearTimeout(pounceTimer);
       clearTimeout(spinTimer);
+      clearTimeout(winkTimer);
+      clearTimeout(wanderTimer);
+      clearTimeout(moveTimer);
+      tourStep = -1;
+      tourBusy = false;
+      renderActions(null);
       hideTip();
-      petNode.classList.remove('chatty-spin');
+      petNode.classList.remove('chatty-spin', 'chatty-pounce');
+      rootNode.classList.remove('is-winking', 'is-wandering');
       rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
       rootNode.classList.remove('is-in');
       rootNode.hidden = true;
@@ -8035,19 +8531,40 @@
     style.textContent = STYLE;
     document.head.append(style);
 
+    // Browsers only allow audio after a user gesture. Unlock once here so the
+    // completion chime can play later, even if Chatty herself is switched off.
+    document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
+    window.addEventListener('resize', () => {
+      if (!tourTarget || !rootNode || rootNode.hidden || rootNode.dataset.pos !== 'tour') return;
+      if (!visibleTarget(tourTarget)) {
+        hideSpotlight();
+        return;
+      }
+      placeNear(tourTarget);
+      showSpotlight(tourTarget);
+    });
+
     rootNode = document.createElement('aside');
     rootNode.id = 'chatty';
     rootNode.className = 'chatty';
     rootNode.dataset.pos = 'br';
     rootNode.hidden = true;
     rootNode.setAttribute('aria-label', 'Chatty');
+    spotNode = document.createElement('div');
+    spotNode.className = 'chatty-spot';
+    spotNode.hidden = true;
+    spotNode.setAttribute('aria-hidden', 'true');
+    document.body.append(spotNode);
+
     rootNode.innerHTML = `
-      <div class="chatty-bubble" role="status" aria-live="polite" title="Click to close this tip and let Chatty wander off." hidden>
+      <div class="chatty-bubble" role="status" aria-live="polite" title="Chatty tip. Click to continue, or use × to close." hidden>
         <button class="chatty-close" type="button" aria-label="Close tip and hide Chatty for a while" title="Close tip and hide Chatty for a while">×</button>
         <span class="chatty-label">Chatty</span>
         <span class="chatty-text"></span>
+        <div class="chatty-actions" role="group" aria-label="Chatty actions" hidden></div>
       </div>
-      <button class="chatty-pet" type="button" tabindex="-1" aria-label="Chatty the Freeway cat. Click for a tip; double-click for a trick.">
+      <button class="chatty-pet" type="button" tabindex="-1" aria-label="Chatty the Freeway cat. Click to pounce and get a tip; double-click for a trick.">
         ${ART}
       </button>
     `;
@@ -8056,30 +8573,49 @@
     petNode = rootNode.querySelector('.chatty-pet');
     bubbleNode = rootNode.querySelector('.chatty-bubble');
     textNode = rootNode.querySelector('.chatty-text');
+    labelNode = rootNode.querySelector('.chatty-label');
+    actionsNode = rootNode.querySelector('.chatty-actions');
     rootNode.querySelector('.chatty-close').addEventListener('click', (event) => {
       event.stopPropagation();
       dismiss();
     });
+    actionsNode.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-chatty-action]');
+      if (!button) return;
+      event.stopPropagation();
+      const action = button.dataset.chattyAction;
+      if (action === 'tour') startTour();
+      else if (action === 'next') advanceTour();
+      else if (action === 'skip') abandonTour();
+      else if (action === 'later') dismiss();
+    });
     bubbleNode.addEventListener('click', (event) => {
       if (!enabled) return;
       event.stopPropagation();
+      if (tourStep >= 0) {
+        advanceTour();
+        return;
+      }
       dismiss();
     });
-    petNode.addEventListener('click', () => {
-      if (!enabled) return;
-      if (bubbleNode.hidden) showTip(pickMessage());
-      else hideTip();
-      petNode.classList.remove('chatty-poke');
-      void petNode.offsetWidth;
-      petNode.classList.add('chatty-poke');
-      clearTimeout(pokeTimer);
-      pokeTimer = setTimeout(() => petNode.classList.remove('chatty-poke'), 360);
+    petNode.addEventListener('click', (event) => {
+      if (!enabled || event.detail > 1) return;
+      if (tourStep >= 0) {
+        advanceTour();
+        return;
+      }
+      if (bubbleNode.hidden) {
+        if (readFlag(TOUR_KEY, '') === '1') showTip(pickMessage());
+        else showTip(WELCOME, 24000, WELCOME_ACTIONS);
+      } else hideTip();
+      pouncePet();
       spawnHeart();
-      armHide(19000);
+      armHide(26000);
+      if (readFlag(TOUR_KEY, '') === '1') scheduleWander();
     });
     petNode.addEventListener('dblclick', (event) => {
       event.preventDefault();
-      if (!enabled || REDUCE_MOTION) return;
+      if (!enabled || REDUCE_MOTION || tourStep >= 0) return;
       petNode.classList.remove('chatty-spin');
       void petNode.offsetWidth;
       petNode.classList.add('chatty-spin');
@@ -8087,7 +8623,8 @@
       spinTimer = setTimeout(() => petNode.classList.remove('chatty-spin'), 900);
       spawnHeart(3);
       showTip('Wheee! That was my whole trick. I hope it was worth it.');
-      armHide(16000);
+      armHide(26000);
+      if (readFlag(TOUR_KEY, '') === '1') scheduleWander();
     });
 
     document.addEventListener(
@@ -8129,19 +8666,24 @@
       true,
     );
     document.addEventListener('focusin', (event) => {
-      if (isEditable(event.target)) hideTip();
+      if (!isEditable(event.target)) return;
+      if (tourStep >= 0) {
+        abandonTour();
+        return;
+      }
+      hideTip();
     });
     document.addEventListener(
       'wheel',
       () => {
-        if (bubbleNode && !bubbleNode.hidden) hideTip();
+        if (tourStep < 0 && bubbleNode && !bubbleNode.hidden) hideTip();
       },
       { passive: true },
     );
     document.addEventListener(
       'touchmove',
       () => {
-        if (bubbleNode && !bubbleNode.hidden) hideTip();
+        if (tourStep < 0 && bubbleNode && !bubbleNode.hidden) hideTip();
       },
       { passive: true },
     );
@@ -8151,8 +8693,13 @@
       if (enabled) schedule(1200);
       else {
         clearTimeout(appearTimer);
+        clearTimeout(wanderTimer);
+        clearTimeout(moveTimer);
+        tourStep = -1;
+        tourBusy = false;
+        renderActions(null);
         hideTip();
-        rootNode.classList.remove('is-in');
+        rootNode.classList.remove('is-in', 'is-wandering');
         rootNode.hidden = true;
       }
     });
@@ -8165,6 +8712,7 @@
     setEnabled,
     show: () => show(),
     hide,
+    ready: playReadyChime,
     tip: (message) => {
       if (!enabled) return;
       if (!rootNode || rootNode.hidden) show();

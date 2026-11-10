@@ -8,13 +8,13 @@ preview is a bug.
 
 | Place | Field | Format |
 | --- | --- | --- |
-| `app.mjs` | `VERSION` | `2.23.2` |
-| `package.json` | `version` | `2.23.2` |
-| `cloud/worker.mjs` | `VERSION` | `2.23.2-cloud` |
-| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.23.2` |
-| `VERSIONS.md` | table row + section | `2.23.2` |
-| `CURRENT-LINK.txt` | app + zip line | `2.23.2` |
-| ZIP | `dist/Freeway-<version>.zip` | `2.23.2` |
+| `app.mjs` | `VERSION` | `2.24.0` |
+| `package.json` | `version` | `2.24.0` |
+| `cloud/worker.mjs` | `VERSION` | `2.24.0-cloud` |
+| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.24.0` |
+| `VERSIONS.md` | table row + section | `2.24.0` |
+| `CURRENT-LINK.txt` | app + zip line | `2.24.0` |
+| ZIP | `dist/Freeway-<version>.zip` | `2.24.0` |
 
 The cloud build carries the app version with a `-cloud` suffix, so app and site can never
 drift. Extra cloud-only deploys during a debug session use `-cloud.2`, `-cloud.3`, … until the
@@ -24,7 +24,7 @@ next real release collapses them back to `<version>-cloud`.
 
 ```bash
 cd freeway
-./release.sh 2.23.2
+./release.sh 2.24.0
 ```
 
 It rewrites all three version strings, rebuilds `freeway.mjs` (the CLI/SEA bundle),
@@ -74,11 +74,11 @@ the files back from GitHub and check them against the published manifest:
 
 ```bash
 cd freeway
-./verify-release.sh 2.23.2
+./verify-release.sh 2.24.0
 ```
 
-The script downloads every asset from `v2.23.2` into a temporary directory, checks that
-both `Freeway-2.23.2.zip` and `Freeway-2.23.2-windows.zip` are present and listed in
+The script downloads every asset from `v2.24.0` into a temporary directory, checks that
+both `Freeway-2.24.0.zip` and `Freeway-2.24.0-windows.zip` are present and listed in
 `SHA256SUMS`, runs `sha256sum -c`, and exits non-zero on a missing asset, download failure
 or checksum mismatch. It uses the authenticated `gh` CLI, so no token is stored in the
 script. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a

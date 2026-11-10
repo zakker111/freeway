@@ -2,11 +2,16 @@
 
 Freeway is a local chat app for **free** models across OpenRouter, Groq, Gemini,
 Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Cloudflare Workers AI, OVHcloud and local
-Ollama. A tiny black cat named **Chatty** lives at the edge of the page: it offers a short
-tip, an occasional joke and a double-click trick. It introduces itself as **Chatty, the
-Freeway cat**, then settles into a quiet corner. Click it for another tip, close its bubble
-with the ×, Escape or a click, and switch it off under **Settings → Show Chatty
-companion**. It never sees chats, keys or provider requests.
+Ollama. A tiny black cat named **Chatty** lives at the edge of the page: she offers a short
+tip, an occasional joke, a pounce and a double-click trick. On the first visit she offers a
+guided walkthrough of New, the model picker, the composer, Plan/Build, Preview, the rail and
+Settings: choose **Show me around**, then click **Next stop** to follow her. After that she
+keeps you company, highlights controls on later visits, and shares another tip when clicked.
+Close her bubble with ×, Escape or a click, and switch her off under
+**Settings → Show Chatty companion**. A soft single-note chime marks each finished answer
+and signals that the composer is ready for the next message; it stays silent after errors or
+a stopped turn and is independent of Chatty's visibility switch. She never sees chats, keys
+or provider requests.
 
 When the model you picked is
 rate-limited, it retries the next free model on the same provider automatically and tells
@@ -192,7 +197,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.23.2 — self-check
+Freeway 2.24.0 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable
@@ -219,7 +224,7 @@ Everything needed to start is in place. Run it without --doctor.
 | 10 | Settings → allow commands, allowlist `node`, then ask it to run `node -v` | Allow card, then output streamed into the answer |
 | 11 | Open the **Status** tab after a few messages | Attempts, latencies and any cooling-down model are listed |
 | 12 | Header → quit | The page says the app stopped and the console window ends |
-| 13 | Find Chatty at the edge of the page and click it | A tip or joke appears; ×, Escape or a click on the bubble dismisses it, and Settings can switch it off |
+| 13 | Find Chatty at the edge of the page; on a first visit choose **Show me around** | The spotlight tour points out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off. |
 
 ### If something goes wrong
 

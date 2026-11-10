@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.24.0 | 2026-11-10 | Chatty's first-run tour, a livelier cat, and one soft ready chime |
 | 2.23.2 | 2026-11-10 | Chatty gains 15 more useful tips, for 46 total |
 | 2.23.1 | 2026-11-10 | Chatty greets visitors as the Freeway cat; white animated logo confirmed |
 | 2.23.0 | 2026-11-10 | Chatty companion: tips, jokes, animations and a quiet dismiss |
@@ -169,6 +170,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.24.0 — 2026-11-10
+
+- **A first-run walkthrough for Chatty.** The first visit now offers **Show me around**, a
+  seven-stop spotlight tour of New, the model picker, the composer, Plan/Build, Preview, the
+  rail and Settings. **Next stop** advances, **Finish tour** closes it, and **End tour** opts
+  out; × or Escape only postpones it. Completion is stored locally in
+  `freeway.chatty.tour.v1`.
+- **A softer ready signal.** One 523.25 Hz sine note at low gain now marks a finished answer
+  and says the composer is ready. It has a 700 ms cooldown, stays silent after errors or a
+  stopped turn, and remains available when Chatty's visibility switch is off.
+- **A livelier cat.** Chatty pounces at a click, wanders to a few controls after the tour,
+  winks at the cursor and settles into her corner. Reduced-motion users get the same
+  information without the movement.
+- **Checks.** 336 unit tests (page contracts included), 36 CLI, 29 + 29 simulations and 28
+  cloud checks pass. Desktop and cloud source report 2.24.0; `freeway.mjs` and `freeway.cjs`
+  were rebuilt at 2.24.0 and the cloud Worker at 2.24.0-cloud.
+- **Release state.** Source `main` is 2.24.0; the latest published GitHub release and cloud
+  deployment remain 2.23.2 until a release is requested.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.23.2](https://github.com/zakker111/freeway/releases/tag/v2.23.2).
 
 ## 2.23.2 — 2026-11-10
 
