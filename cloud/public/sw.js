@@ -4,7 +4,7 @@
 // offline. The shell is network-first: a deployment must replace a broken page
 // on the next load instead of serving an old cached copy forever. API calls are
 // never cached.
-const CACHE = 'freeway-shell-v3';
+const CACHE = 'freeway-shell-v4';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-maskable.svg'];
 
 self.addEventListener('install', (event) => {

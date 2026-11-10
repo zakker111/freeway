@@ -48,8 +48,8 @@ At that demo limit the app reports the limit and keeps OVHcloud selected; it doe
 switch the answer to a different provider.
 
 Dark, easy-on-the-eyes interface, no build step, no sign-in, no telemetry. Your API key stays in
-the local server process and is never sent to the browser. The header and empty state carry
-the same speech-bubble mark, with three typing dots and a reduced-motion fallback.
+the local server process and is never sent to the browser. The header and empty state carry the
+same Chatty mark, with a warm off-white outline and a reduced-motion fallback.
 
 ## Secrets and a clean first visit
 
@@ -81,6 +81,8 @@ or newer for the built-in WebSocket; the rest of the app still runs on Node 20.1
 - **Hosted cloud — preview:** <https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page>
 - **Release downloads:** [Freeway 2.23.2](https://github.com/zakker111/freeway/releases/tag/v2.23.2)
 - **Repository:** <https://github.com/zakker111/freeway>
+- **GitHub Pages project page:** ready in [`docs/`](docs/README.md); the publish steps are in that folder.
+
 
 ### Which file do I use?
 

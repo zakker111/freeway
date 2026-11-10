@@ -1238,31 +1238,6 @@
         width: 26px; height: 26px; flex: none; display: block;
         filter: drop-shadow(0 0 8px rgba(255, 255, 255, .2));
       }
-      .logo-tile {
-        fill: #000;
-        stroke: #fff;
-        stroke-width: 12;
-        animation: logo-ring 3.8s ease-in-out infinite;
-      }
-      .logo-bubble {
-        fill: #000;
-        stroke: #fff;
-        stroke-width: 11;
-        stroke-linejoin: round;
-      }
-      .logo-chat {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: logo-chat 4.8s ease-in-out infinite;
-      }
-      .logo-dot {
-        fill: #fff;
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: logo-dot 1.6s ease-in-out infinite;
-      }
-      .logo-dot-2 { animation-delay: .18s; }
-      .logo-dot-3 { animation-delay: .36s; }
       .brand-word {
         display: inline-block;
         font-weight: 700;
@@ -2098,18 +2073,6 @@
         0%, 100% { transform: translateY(0) rotate(0deg); }
         50% { transform: translateY(-5px) rotate(8deg); }
       }
-      @keyframes logo-ring {
-        0%, 100% { stroke-opacity: .55; }
-        50% { stroke-opacity: 1; }
-      }
-      @keyframes logo-chat {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-14px); }
-      }
-      @keyframes logo-dot {
-        0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
-        24% { opacity: 1; transform: translateY(-20px) scale(1); }
-      }
       @keyframes brand-in {
         from { opacity: 0; transform: translateX(-4px); }
         to { opacity: 1; transform: none; }
@@ -2119,14 +2082,6 @@
         50% { background-position: 100% 50%; }
       }
       @media (prefers-reduced-motion: reduce) {
-        .brand-mark .logo-tile,
-        .brand-mark .logo-chat,
-        .empty-mark .logo-tile,
-        .empty-mark .logo-chat,
-        .brand-mark .logo-dot,
-        .empty-mark .logo-dot { animation: none !important; opacity: 1; transform: none; }
-        .brand-mark .logo-tile,
-        .empty-mark .logo-tile { stroke-opacity: 1; }
         .brand-word { animation: none !important; background-position: 50% 50%; }
         .empty-mark { animation: none !important; }
       }
@@ -2179,6 +2134,83 @@
 </style>
   </head>
   <body>
+    <svg class="chatty-logo-defs" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;overflow:hidden"><symbol id="chatty-mark" viewBox="0 0 220 240">
+      <defs>
+        <linearGradient id="logo-chatty-fur" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#353344"/>
+          <stop offset="45%" stop-color="#1b1b27"/>
+          <stop offset="100%" stop-color="#09090e"/>
+        </linearGradient>
+        <linearGradient id="logo-chatty-body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#242331"/>
+          <stop offset="100%" stop-color="#08080d"/>
+        </linearGradient>
+        <linearGradient id="logo-chatty-pink" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff9aaa"/>
+          <stop offset="100%" stop-color="#c95770"/>
+        </linearGradient>
+        <radialGradient id="logo-chatty-red-eye" cx="34%" cy="28%" r="78%">
+          <stop offset="0%" stop-color="#ffabb0"/>
+          <stop offset="38%" stop-color="#ff4055"/>
+          <stop offset="100%" stop-color="#b70726"/>
+        </radialGradient>
+        <radialGradient id="logo-chatty-yellow-eye" cx="34%" cy="28%" r="78%">
+          <stop offset="0%" stop-color="#fffbd0"/>
+          <stop offset="42%" stop-color="#ffd83f"/>
+          <stop offset="100%" stop-color="#d88a00"/>
+        </radialGradient>
+      </defs>
+      <path d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#f4efe3" stroke-width="16" stroke-linecap="round"/>
+      <path d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#101018" stroke-width="12" stroke-linecap="round"/>
+      <ellipse cx="110" cy="190" rx="45" ry="40" fill="url(#logo-chatty-body)" stroke="#f4efe3" stroke-width="2.6"/>
+      <ellipse cx="92" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
+      <ellipse cx="128" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
+      <g fill="none" stroke="#3d3b4c" stroke-width="2.5" stroke-linecap="round" opacity=".7">
+        <path d="M84 218q6 5 12 0M104 222q6 5 12 0M118 218q6 5 12 0M138 222q6 5 12 0"/>
+      </g>
+      <g>
+      <g>
+        <path d="M72 83 46 26l50 28z" fill="url(#logo-chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
+        <path d="M64 72 50 39l34 18z" fill="url(#logo-chatty-pink)" opacity=".82"/>
+      </g>
+      <g>
+        <path d="M148 83 174 26l-50 28z" fill="url(#logo-chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
+        <path d="M156 72 170 39l-34 18z" fill="url(#logo-chatty-pink)" opacity=".82"/>
+      </g>
+      <path d="M110 56c-38 0-54 24-51 53 3 30 23 49 51 49s48-19 51-49c3-29-13-53-51-53z" fill="url(#logo-chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M78 78c20-14 44-14 64 0-18 16-46 16-64 0z" fill="#444253" opacity=".24"/>
+      <g>
+        <path d="M63 104q17-17 37-3-7 20-27 19-10-1-10-16z" fill="#fff6e3"/>
+        <path d="M63 104q17-17 37-3" fill="none" stroke="#09090f" stroke-width="5" stroke-linecap="round"/>
+        <g>
+          <circle cx="82" cy="106" r="12" fill="url(#logo-chatty-red-eye)" stroke="#190b10" stroke-width="2"/>
+          <ellipse cx="82" cy="106" rx="4" ry="10" fill="#09090e"/>
+          <circle cx="78" cy="101" r="3.5" fill="#fff" opacity=".95"/>
+          <circle cx="86" cy="111" r="1.6" fill="#fff" opacity=".65"/>
+        </g>
+      </g>
+      <g>
+        <path d="M157 104q-17-17-37-3 7 20 27 19 10-1 10-16z" fill="#fff6e3"/>
+        <path d="M157 104q-17-17-37-3" fill="none" stroke="#09090f" stroke-width="5" stroke-linecap="round"/>
+        <g>
+          <circle cx="138" cy="106" r="12" fill="url(#logo-chatty-yellow-eye)" stroke="#190b10" stroke-width="2"/>
+          <ellipse cx="138" cy="106" rx="4" ry="10" fill="#09090e"/>
+          <circle cx="134" cy="101" r="3.5" fill="#fff" opacity=".95"/>
+          <circle cx="142" cy="111" r="1.6" fill="#fff" opacity=".65"/>
+        </g>
+      </g>
+      <path d="M104 127q6-5 12 0-1 7-6 9-5-2-6-9z" fill="#ff7f91"/>
+      <path d="M110 136c0 6-6 9-11 6M110 136c0 6 6 9 11 6" fill="none" stroke="#d2b8a4" stroke-width="2.5" stroke-linecap="round"/>
+      <g fill="none" stroke="#fff2d9" stroke-width="2" stroke-linecap="round" opacity=".65">
+        <path d="M64 127c-12-3-23-3-33 0"/>
+        <path d="M64 136c-12-1-22 2-32 7"/>
+        <path d="M156 127c12-3 23-3 33 0"/>
+        <path d="M156 136c12-1 22 2 32 7"/>
+      </g>
+      <path d="M77 158c18 12 48 12 66 0" fill="none" stroke="#ef5265" stroke-width="8" stroke-linecap="round"/>
+      <path d="M110 163l3.5 7 8 1-6 6 1.5 8-7-4-7 4 1.5-8-6-6 8-1z" fill="#ffd65c" stroke="#a96819" stroke-width="1.5" stroke-linejoin="round"/>
+      </g>
+    </symbol></svg>
     <aside class="sidebar" id="sidebar" aria-label="Saved chats">
       <div class="side-head">
         <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
@@ -2193,15 +2225,7 @@
     <header>
       <button id="sideBtn" class="ghost" type="button" title="Saved chats" aria-label="Saved chats">☰ <span class="chats-label">Chats</span></button>
       <div class="brand">
-        <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
-          <rect class="logo-tile" x="6" y="6" width="500" height="500" rx="110" />
-          <g class="logo-chat">
-            <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
-            <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
-            <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
-            <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
-          </g>
-        </svg>
+        <svg class="brand-mark" viewBox="0 0 220 240" aria-hidden="true" focusable="false"><use href="#chatty-mark"></use></svg>
         <span class="brand-word">Freeway</span>
       </div>
       <span class="ver" id="ver">v…</span>
@@ -2321,6 +2345,7 @@
         <div class="row" style="gap:8px;align-items:center">
           <a class="fine" id="previewOpen" href="#" target="_blank" rel="noreferrer" hidden>open in a new tab ↗</a>
           <button class="mini" type="button" id="previewCopy" hidden>copy link</button>
+          <button class="mini" type="button" id="previewFull" hidden>full screen</button>
           <span class="link-scope" id="previewLinkScope" hidden></span>
         </div>
         <iframe id="previewFrame" title="Preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" style="display:none;width:100%;height:58vh;border:1px solid var(--line-2);border-radius:8px;background:#fff"></iframe>
@@ -2338,15 +2363,7 @@
       <div class="wrap" id="thread">
         <div class="empty" id="hello">
           <div class="empty-mark" aria-hidden="true">
-            <svg viewBox="0 0 512 512" focusable="false">
-              <rect class="logo-tile" x="6" y="6" width="500" height="500" rx="110" />
-              <g class="logo-chat">
-                <path class="logo-bubble" d="M136 168h240a24 24 0 0 1 24 24v128a24 24 0 0 1-24 24H232l-72 56v-56h-24a24 24 0 0 1-24-24V192a24 24 0 0 1 24-24z" />
-                <circle class="logo-dot logo-dot-1" cx="196" cy="256" r="15" />
-                <circle class="logo-dot logo-dot-2" cx="256" cy="256" r="15" />
-                <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
-              </g>
-            </svg>
+            <svg viewBox="0 0 220 240" focusable="false" aria-hidden="true"><use href="#chatty-mark"></use></svg>
           </div>
           <h1>Free models. Real tools.</h1>
           <p>Ask anything. If a free model is busy, pick another from the list — every model here is free and the list shows what each one can hold.</p>
@@ -4218,6 +4235,8 @@
         state.previewLink = target ? previewLinkFor(target, true) : page;
         const copy = $('previewCopy');
         if (copy) copy.hidden = !state.previewLink;
+        const full = $('previewFull');
+        if (full) full.hidden = !state.previewLink;
         const open = $('previewOpen');
         if (open) {
           open.hidden = !state.previewLink;
@@ -4349,6 +4368,8 @@
         $('previewOpen').hidden = true;
         const copy = $('previewCopy');
         if (copy) copy.hidden = true;
+        const full = $('previewFull');
+        if (full) full.hidden = true;
         hideMissingPreview();
         setPreviewLink('');
       }
@@ -4366,6 +4387,8 @@
         $('previewOpen').hidden = true;
         const copy = $('previewCopy');
         if (copy) copy.hidden = true;
+        const full = $('previewFull');
+        if (full) full.hidden = true;
         hideMissingPreview();
         setPreviewLink('');
         const box = $('previewError');
@@ -4435,6 +4458,8 @@
         link.hidden = false;
         const copy = $('previewCopy');
         if (copy) copy.hidden = false;
+        const full = $('previewFull');
+        if (full) full.hidden = false;
         dropPreviewPageUrl();
         state.previewLink = url.href;
         state.previewName = '';
@@ -4470,11 +4495,27 @@
         }
       };
 
+      $('previewFull').onclick = () => {
+        const frame = $('previewFrame');
+        if (!frame.getAttribute('src') && !frame.getAttribute('srcdoc')) {
+          $('previewNote').textContent = 'Open a preview before going full screen.';
+          return;
+        }
+        setPreviewFull(true);
+        $('previewFullClose')?.focus();
+      };
+
+      function focusPreviewControl() {
+        const full = $('previewFull');
+        if (full && !full.hidden) full.focus();
+        else $('previewCopy').focus();
+      }
+
       $('previewFullClose').onclick = () => {
         setPreviewFull(false);
         $('rail').hidden = false;
         switchRail('preview');
-        $('previewCopy').focus();
+        focusPreviewControl();
       };
 
       document.addEventListener('keydown', (event) => {
@@ -4482,7 +4523,7 @@
         event.preventDefault();
         event.stopPropagation();
         setPreviewFull(false);
-        $('previewCopy').focus();
+        focusPreviewControl();
       });
 
       function renderStatus() {
@@ -6108,6 +6149,29 @@
     'Use New chat for a fresh topic; old chats stay in the left panel.',
     'Ctrl + K also renames and deletes chats, not just opens them.',
   ];
+  const WORKFLOW_TIPS = {
+    plan: [
+      'Plan is read-only: I read the workspace and outline the steps, but change no files.',
+      'Plan maps the files and checks first. Switch to Build when you approve the approach.',
+      'Plan stays read-only even when Auto-approve is on. Only Build can write.',
+    ],
+    build: [
+      'Build is where files change. Writes and tool actions ask Allow or Deny unless Auto-approve is on.',
+      'Build runs with a bounded step and time budget, shown under the composer. Stop ends the turn.',
+      'Build can run preview checks and tests; a failed check gets up to two repair attempts.',
+    ],
+    preview: [
+      'Preview serves this chat’s files in a sandbox. Opening it never deploys or publishes anything.',
+      'Open Preview from the toolbar or rail. A page that needs a bundler or server gets an adapter card, not a blank frame.',
+      'Preview refuses credential files. Keep keys in Secrets instead of .env files.',
+    ],
+    secrets: [
+      'Keep keys in the Secrets rail, never in chat. They stay out of the transcript and workspace.',
+      'The Secrets rail lists names and hints, not your key values.',
+      'Deleting a secret does not revoke it. If a key leaks, revoke it at the provider and save a new one.',
+    ],
+  };
+  const WORKFLOW_CHANCE = 0.6;
   const JOKES = [
     'I ran the tests in my head. They passed. Please run the real ones.',
     'I found a bug. It was my tail. You are safe.',
@@ -6462,11 +6526,6 @@
   const ART = `
     <svg class="chatty-art" viewBox="0 0 220 240" aria-hidden="true" focusable="false">
       <defs>
-        <radialGradient id="chatty-bg" cx="50%" cy="32%" r="76%">
-          <stop offset="0%" stop-color="#f8fffa"/>
-          <stop offset="48%" stop-color="#d7f4e8"/>
-          <stop offset="100%" stop-color="#8fd6c4"/>
-        </radialGradient>
         <linearGradient id="chatty-fur" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#353344"/>
           <stop offset="45%" stop-color="#1b1b27"/>
@@ -6491,29 +6550,24 @@
           <stop offset="100%" stop-color="#d88a00"/>
         </radialGradient>
       </defs>
-      <circle cx="110" cy="120" r="106" fill="url(#chatty-bg)" stroke="#163a38" stroke-width="6"/>
-      <g fill="#fff8e7" opacity=".8">
-        <path d="M39 66l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
-        <path d="M184 82l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z" opacity=".8"/>
-        <circle cx="36" cy="150" r="3" fill="#ee7287" opacity=".55"/>
-      </g>
+      <path class="chatty-tail" d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#f4efe3" stroke-width="16" stroke-linecap="round"/>
       <path class="chatty-tail" d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#101018" stroke-width="12" stroke-linecap="round"/>
-      <ellipse cx="110" cy="190" rx="45" ry="40" fill="url(#chatty-body)"/>
-      <ellipse class="chatty-paw chatty-paw-left" cx="92" cy="220" rx="20" ry="11" fill="#171722"/>
-      <ellipse class="chatty-paw chatty-paw-right" cx="128" cy="220" rx="20" ry="11" fill="#171722"/>
+      <ellipse cx="110" cy="190" rx="45" ry="40" fill="url(#chatty-body)" stroke="#f4efe3" stroke-width="2.6"/>
+      <ellipse class="chatty-paw chatty-paw-left" cx="92" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
+      <ellipse class="chatty-paw chatty-paw-right" cx="128" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
       <g fill="none" stroke="#3d3b4c" stroke-width="2.5" stroke-linecap="round" opacity=".7">
         <path d="M84 218q6 5 12 0M104 222q6 5 12 0M118 218q6 5 12 0M138 222q6 5 12 0"/>
       </g>
       <g class="chatty-head">
       <g class="chatty-ear chatty-ear-left">
-        <path d="M72 83 46 26l50 28z" fill="url(#chatty-fur)"/>
+        <path d="M72 83 46 26l50 28z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
         <path d="M64 72 50 39l34 18z" fill="url(#chatty-pink)" opacity=".82"/>
       </g>
       <g class="chatty-ear chatty-ear-right">
-        <path d="M148 83 174 26l-50 28z" fill="url(#chatty-fur)"/>
+        <path d="M148 83 174 26l-50 28z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
         <path d="M156 72 170 39l-34 18z" fill="url(#chatty-pink)" opacity=".82"/>
       </g>
-      <path d="M110 56c-38 0-54 24-51 53 3 30 23 49 51 49s48-19 51-49c3-29-13-53-51-53z" fill="url(#chatty-fur)"/>
+      <path d="M110 56c-38 0-54 24-51 53 3 30 23 49 51 49s48-19 51-49c3-29-13-53-51-53z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
       <path d="M78 78c20-14 44-14 64 0-18 16-46 16-64 0z" fill="#444253" opacity=".24"/>
       <g class="chatty-eye">
         <path d="M63 104q17-17 37-3-7 20-27 19-10-1-10-16z" fill="#fff6e3"/>
@@ -6658,7 +6712,31 @@
     );
   }
 
+  function tipContext() {
+    if (typeof document === 'undefined') return '';
+    const visible = (selector) => {
+      const node = document.querySelector(selector);
+      return Boolean(node) && !node.hidden && !node.classList.contains('hidden');
+    };
+    if (visible('#rail') && visible('#railSecrets')) return 'secrets';
+    if (visible('#rail') && visible('#railPreview')) return 'preview';
+    if (document.querySelector('#modeBuild')?.classList.contains('active')) return 'build';
+    if (document.querySelector('#modePlan')?.classList.contains('active')) return 'plan';
+    return '';
+  }
+
+  function pickWorkflowTip(context) {
+    const tips = WORKFLOW_TIPS[context];
+    if (!tips || !tips.length) return '';
+    return tips[Math.floor(Math.random() * tips.length)];
+  }
+
   function pickTip() {
+    const context = tipContext();
+    if (context && Math.random() < WORKFLOW_CHANCE) {
+      const workflowTip = pickWorkflowTip(context);
+      if (workflowTip) return workflowTip;
+    }
     if (TIPS.length === 1) return TIPS[0];
     let index = Math.floor(Math.random() * TIPS.length);
     if (index === lastTip) index = (index + 1) % TIPS.length;

@@ -53,6 +53,7 @@ function collectNames(code, label) {
 }
 
 const page = read('public/index.html');
+const icon = fs.readFileSync(path.join(root, 'public/icon.svg'));
 const models = stripModule(read('lib/models.mjs'), 'lib/models.mjs');
 const memory = stripModule(read('lib/memory.mjs'), 'lib/memory.mjs');
 const testparseMod = stripModule(read('lib/testparse.mjs'), 'lib/testparse.mjs');
@@ -127,6 +128,15 @@ if (end === -1) throw new Error('app.mjs: end of pageHtml() not found');
 const pageFunction = 'async function pageHtml() {\n  return EMBEDDED_PAGE;\n}';
 app.code = `${app.code.slice(0, start)}${pageFunction}${app.code.slice(end + 2)}`;
 if (!app.code.includes('return EMBEDDED_PAGE;')) throw new Error('pageHtml() was not replaced');
+
+const iconStart = app.code.indexOf('async function iconSvg() {');
+if (iconStart === -1) throw new Error('app.mjs: iconSvg() not found');
+const iconEnd = app.code.indexOf('\n}\n', iconStart);
+if (iconEnd === -1) throw new Error('app.mjs: end of iconSvg() not found');
+
+const iconFunction = 'async function iconSvg() {\n  return Buffer.from(EMBEDDED_ICON, \'base64\');\n}';
+app.code = `${app.code.slice(0, iconStart)}${iconFunction}${app.code.slice(iconEnd + 2)}`;
+if (!app.code.includes('Buffer.from(EMBEDDED_ICON')) throw new Error('iconSvg() was not replaced');
 
 // Two modules can import overlapping names from the same built-in (app.mjs and
 // store.mjs both want randomUUID), and two import lines for one specifier is a
@@ -205,6 +215,7 @@ ${imports.join('\n')}
 /* ------------------------------------------------------------- UI inlined */
 
 const EMBEDDED_PAGE = ${JSON.stringify(page)};
+const EMBEDDED_ICON = ${JSON.stringify(icon.toString('base64'))};
 
 /* --------------------------------------------------------- lib/models.mjs */
 

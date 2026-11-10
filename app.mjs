@@ -1004,6 +1004,24 @@ async function pageHtml() {
   return htmlCache;
 }
 
+
+let iconCache = null;
+
+async function iconSvg() {
+  if (iconCache) return iconCache;
+  try {
+    const sea = await import('node:sea');
+    if (typeof sea.isSea === 'function' && sea.isSea()) {
+      iconCache = Buffer.from(sea.getAsset('public/icon.svg'));
+      return iconCache;
+    }
+  } catch {
+    /* not a single-executable build */
+  }
+  iconCache = fs.readFileSync(path.join(import.meta.dirname, 'public', 'icon.svg'));
+  return iconCache;
+}
+
 /* ----------------------------------------------------------- openrouter */
 
 async function getCatalog(force = false) {
@@ -2111,6 +2129,22 @@ async function route(req, res) {
       'content-length': body.length,
     });
     return res.end(body);
+  }
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && pathname === '/icon.svg') {
+    try {
+      const icon = await iconSvg();
+      res.writeHead(200, {
+        ...SECURITY_HEADERS,
+        'content-type': 'image/svg+xml',
+        'cache-control': 'public, max-age=3600',
+        'content-length': icon.length,
+      });
+      return res.end(icon);
+    } catch {
+      res.writeHead(404, { ...SECURITY_HEADERS, 'content-type': 'text/plain; charset=utf-8' });
+      return res.end('not found');
+    }
   }
 
   if (req.method === 'POST' && pathname === '/api/session/reset') {

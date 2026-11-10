@@ -72,6 +72,29 @@
     'Use New chat for a fresh topic; old chats stay in the left panel.',
     'Ctrl + K also renames and deletes chats, not just opens them.',
   ];
+  const WORKFLOW_TIPS = {
+    plan: [
+      'Plan is read-only: I read the workspace and outline the steps, but change no files.',
+      'Plan maps the files and checks first. Switch to Build when you approve the approach.',
+      'Plan stays read-only even when Auto-approve is on. Only Build can write.',
+    ],
+    build: [
+      'Build is where files change. Writes and tool actions ask Allow or Deny unless Auto-approve is on.',
+      'Build runs with a bounded step and time budget, shown under the composer. Stop ends the turn.',
+      'Build can run preview checks and tests; a failed check gets up to two repair attempts.',
+    ],
+    preview: [
+      'Preview serves this chat’s files in a sandbox. Opening it never deploys or publishes anything.',
+      'Open Preview from the toolbar or rail. A page that needs a bundler or server gets an adapter card, not a blank frame.',
+      'Preview refuses credential files. Keep keys in Secrets instead of .env files.',
+    ],
+    secrets: [
+      'Keep keys in the Secrets rail, never in chat. They stay out of the transcript and workspace.',
+      'The Secrets rail lists names and hints, not your key values.',
+      'Deleting a secret does not revoke it. If a key leaks, revoke it at the provider and save a new one.',
+    ],
+  };
+  const WORKFLOW_CHANCE = 0.6;
   const JOKES = [
     'I ran the tests in my head. They passed. Please run the real ones.',
     'I found a bug. It was my tail. You are safe.',
@@ -426,11 +449,6 @@
   const ART = `
     <svg class="chatty-art" viewBox="0 0 220 240" aria-hidden="true" focusable="false">
       <defs>
-        <radialGradient id="chatty-bg" cx="50%" cy="32%" r="76%">
-          <stop offset="0%" stop-color="#f8fffa"/>
-          <stop offset="48%" stop-color="#d7f4e8"/>
-          <stop offset="100%" stop-color="#8fd6c4"/>
-        </radialGradient>
         <linearGradient id="chatty-fur" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#353344"/>
           <stop offset="45%" stop-color="#1b1b27"/>
@@ -455,29 +473,24 @@
           <stop offset="100%" stop-color="#d88a00"/>
         </radialGradient>
       </defs>
-      <circle cx="110" cy="120" r="106" fill="url(#chatty-bg)" stroke="#163a38" stroke-width="6"/>
-      <g fill="#fff8e7" opacity=".8">
-        <path d="M39 66l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
-        <path d="M184 82l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z" opacity=".8"/>
-        <circle cx="36" cy="150" r="3" fill="#ee7287" opacity=".55"/>
-      </g>
+      <path class="chatty-tail" d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#f4efe3" stroke-width="16" stroke-linecap="round"/>
       <path class="chatty-tail" d="M154 198c25 3 39-11 32-28-5-11-17-12-21-4" fill="none" stroke="#101018" stroke-width="12" stroke-linecap="round"/>
-      <ellipse cx="110" cy="190" rx="45" ry="40" fill="url(#chatty-body)"/>
-      <ellipse class="chatty-paw chatty-paw-left" cx="92" cy="220" rx="20" ry="11" fill="#171722"/>
-      <ellipse class="chatty-paw chatty-paw-right" cx="128" cy="220" rx="20" ry="11" fill="#171722"/>
+      <ellipse cx="110" cy="190" rx="45" ry="40" fill="url(#chatty-body)" stroke="#f4efe3" stroke-width="2.6"/>
+      <ellipse class="chatty-paw chatty-paw-left" cx="92" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
+      <ellipse class="chatty-paw chatty-paw-right" cx="128" cy="220" rx="20" ry="11" fill="#171722" stroke="#f4efe3" stroke-width="2.4"/>
       <g fill="none" stroke="#3d3b4c" stroke-width="2.5" stroke-linecap="round" opacity=".7">
         <path d="M84 218q6 5 12 0M104 222q6 5 12 0M118 218q6 5 12 0M138 222q6 5 12 0"/>
       </g>
       <g class="chatty-head">
       <g class="chatty-ear chatty-ear-left">
-        <path d="M72 83 46 26l50 28z" fill="url(#chatty-fur)"/>
+        <path d="M72 83 46 26l50 28z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
         <path d="M64 72 50 39l34 18z" fill="url(#chatty-pink)" opacity=".82"/>
       </g>
       <g class="chatty-ear chatty-ear-right">
-        <path d="M148 83 174 26l-50 28z" fill="url(#chatty-fur)"/>
+        <path d="M148 83 174 26l-50 28z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
         <path d="M156 72 170 39l-34 18z" fill="url(#chatty-pink)" opacity=".82"/>
       </g>
-      <path d="M110 56c-38 0-54 24-51 53 3 30 23 49 51 49s48-19 51-49c3-29-13-53-51-53z" fill="url(#chatty-fur)"/>
+      <path d="M110 56c-38 0-54 24-51 53 3 30 23 49 51 49s48-19 51-49c3-29-13-53-51-53z" fill="url(#chatty-fur)" stroke="#f4efe3" stroke-width="2.8" stroke-linejoin="round"/>
       <path d="M78 78c20-14 44-14 64 0-18 16-46 16-64 0z" fill="#444253" opacity=".24"/>
       <g class="chatty-eye">
         <path d="M63 104q17-17 37-3-7 20-27 19-10-1-10-16z" fill="#fff6e3"/>
@@ -622,7 +635,31 @@
     );
   }
 
+  function tipContext() {
+    if (typeof document === 'undefined') return '';
+    const visible = (selector) => {
+      const node = document.querySelector(selector);
+      return Boolean(node) && !node.hidden && !node.classList.contains('hidden');
+    };
+    if (visible('#rail') && visible('#railSecrets')) return 'secrets';
+    if (visible('#rail') && visible('#railPreview')) return 'preview';
+    if (document.querySelector('#modeBuild')?.classList.contains('active')) return 'build';
+    if (document.querySelector('#modePlan')?.classList.contains('active')) return 'plan';
+    return '';
+  }
+
+  function pickWorkflowTip(context) {
+    const tips = WORKFLOW_TIPS[context];
+    if (!tips || !tips.length) return '';
+    return tips[Math.floor(Math.random() * tips.length)];
+  }
+
   function pickTip() {
+    const context = tipContext();
+    if (context && Math.random() < WORKFLOW_CHANCE) {
+      const workflowTip = pickWorkflowTip(context);
+      if (workflowTip) return workflowTip;
+    }
     if (TIPS.length === 1) return TIPS[0];
     let index = Math.floor(Math.random() * TIPS.length);
     if (index === lastTip) index = (index + 1) % TIPS.length;
