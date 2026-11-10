@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.31.2 | 2026-11-10 | Malformed catalogs degrade cleanly; split dev-server URLs still detect their port |
 | 2.31.1 | 2026-11-10 | Phone shell fits at 320px; cloud drawer no longer hides under the header |
 | 2.31.0 | 2026-11-10 | Chatty tours saved chats, key/quota and attachments: eleven stops |
 | 2.30.0 | 2026-11-10 | Chatty's guided tour hops between controls and explains Settings, Plan and Build |
@@ -181,6 +182,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.31.2 — 2026-11-10
+
+- **A broken catalog is now a clean 503.** A provider or proxy can answer HTTP 200
+  with an HTML error page or truncated JSON. The cloud Worker keeps the last good model
+  cache, records `catalogError`, and retries after 30 seconds instead of turning every
+  `/api/models` request into a generic 500. With no cache it answers `503 no_models`.
+- **Split dev-server output still detects its port.** A server can write
+  `Local: http://localhost:` and `5173` in separate stdout chunks. The process manager now
+  scans a bounded 16 KB tail of accumulated output, so the URL is found, the readiness probe
+  runs, and the Preview link is offered instead of the process looking portless.
+- **Regression coverage.** A cold cloud Worker test serves malformed catalog JSON and
+  asserts a clean 503; a real child process test splits its URL across writes and asserts
+  the detected port and ready state. The suites now total **349 node tests (including 78 page
+  checks), 36 CLI checks, 29 source simulations, 29 single-file simulations and 30 cloud
+  checks**.
+- **Release state.** Desktop source is **2.31.2**; cloud preview and production are
+  **2.31.2-cloud**; both published environments are up. Source ZIP, Windows ZIP and
+  `SHA256SUMS` accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.31.2](https://github.com/zakker111/freeway/releases/tag/v2.31.2).
 
 ## 2.31.1 — 2026-11-10
 

@@ -28,7 +28,7 @@ import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs'
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.31.1-cloud';
+const VERSION = '2.31.2-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -174,7 +174,20 @@ async function loadCatalog(env, force = false) {
     };
     return catalogCache;
   }
-  const body = await res.json();
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    // A proxy or provider can answer 200 with an HTML error page or a truncated
+    // body. Keep the last good catalog and retry soon instead of turning every
+    // /api/models request into a generic 500.
+    catalogCache = {
+      at: Date.now() - CATALOG_TTL_MS + 30_000,
+      models: catalogCache.models,
+      error: 'catalog returned invalid JSON',
+    };
+    return catalogCache;
+  }
   const models = Array.isArray(body?.data) ? body.data : [];
   catalogCache = { at: Date.now(), models, error: null };
   return catalogCache;

@@ -11,6 +11,9 @@ import { once } from 'node:events';
 import worker, { PROVIDERS as CLOUD_PROVIDERS } from './dist/worker.mjs';
 import { PROVIDERS as DESKTOP_PROVIDERS, isAllowedModel, freePlanLabel, limitLines } from '../lib/providers.mjs';
 
+// A separate module instance gives this edge-case test a cold catalog cache.
+const badCatalogWorker = (await import('./dist/worker.mjs?bad-catalog')).default;
+
 const ORIGIN = 'https://chat.example';
 const KEY = ['sk-or-v1-', 'k'.repeat(32)].join('');
 
@@ -71,6 +74,11 @@ const mock = http.createServer(async (req, res) => {
         usage: { prompt_tokens: 5, completion_tokens: 4 },
       }),
     );
+    return;
+  }
+  if (url.pathname.endsWith('/bad-json/models')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"data":');
     return;
   }
   if (url.pathname.endsWith('/slow/models')) {
@@ -692,6 +700,17 @@ async function main() {
     assert.equal(isAllowedModel(aion, 'aion-labs/aion-2.0'), true);
     assert.equal(isAllowedModel(aion, 'openai/gpt-4o'), false);
     assert.equal(isAllowedModel(aion, 'aion-labs/aion-image'), false);
+  });
+
+  await check('a malformed catalog is a clean 503, not a 500', async () => {
+    const env = envWith({ OPENROUTER_BASE_URL: `${upstream}/bad-json` });
+    const response = await badCatalogWorker.fetch(
+      new Request(ORIGIN + '/api/models', { headers: { origin: ORIGIN } }),
+      env,
+      {},
+    );
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, 'no_models');
   });
 
   await check('removed account routes are gone', async () => {
