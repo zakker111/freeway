@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Freeway — free models, real tools</title>
+  <meta name="description" content="Freeway is a local and cloud chat workspace for free models, with read-only Plan, guarded Build, sandboxed Preview, and secrets that stay out of chat.">
+  <meta name="theme-color" content="#0b0f0e">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Freeway — free models, real tools">
+  <meta property="og:description" content="Plan first. Build with approval. Preview safely. A local and cloud workspace for free models.">
+  <meta property="og:image" content="./icon.svg">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #0b0f0e;
+      --panel: #111916;
+      --panel-2: #16211d;
+      --panel-3: #1b2923;
+      --line: #283b33;
+      --line-soft: #1d2b25;
+      --text: #edf2ee;
+      --muted: #9db4ab;
+      --faint: #7f978d;
+      --accent: #b8ffdf;
+      --accent-ink: #07120d;
+      --gold: #ffd65c;
+      --coral: #ef5265;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .38);
+      --radius: 18px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 300px;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 70% 45% at 82% -8%, rgba(184, 255, 223, .10), transparent 65%),
+        radial-gradient(ellipse 55% 40% at 3% 30%, rgba(239, 82, 101, .055), transparent 70%),
+        var(--bg);
+      font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    img { max-width: 100%; }
+    p { margin: 0; }
+    h1, h2, h3 { margin: 0; line-height: 1.08; letter-spacing: -.035em; }
+    h2 { font-size: clamp(28px, 4vw, 44px); }
+    h3 { font-size: 19px; letter-spacing: -.015em; }
+    code {
+      padding: 2px 6px;
+      border: 1px solid var(--line-soft);
+      border-radius: 5px;
+      background: var(--panel-2);
+      color: var(--accent);
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .skip {
+      position: fixed;
+      left: 12px;
+      top: -80px;
+      z-index: 10;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+      transition: top .16s ease;
+    }
+    .skip:focus { top: 12px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      border-bottom: 1px solid rgba(40, 59, 51, .72);
+      background: rgba(11, 15, 14, .84);
+      backdrop-filter: blur(14px) saturate(140%);
+    }
+    .nav {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 750;
+      letter-spacing: -.02em;
+      text-decoration: none;
+    }
+    .brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .nav-links a {
+      text-decoration: none;
+      transition: color .16s ease;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--text) !important;
+      background: var(--panel);
+      font-weight: 650;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+      gap: clamp(36px, 6vw, 72px);
+      align-items: center;
+      padding: clamp(64px, 9vw, 118px) 0 clamp(58px, 8vw, 96px);
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      max-width: 760px;
+      margin: 17px 0 24px;
+      font-size: clamp(45px, 6.5vw, 78px);
+      font-weight: 760;
+      line-height: .98;
+    }
+    .hero h1 span { color: var(--accent); }
+    .lead {
+      max-width: 620px;
+      color: var(--muted);
+      font-size: clamp(17px, 1.8vw, 20px);
+      line-height: 1.55;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 11px;
+      margin-top: 30px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 12px 17px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 720;
+      text-decoration: none;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease;
+    }
+    .button:hover { transform: translateY(-1px); }
+    .button-primary {
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 10px 30px rgba(184, 255, 223, .14);
+    }
+    .button-primary:hover { background: #d3ffec; }
+    .button-secondary {
+      border-color: var(--line);
+      background: var(--panel);
+      color: var(--text);
+    }
+    .button-secondary:hover { border-color: #466357; background: var(--panel-2); }
+    .trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px 18px;
+      margin-top: 24px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .trust span { display: inline-flex; align-items: center; gap: 7px; }
+    .trust span::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: .8;
+    }
+
+    .workflow-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: linear-gradient(150deg, rgba(27, 41, 35, .9), rgba(14, 22, 18, .96));
+      box-shadow: var(--shadow);
+    }
+    .workflow-card::after {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      right: -90px;
+      bottom: -120px;
+      border-radius: 50%;
+      background: rgba(184, 255, 223, .08);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .window-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--faint);
+      font: 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .window-dot { width: 7px; height: 7px; border-radius: 50%; background: #355046; }
+    .window-dot:nth-child(2) { background: #4d4931; }
+    .window-dot:nth-child(3) { background: #522f36; }
+    .window-title { margin-left: 7px; }
+    .window-live {
+      margin-left: auto;
+      color: var(--accent);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .workflow-steps { padding: 5px 16px 10px; }
+    .workflow-step {
+      display: grid;
+      grid-template-columns: 29px minmax(0, 1fr);
+      gap: 13px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .workflow-step:last-child { border-bottom: 0; }
+    .step-num {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--accent);
+      background: rgba(184, 255, 223, .045);
+      font: 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .workflow-step strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 14px;
+      letter-spacing: -.01em;
+    }
+    .workflow-step p { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .budget-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 16px 16px;
+      padding: 10px 11px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      color: var(--faint);
+      background: rgba(0, 0, 0, .16);
+      font: 10.5px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    .budget-line b { color: var(--text); font-weight: 600; }
+
+    .providers {
+      border-top: 1px solid var(--line-soft);
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(17, 25, 22, .5);
+    }
+    .providers-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px 22px;
+      padding: 18px 0;
+      color: var(--faint);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .providers-label {
+      flex: none;
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .providers-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .providers-list span {
+      padding: 4px 8px;
+      border: 1px solid var(--line-soft);
+      border-radius: 5px;
+      background: rgba(0, 0, 0, .14);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .section { padding: clamp(64px, 8vw, 100px) 0; }
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 34px;
+    }
+    .section-head p {
+      max-width: 410px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .feature {
+      min-height: 218px;
+      padding: 21px;
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      background: linear-gradient(160deg, rgba(22, 33, 29, .9), rgba(14, 21, 18, .8));
+    }
+    .feature-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      margin-bottom: 30px;
+      padding: 3px 7px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--accent);
+      font: 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .feature h3 { margin-bottom: 9px; }
+    .feature p { color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+    .feature-note {
+      display: block;
+      margin-top: 16px;
+      color: var(--faint);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+
+    .start-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .start-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 238px;
+      padding: 25px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+    .start-kicker {
+      color: var(--faint);
+      font: 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .start-card h3 { margin: 13px 0 8px; font-size: clamp(22px, 2.4vw, 28px); }
+    .start-card p { max-width: 420px; color: var(--muted); font-size: 14px; }
+    .start-card .button { align-self: flex-start; margin-top: auto; }
+    .start-meta { margin-top: 16px; color: var(--faint); font-size: 11.5px; }
+    .terminal {
+      margin-top: 12px;
+      overflow-x: auto;
+      padding: 11px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #090d0b;
+      color: var(--muted);
+      font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .terminal b { color: var(--accent); font-weight: 600; }
+
+    .chatty {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: clamp(22px, 4vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 3% 20%, rgba(239, 82, 101, .08), transparent 34%),
+        linear-gradient(140deg, var(--panel-2), var(--panel));
+    }
+    .chatty img {
+      width: 76px;
+      height: 76px;
+      flex: none;
+      border-radius: 20px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .28);
+    }
+    .chatty h3 { margin-bottom: 6px; font-size: 22px; }
+    .chatty p { max-width: 720px; color: var(--muted); font-size: 14px; }
+    .chatty a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+    .footer {
+      border-top: 1px solid var(--line-soft);
+      padding: 28px 0 34px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
+    .footer a { text-decoration: none; }
+    .footer a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; gap: 42px; }
+      .workflow-card { max-width: 560px; }
+      .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .section-head { display: block; }
+      .section-head p { margin-top: 12px; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: min(100% - 28px, 1120px); }
+      .nav { min-height: 68px; gap: 10px; }
+      .nav-links { display: none; }
+      .nav-cta { margin-left: auto; }
+      .brand img { width: 36px; height: 36px; }
+      .hero { padding-top: 52px; }
+      .trust { gap: 7px 14px; }
+      .start-grid, .feature-grid { grid-template-columns: 1fr; }
+      .feature { min-height: 0; }
+      .feature-label { margin-bottom: 18px; }
+      .providers-inner { display: block; }
+      .providers-label { margin-bottom: 10px; }
+      .chatty { align-items: flex-start; }
+      .chatty img { width: 58px; height: 58px; border-radius: 15px; }
+      .chatty h3 { font-size: 19px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="./" aria-label="Freeway home">
+        <img src="./icon.svg" width="40" height="40" alt="">
+        <span>Freeway</span>
+      </a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#workflow">How it works</a>
+        <a href="#start">Get started</a>
+        <a href="https://github.com/zakker111/freeway" target="_blank" rel="noreferrer">GitHub ↗</a>
+        <a class="nav-cta" href="https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page" target="_blank" rel="noreferrer">Open cloud app ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="wrap hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">Local + cloud · free models only</p>
+        <h1 id="hero-title">Free models.<br><span>Real tools.</span><br>One workspace.</h1>
+        <p class="lead">
+          Freeway is a chat workspace that can read your project, write code with your approval,
+          check the result, and preview it safely. Plan first. Build when you are ready.
+        </p>
+        <div class="actions">
+          <a class="button button-primary" href="https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page" target="_blank" rel="noreferrer">Open the cloud app ↗</a>
+          <a class="button button-secondary" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">Download desktop</a>
+        </div>
+        <div class="trust" aria-label="Freeway properties">
+          <span>No Freeway account</span>
+          <span>No telemetry</span>
+          <span>Every model free</span>
+        </div>
+      </div>
+
+      <div class="workflow-card" aria-label="Freeway workflow">
+        <div class="window-top">
+          <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
+          <span class="window-title">freeway</span>
+          <span class="window-live">live</span>
+        </div>
+        <div class="workflow-steps">
+          <div class="workflow-step">
+            <span class="step-num">01</span>
+            <div><strong>Plan</strong><p>Read the workspace and map the change. Nothing is written.</p></div>
+          </div>
+          <div class="workflow-step">
+            <span class="step-num">02</span>
+            <div><strong>Build</strong><p>Edit files and run checks with an Allow / Deny card before each action.</p></div>
+          </div>
+          <div class="workflow-step">
+            <span class="step-num">03</span>
+            <div><strong>Preview</strong><p>Open a sandboxed result. Preview never publishes or deploys.</p></div>
+          </div>
+          <div class="workflow-step">
+            <span class="step-num">04</span>
+            <div><strong>Secrets</strong><p>Keep keys in the rail, out of chat and out of the workspace.</p></div>
+          </div>
+        </div>
+        <div class="budget-line"><span>build budget</span><b>40 steps · 15 min</b></div>
+      </div>
+    </section>
+
+    <div class="providers">
+      <div class="wrap providers-inner">
+        <span class="providers-label">Free models from</span>
+        <div class="providers-list">
+          <span>OpenRouter</span><span>Groq</span><span>Gemini</span><span>Mistral</span>
+          <span>Cohere</span><span>SambaNova</span><span>Aion</span><span>Z.AI</span>
+          <span>Cloudflare</span><span>OVHcloud</span><span>Ollama locally</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="wrap section" id="workflow" aria-labelledby="workflow-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">The useful part</p>
+          <h2 id="workflow-title" style="margin-top: 12px;">A loop with guardrails.</h2>
+        </div>
+        <p>Freeway makes the safe path the normal one: plan without side effects, approve writes, verify before calling it done.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature">
+          <span class="feature-label">Plan</span>
+          <h3>Read-only by default.</h3>
+          <p>Ask for the approach first. Plan reads the workspace, names the files and checks, and changes nothing.</p>
+          <span class="feature-note">Only Build can write.</span>
+        </article>
+        <article class="feature">
+          <span class="feature-label">Build</span>
+          <h3>Approval before action.</h3>
+          <p>Writes, commands and GitHub actions stop at an Allow / Deny card. Auto-approve is opt-in, global and Build-only.</p>
+          <span class="feature-note">Stop cancels the turn.</span>
+        </article>
+        <article class="feature">
+          <span class="feature-label">Preview</span>
+          <h3>A sandbox, not a deploy.</h3>
+          <p>Open the current chat’s files in a private preview. Bundler and server pages explain what they need instead of faking it.</p>
+          <span class="feature-note">Credential files are refused.</span>
+        </article>
+        <article class="feature">
+          <span class="feature-label">Secrets</span>
+          <h3>Keys stay out of chat.</h3>
+          <p>Keep provider keys in the Secrets rail. It lists names and hints, never the value, and keeps keys out of the workspace.</p>
+          <span class="feature-note">Deleting a secret does not revoke it.</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="start" aria-labelledby="start-title">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Start here</p>
+          <h2 id="start-title" style="margin-top: 12px;">Use it in a tab, or keep it local.</h2>
+        </div>
+        <p>The cloud app needs no install. The desktop app gets your own workspace, local previews and allowlisted commands.</p>
+      </div>
+      <div class="start-grid">
+        <article class="start-card">
+          <span class="start-kicker">01 · Cloud</span>
+          <h3>Open the hosted app.</h3>
+          <p>No sign-in and no setup. Pick a provider, or use OVHcloud’s keyless demo to send a message immediately.</p>
+          <div class="start-meta">Chats and files stay in your browser.</div>
+          <a class="button button-primary" href="https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page" target="_blank" rel="noreferrer">Open cloud app ↗</a>
+        </article>
+        <article class="start-card">
+          <span class="start-kicker">02 · Desktop</span>
+          <h3>Bring your own workspace.</h3>
+          <p>Windows users can download the all-in-one build. macOS and Linux can run the source ZIP with Node.js 20.11 or newer.</p>
+          <div class="start-meta">No installer. No service left running.</div>
+          <a class="button button-secondary" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">Get the latest release</a>
+        </article>
+      </div>
+      <div class="terminal" aria-label="Run from source">
+        <span>from source</span> &nbsp; <b>git clone https://github.com/zakker111/freeway.git</b> &nbsp;·&nbsp; cd freeway &nbsp;·&nbsp; node app.mjs
+      </div>
+    </section>
+
+    <section class="wrap section" aria-labelledby="chatty-title">
+      <div class="chatty">
+        <img src="./icon.svg" width="76" height="76" alt="Chatty, the Freeway cat">
+        <div>
+          <h3 id="chatty-title">Chatty comes with it.</h3>
+          <p>
+            The little black cat at the edge of Freeway explains Plan, Build, Preview and Secrets
+            without getting in the way. Click her for a tip, switch her off in Settings, and keep
+            the chime that says the composer is ready. <a href="https://github.com/zakker111/freeway#readme" target="_blank" rel="noreferrer">Read the full guide ↗</a>
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>Freeway · free models, real tools · <span id="year">2026</span></span>
+      <div class="footer-links">
+        <a href="https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page" target="_blank" rel="noreferrer">Cloud preview ↗</a>
+        <a href="https://github.com/zakker111/freeway" target="_blank" rel="noreferrer">Source ↗</a>
+        <a href="https://github.com/zakker111/freeway/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Security</a>
+        <a href="https://github.com/zakker111/freeway/blob/main/PRIVACY.md" target="_blank" rel="noreferrer">Privacy</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
