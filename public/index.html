@@ -952,6 +952,40 @@
   }
 
   /**
+   * A full-page shell for a copied preview link. The generated page stays in a
+   * sandboxed iframe, so it never inherits Freeway's origin, storage or API.
+   */
+  function pageShell(html, title) {
+    const label = String(title || 'Preview');
+    return (
+      '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta name="color-scheme" content="light dark">' +
+      '<title>' +
+      escapeHtml(label) +
+      '</title>' +
+      '<style>html,body{margin:0;height:100%;background:#fff}iframe{display:block;width:100%;height:100%;border:0}</style>' +
+      '</head><body><iframe title="' +
+      escapeAttr(label) +
+      '" sandbox="allow-scripts allow-forms allow-popups" referrerpolicy="no-referrer" srcdoc="' +
+      escapeAttr(html ?? '') +
+      '"></iframe></body></html>'
+    );
+  }
+
+  /** A short, browser-only URL for a full-page preview. */
+  function pageUrl(html, title) {
+    if (typeof Blob !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return '';
+    }
+    try {
+      return URL.createObjectURL(new Blob([pageShell(html, title)], { type: 'text/html;charset=utf-8' }));
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Collect bounded, text-only diagnostics from the current preview frame.
    * Messages are accepted only from that frame and are rendered with
    * textContent, never as HTML.
@@ -1071,6 +1105,8 @@
     classify,
     renderError,
     withPreviewBridge,
+    pageShell,
+    pageUrl,
     createPreviewMonitor,
     renderMarkdown,
     markdownToHtml,
@@ -1228,7 +1264,24 @@
       }
       .logo-dot-2 { animation-delay: .18s; }
       .logo-dot-3 { animation-delay: .36s; }
-      .brand span { color: var(--muted); font-weight: 550; }
+      .brand-word {
+        display: inline-block;
+        font-weight: 700;
+        letter-spacing: .15px;
+        color: var(--text);
+        animation: brand-in .65s cubic-bezier(.2, .8, .2, 1) both;
+      }
+      @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+        .brand-word {
+          background-image: linear-gradient(104deg, #f7fbff 0%, #b9e7ff 22%, #b8ffdf 43%, #e4c7ff 64%, #f7fbff 84%, #b9e7ff 100%);
+          background-size: 230% 100%;
+          background-position: 0% 50%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: brand-in .65s cubic-bezier(.2, .8, .2, 1) both, brand-sheen 8.5s ease-in-out 1.2s infinite;
+        }
+      }
       .ver {
         font-size: 11px; color: var(--muted); border: 1px solid var(--line);
         border-radius: 999px; padding: 2px 8px; white-space: nowrap;
@@ -2079,8 +2132,8 @@
         background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
         opacity: .7;
       }
-      .brand { text-shadow: 0 0 26px var(--glow); }
-      .brand-mark { filter: drop-shadow(0 0 12px var(--glow)); }
+      .brand { text-shadow: 0 0 24px rgba(185, 231, 255, .16); }
+      .brand-mark { filter: drop-shadow(0 0 12px rgba(185, 231, 255, .26)); }
 
       .empty-mark {
         width: 52px;
@@ -2239,6 +2292,14 @@
         0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
         24% { opacity: 1; transform: translateY(-20px) scale(1); }
       }
+      @keyframes brand-in {
+        from { opacity: 0; transform: translateX(-4px); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes brand-sheen {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
       @media (prefers-reduced-motion: reduce) {
         .brand-mark .logo-tile,
         .brand-mark .logo-chat,
@@ -2248,6 +2309,7 @@
         .empty-mark .logo-dot { animation: none !important; opacity: 1; transform: none; }
         .brand-mark .logo-tile,
         .empty-mark .logo-tile { stroke-opacity: 1; }
+        .brand-word { animation: none !important; background-position: 50% 50%; }
         .empty-mark { animation: none !important; }
       }
       @keyframes msg-in {
@@ -2289,7 +2351,7 @@
             <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
           </g>
         </svg>
-        Free<span>way</span>
+        <span class="brand-word">Freeway</span>
       </div>
       <span class="ver" id="version" title="Running version (also at /api/config)">v…</span>
       <div class="bar-models">
@@ -2499,8 +2561,8 @@
         <div class="rail-row">
           <button class="mini" id="pvLoad" type="button">Load</button>
           <button class="mini" id="pvReload" type="button" title="Reload the frame">Reload</button>
-          <button class="mini" id="pvOpen" type="button" title="Open in a new tab">Open ↗</button>
-          <button class="mini" id="pvCopy" type="button" title="Copy the preview link to share with the chat">Copy link</button>
+          <button class="mini" id="pvOpen" type="button" title="Open the full preview in a new tab">Open ↗</button>
+          <button class="mini" id="pvCopy" type="button" title="Copy a full-page link to this preview">Copy link</button>
         </div>
         <div class="rail-row pv-shot-row">
           <select id="pvViewport" title="Screenshot size" aria-label="Screenshot size">
@@ -2802,12 +2864,15 @@
         workspacePath: null,
         fsPath: "",
         fsFile: null,
+        fsSavedContent: "",
         ghRepo: "",
         ghView: "issues",
         preview: "",
         localPreview: false,
         previewMode: "",
         previewUrl: "",
+        previewHtml: "",
+        previewPageUrl: "",
         // A user-triggered capture stays in page memory so it can be downloaded
         // without sending it to the model.
         previewShot: "",
@@ -4203,7 +4268,7 @@
           state.fsPath = "sample";
           await refreshFiles();
           await openFile("sample/index.html");
-          showLocalPreview(SAMPLE_PREVIEW, "sample/index.html");
+          await previewWorkspaceFile("sample/index.html");
           setStatus("sample page created");
         } catch (error) {
           setStatus(error.message);
@@ -4310,6 +4375,7 @@
       function resetFilePanel() {
         state.fsPath = "";
         state.fsFile = null;
+        state.fsSavedContent = "";
         $("fsContent").value = "";
         $("fsFileName").textContent = "No file selected";
         $("fsEditor").classList.add("hidden");
@@ -4376,6 +4442,7 @@
         try {
           const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}${fsParams()}`);
           state.fsFile = file.path;
+          state.fsSavedContent = file.content;
           $("fsFileName").textContent = `/${file.path}`;
           $("fsContent").value = file.content;
           revealFileEditor();
@@ -4390,6 +4457,7 @@
         try {
           const file = await api(`/api/fs/read?path=${encodeURIComponent(filePath)}${fsParams()}`);
           state.fsFile = file.path;
+          state.fsSavedContent = file.content;
           $("fsFileName").textContent = `/${file.path}`;
           $("fsContent").value = file.content;
           revealFileEditor({ focus: false });
@@ -4504,6 +4572,7 @@
               workspace: state.workspacePath,
             }),
           });
+          state.fsSavedContent = $("fsContent").value;
           setStatus(`saved /${result.path}`);
           scheduleFileOnlySave();
           refreshFiles();
@@ -4761,6 +4830,8 @@
         state.localPreview = false;
         state.previewMode = "";
         state.previewUrl = "";
+        dropPreviewPageUrl();
+        state.previewHtml = "";
         state.preview = "";
         const frame = $("pvFrame");
         frame.removeAttribute("src");
@@ -4793,6 +4864,8 @@
         state.localPreview = false;
         state.previewMode = "remote";
         state.previewUrl = "";
+        dropPreviewPageUrl();
+        state.previewHtml = "";
         state.previewEntry = "";
         frame.setAttribute("sandbox", PV_REMOTE_SANDBOX);
         frame.removeAttribute("srcdoc");
@@ -4893,6 +4966,8 @@
         state.localPreview = true;
         state.previewMode = "static";
         state.previewUrl = "";
+        dropPreviewPageUrl();
+        state.previewHtml = String(html);
         state.previewEntry = /\.(html?|svg|md|markdown)$/i.test(label) && !/\(in memory\)/i.test(label) ? label : "";
         state.preview = "";
         clearTimeout(state.pvTimer);
@@ -4920,6 +4995,8 @@
         state.previewMode = "server";
         state.previewEntry = "";
         state.previewUrl = url;
+        dropPreviewPageUrl();
+        state.previewHtml = "";
         state.preview = "";
         state.pvLoaded = false;
         clearTimeout(state.pvTimer);
@@ -4994,6 +5071,8 @@
         state.previewMode = "server";
         state.previewEntry = label;
         state.previewUrl = url;
+        dropPreviewPageUrl();
+        state.previewHtml = "";
         state.preview = "";
         state.pvLoaded = false;
         clearTimeout(state.pvTimer);
@@ -5011,23 +5090,46 @@
         showRailTab("preview");
       }
 
-      // The AI gets this same URL through preview_link; the button makes it one
-      // click away for the user without retyping or hunting through the chat.
+      function dropPreviewPageUrl() {
+        if (!state.previewPageUrl) return;
+        try {
+          URL.revokeObjectURL(state.previewPageUrl);
+        } catch {
+          /* already revoked */
+        }
+        state.previewPageUrl = "";
+      }
+
+      // A preview opens either a real dev-server page, the address the user
+      // pasted, or a rendered page kept in memory. The last case gets a
+      // sandboxed full-page wrapper rather than a raw blob of generated HTML.
       function previewLinkForFrame() {
-        return state.previewMode === "server" && state.previewUrl ? state.previewUrl : "";
+        if (state.previewMode === "server" && state.previewUrl) return state.previewUrl;
+        if (state.previewMode === "remote" && state.preview) return state.preview;
+        if (state.previewMode === "static" && state.previewHtml) {
+          if (!state.previewPageUrl) {
+            state.previewPageUrl = FreewayPreview.pageUrl(state.previewHtml, state.previewEntry || "Preview");
+          }
+          return state.previewPageUrl;
+        }
+        return "";
+      }
+
+      function previewLinkNote(url) {
+        return url.startsWith("blob:")
+          ? "Full-page preview link copied. It opens directly in this browser and expires when this tab closes."
+          : `Preview link copied: ${url}`;
       }
 
       async function copyPreviewLink() {
         const url = previewLinkForFrame();
         if (!url) {
-          previewNote(
-            "This preview has no standalone link yet. Open an HTML or SVG workspace page first, or ask the model for the preview link.",
-          );
+          previewNote("Open an HTML, SVG or Markdown page, or load an address first.");
           return;
         }
         try {
           await navigator.clipboard.writeText(url);
-          previewNote(`Preview link copied: ${url}`);
+          previewNote(previewLinkNote(url));
           setStatus("preview link copied");
         } catch {
           // Clipboard access can be blocked; keep the link selectable instead.
@@ -6796,6 +6898,7 @@
           state.workspacePath = "";
           state.fsPath = "";
           state.fsFile = null;
+          state.fsSavedContent = "";
           applyPreview("");
           resetFilePanel();
         }
@@ -7201,7 +7304,9 @@
       $("fsSave").addEventListener("click", saveFile);
       $("fsPreview").addEventListener("click", () => {
         const label = $("fsFileName").textContent.replace(/^\//, "") || "workspace file";
-        previewWorkspaceFile(label, $("fsContent").value);
+        const content = $("fsContent").value;
+        const dirty = !state.fsFile || content !== state.fsSavedContent;
+        previewWorkspaceFile(label, dirty ? content : undefined);
       });
       $("fsClose").addEventListener("click", () => $("fsEditor").classList.add("hidden"));
       $("secAdd").addEventListener("click", addSecret);
@@ -7224,12 +7329,11 @@
         applyPreview(state.preview || $("pvUrl").value);
       });
       $("pvOpen").addEventListener("click", () => {
-        if (state.previewMode === "server" && state.previewUrl) {
-          window.open(state.previewUrl, "_blank", "noopener");
-        } else if (state.preview) {
-          window.open(state.preview, "_blank", "noopener");
+        const url = previewLinkForFrame();
+        if (url) {
+          window.open(url, "_blank", "noopener");
         } else {
-          previewNote("Load an address first.");
+          previewNote("Open an HTML, SVG or Markdown page, or load an address first.");
         }
       });
       $("pvCopy").addEventListener("click", copyPreviewLink);

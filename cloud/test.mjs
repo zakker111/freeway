@@ -168,8 +168,8 @@ function makeDb() {
           return { results: statement.all(...args) };
         },
         async run() {
-          statement.run(...args);
-          return { success: true };
+          const result = statement.run(...args);
+          return { success: true, meta: { changes: Number(result.changes) } };
         },
       };
       return api;
@@ -479,6 +479,18 @@ async function main() {
     // Another visitor is unaffected, or one busy address would close the site.
     const neighbour = await request(env, { ip: '198.51.100.9', body: chatBody });
     assert.equal(neighbour.status, 200);
+  });
+
+  await check('concurrent shared-key turns cannot exceed the daily budget', async () => {
+    const env = envWith({ VISITOR_DAILY_LIMIT: '1' });
+    const [first, second] = await Promise.all([
+      request(env, { body: chatBody, ip: '203.0.113.55' }),
+      request(env, { body: chatBody, ip: '203.0.113.55' }),
+    ]);
+    const statuses = [first.status, second.status].sort((a, b) => a - b);
+    assert.deepEqual(statuses, [200, 429], `statuses were ${statuses.join(', ')}`);
+    const denied = first.status === 429 ? first : second;
+    assert.equal((await denied.json()).error, 'visitor_budget');
   });
 
   await check('a visitor on their own key is not fenced or budgeted', async () => {

@@ -952,6 +952,40 @@
   }
 
   /**
+   * A full-page shell for a copied preview link. The generated page stays in a
+   * sandboxed iframe, so it never inherits Freeway's origin, storage or API.
+   */
+  function pageShell(html, title) {
+    const label = String(title || 'Preview');
+    return (
+      '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta name="color-scheme" content="light dark">' +
+      '<title>' +
+      escapeHtml(label) +
+      '</title>' +
+      '<style>html,body{margin:0;height:100%;background:#fff}iframe{display:block;width:100%;height:100%;border:0}</style>' +
+      '</head><body><iframe title="' +
+      escapeAttr(label) +
+      '" sandbox="allow-scripts allow-forms allow-popups" referrerpolicy="no-referrer" srcdoc="' +
+      escapeAttr(html ?? '') +
+      '"></iframe></body></html>'
+    );
+  }
+
+  /** A short, browser-only URL for a full-page preview. */
+  function pageUrl(html, title) {
+    if (typeof Blob !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return '';
+    }
+    try {
+      return URL.createObjectURL(new Blob([pageShell(html, title)], { type: 'text/html;charset=utf-8' }));
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Collect bounded, text-only diagnostics from the current preview frame.
    * Messages are accepted only from that frame and are rendered with
    * textContent, never as HTML.
@@ -1071,6 +1105,8 @@
     classify,
     renderError,
     withPreviewBridge,
+    pageShell,
+    pageUrl,
     createPreviewMonitor,
     renderMarkdown,
     markdownToHtml,
@@ -1227,7 +1263,24 @@
       }
       .logo-dot-2 { animation-delay: .18s; }
       .logo-dot-3 { animation-delay: .36s; }
-      .brand span { color: var(--muted); font-weight: 550; }
+      .brand-word {
+        display: inline-block;
+        font-weight: 700;
+        letter-spacing: .15px;
+        color: var(--text);
+        animation: brand-in .65s cubic-bezier(.2, .8, .2, 1) both;
+      }
+      @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+        .brand-word {
+          background-image: linear-gradient(104deg, #f7fbff 0%, #b9e7ff 22%, #b8ffdf 43%, #e4c7ff 64%, #f7fbff 84%, #b9e7ff 100%);
+          background-size: 230% 100%;
+          background-position: 0% 50%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: brand-in .65s cubic-bezier(.2, .8, .2, 1) both, brand-sheen 8.5s ease-in-out 1.2s infinite;
+        }
+      }
       .ver, .tag {
         font-size: 11px;
         color: var(--muted);
@@ -1663,6 +1716,51 @@
         box-shadow: -20px 0 50px rgba(0, 0, 0, .14);
       }
       .rail[hidden] { display: none; }
+      body.preview-full { overflow: hidden; }
+      body.preview-full .rail {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        max-width: none;
+        height: 100dvh;
+        z-index: 120;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: #fff;
+      }
+      body.preview-full .rail-head { display: none; }
+      body.preview-full .rail-body { padding: 0; gap: 0; overflow: hidden; }
+      body.preview-full #railPreview { height: 100dvh; }
+      body.preview-full #railPreview > :not(#previewFrame):not(#previewFullClose) { display: none !important; }
+      body.preview-full #previewFrame {
+        display: block !important;
+        width: 100% !important;
+        height: 100dvh !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+      }
+      body.preview-full .chatty { display: none !important; }
+      #previewFullClose {
+        display: none;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 121;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border: 1px solid var(--line-2);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+      }
+      #previewFullClose:hover { border-color: var(--accent-line); background: var(--surface-2); }
+      body.preview-full #previewFullClose { display: inline-flex; }
       .rail-head { display: flex; gap: 2px; padding: 7px 6px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; align-items: center; background: var(--surface-2); }
       .rail-tab { flex: 0 1 auto; min-width: 0; font-size: 11.5px; padding: 6px 5px; border-radius: 8px; background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .rail-tab:hover:not(.active) { color: var(--text); background: var(--surface-3); }
@@ -1836,8 +1934,8 @@
         background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
         opacity: .7;
       }
-      .brand { text-shadow: 0 0 26px var(--glow); }
-      .brand-mark { filter: drop-shadow(0 0 12px var(--glow)); }
+      .brand { text-shadow: 0 0 24px rgba(185, 231, 255, .16); }
+      .brand-mark { filter: drop-shadow(0 0 12px rgba(185, 231, 255, .26)); }
 
       /* Empty state: one floating mark, a lit headline, a framed diagram. */
       .empty { animation: hero-in .55s cubic-bezier(.2, .8, .2, 1) both; }
@@ -2012,6 +2110,14 @@
         0%, 58%, 100% { opacity: .42; transform: translateY(0) scale(.76); }
         24% { opacity: 1; transform: translateY(-20px) scale(1); }
       }
+      @keyframes brand-in {
+        from { opacity: 0; transform: translateX(-4px); }
+        to { opacity: 1; transform: none; }
+      }
+      @keyframes brand-sheen {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
       @media (prefers-reduced-motion: reduce) {
         .brand-mark .logo-tile,
         .brand-mark .logo-chat,
@@ -2021,6 +2127,7 @@
         .empty-mark .logo-dot { animation: none !important; opacity: 1; transform: none; }
         .brand-mark .logo-tile,
         .empty-mark .logo-tile { stroke-opacity: 1; }
+        .brand-word { animation: none !important; background-position: 50% 50%; }
         .empty-mark { animation: none !important; }
       }
       @keyframes msg-in {
@@ -2095,7 +2202,7 @@
             <circle class="logo-dot logo-dot-3" cx="316" cy="256" r="15" />
           </g>
         </svg>
-        Free<span>way</span>
+        <span class="brand-word">Freeway</span>
       </div>
       <span class="ver" id="ver">v…</span>
       <select id="provider" title="Provider" aria-label="Provider"></select>
@@ -2193,9 +2300,9 @@
       <div class="rail-body" id="railPreview" hidden>
         <p class="fine">
           Sandboxed iframe. Preview an HTML file you saved, or a public address. Many sites refuse to
-          be embedded; if the frame stays blank, open it in a new tab. Signed in, <b>copy link</b>
-          saves a snapshot to your account that opens on your other devices; <b>share link</b> does
-          that immediately.
+          be embedded; if the frame stays blank, open it in a new tab. <b>copy link</b> gives a
+          full-page app link for a saved page in this browser; the in-memory sample gets a
+          browser-only page link. Nothing is uploaded or published.
         </p>
         <div class="file-row">
           <input id="previewUrl" placeholder="https://example.com" autocomplete="off" aria-label="Preview URL" />
@@ -2217,6 +2324,7 @@
           <span class="link-scope" id="previewLinkScope" hidden></span>
         </div>
         <iframe id="previewFrame" title="Preview" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" style="display:none;width:100%;height:58vh;border:1px solid var(--line-2);border-radius:8px;background:#fff"></iframe>
+        <button class="ghost mini" type="button" id="previewFullClose" title="Back to Freeway" aria-label="Back to Freeway">← Freeway</button>
       </div>
 
       <div class="rail-body" id="railStatus" hidden>
@@ -2443,6 +2551,8 @@
         cooling: {},
         attachment: null,
         previewLink: '',
+        previewFull: false,
+        previewPageUrl: '',
         previewName: '',
         previewMissing: '',
         desktopDownloadUrl: 'https://github.com/zakker111/freeway/releases/latest',
@@ -2938,7 +3048,7 @@
           // Every page write carries its link, so the model can show it without
           // having to make a second tool call.
           const link = /\.(html?|svg)$/i.test(written)
-            ? `\n\nPreview link: ${previewLinkFor(written)}`
+            ? `\n\nPreview link: ${previewLinkFor(written, true)}`
             : '';
           // A page the model just wrote should be visible, not only stored.
           if (/\.(html?|svg|md|markdown)$/i.test(written)) {
@@ -2956,7 +3066,7 @@
           // "Show it to me" should not only return a URL; open the panel too.
           previewSavedHtml(target).catch(() => {});
           return (
-            `Preview link for ${target}:\n${previewLinkFor(target)}\n\n` +
+            `Preview link for ${target}:\n${previewLinkFor(target, true)}\n\n` +
             'Give this exact link to the user. It reopens the saved file in the Preview panel in this browser.'
           );
         }
@@ -4081,28 +4191,70 @@
         }
       }
 
-      // A preview link is this tab reopened at a saved file. The file stays in
-      // this browser, so the link works on this device after a reload; it is not
-      // a public share and it does not upload anything.
-      function previewLinkFor(name) {
+      // The address bar keeps a stable #preview= link so a saved file can be
+      // reopened. The copy and open controls use a full-page URL instead: a
+      // trusted wrapper with the generated page in a sandboxed iframe.
+      function previewLinkFor(name, full = false) {
         const target = String(name || '').trim().replace(/^\/+/, '');
-        return `${location.origin}${location.pathname || '/'}#preview=${encodeURIComponent(target)}`;
+        const suffix = full ? '&full=1' : '';
+        return `${location.origin}${location.pathname || '/'}#preview=${encodeURIComponent(target)}${suffix}`;
       }
 
-      function setPreviewLink(name) {
+      function dropPreviewPageUrl() {
+        if (!state.previewPageUrl) return;
+        try {
+          URL.revokeObjectURL(state.previewPageUrl);
+        } catch {
+          /* already revoked */
+        }
+        state.previewPageUrl = '';
+      }
+
+      function setPreviewLink(name, html = '') {
         const target = String(name || '').trim();
         state.previewName = target;
-        state.previewLink = target ? previewLinkFor(target) : '';
+        dropPreviewPageUrl();
+        const page = !target && html ? FreewayPreview.pageUrl(html, 'Preview') : '';
+        state.previewLink = target ? previewLinkFor(target, true) : page;
         const copy = $('previewCopy');
         if (copy) copy.hidden = !state.previewLink;
+        const open = $('previewOpen');
+        if (open) {
+          open.hidden = !state.previewLink;
+          if (state.previewLink) {
+            open.href = state.previewLink;
+            open.textContent = target
+              ? 'open full app ↗'
+              : state.previewLink.startsWith('blob:')
+                ? 'open full page ↗'
+                : 'open in a new tab ↗';
+          }
+        }
         const scope = $('previewLinkScope');
         if (scope) {
           scope.hidden = !state.previewLink;
-          scope.textContent = 'Browser-only link';
-          scope.title = 'This link opens only in this browser, where the file is saved.';
+          scope.textContent = target
+            ? 'Full-page app link'
+            : state.previewLink.startsWith('blob:')
+              ? 'Full-page browser link'
+              : 'Browser-only link';
+          scope.title = target
+            ? 'This app link opens the rendered page full-screen in this browser.'
+            : 'This link opens the rendered page directly; it stays in this browser only.';
         }
         try {
-          history.replaceState(null, '', target ? previewLinkFor(target) : location.pathname || '/');
+          history.replaceState(null, '', target ? previewLinkFor(target, state.previewFull) : location.pathname || '/');
+        } catch {
+          /* history can be restricted in a sandboxed or embedded tab */
+        }
+      }
+
+      function setPreviewFull(on, updateHistory = true) {
+        state.previewFull = Boolean(on);
+        document.body.classList.toggle('preview-full', state.previewFull);
+        if (!updateHistory || !state.previewName) return;
+        try {
+          history.replaceState(null, '', previewLinkFor(state.previewName, state.previewFull));
         } catch {
           /* history can be restricted in a sandboxed or embedded tab */
         }
@@ -4118,11 +4270,17 @@
         }
       }
 
+      function previewFullFromHash() {
+        return /(?:^#|&)full=1(?:&|$)/.test(location.hash || '');
+      }
+
       // A copied link carries the file in #preview=; reopen it instead of
       // dropping the user on an empty Preview panel.
-      async function openPreviewFromHash(only = previewFromHash()) {
+      async function openPreviewFromHash(only = previewFromHash(), full = previewFullFromHash()) {
         const name = String(only || '').trim();
         if (!name) return false;
+        state.previewFull = Boolean(full || previewFullFromHash());
+        if (!state.previewFull) document.body.classList.remove('preview-full');
         // Opening a link must always produce a visible result. A browser-only
         // link is scoped to this browser, so a stale or cross-device link is
         // common; explain that in the panel instead of doing nothing.
@@ -4135,7 +4293,12 @@
         }
         $('fileName').value = name;
         $('fileBody').value = files[name];
-        return previewSavedHtml(name);
+        const shown = await previewSavedHtml(name);
+        if (shown && state.previewFull) {
+          document.body.classList.add('preview-full');
+          $('previewFullClose')?.focus();
+        }
+        return shown;
       }
 
       function showMissingPreview(name) {
@@ -4174,6 +4337,7 @@
       // Preview belongs to the chat. Clear both the frame and its state before
       // another chat can inherit a page that was loaded in the old one.
       function clearPreview() {
+        if (state.previewFull) setPreviewFull(false, false);
         previewMonitor.clear();
         previewMonitor.setEnabled(false);
         const frame = $('previewFrame');
@@ -4190,6 +4354,7 @@
       }
 
       function showPreviewFailure(error) {
+        if (state.previewFull) setPreviewFull(false, false);
         previewMonitor.clear();
         previewMonitor.setEnabled(false);
         const frame = $('previewFrame');
@@ -4226,12 +4391,10 @@
           kind === 'markdown'
             ? `Previewing ${label} as Markdown. Raw HTML is escaped; relative links and images stay relative.`
             : `Previewing ${label}. Linked local CSS and JS are inlined; external images and fonts may be blocked.${extra}`;
-        $('previewOpen').hidden = true;
-        // Only a real saved page has a link to copy; the sample is in memory.
         const target = targetName === '' ? '' : String(targetName || label || '').trim();
         const saved = Boolean(target) && /\.(html?|svg|md|markdown)$/i.test(target) && !/\(in memory\)/i.test(target);
         hideMissingPreview();
-        setPreviewLink(saved ? target : '');
+        setPreviewLink(saved ? target : '', html);
         $('rail').hidden = false;
         switchRail('preview');
       }
@@ -4256,6 +4419,7 @@
           return banner('That is not a URL.', 'close', () => {});
         }
         if (!/^https?:$/.test(url.protocol)) return banner('Only http(s) previews are allowed.', 'close', () => {});
+        if (state.previewFull) setPreviewFull(false, false);
         previewMonitor.clear();
         previewMonitor.setEnabled(false);
         const frame = $('previewFrame');
@@ -4270,12 +4434,17 @@
         link.textContent = 'open in a new tab ↗';
         link.hidden = false;
         const copy = $('previewCopy');
-        if (copy) copy.hidden = true;
-        state.previewLink = '';
+        if (copy) copy.hidden = false;
+        dropPreviewPageUrl();
+        state.previewLink = url.href;
         state.previewName = '';
         hideMissingPreview();
         const scope = $('previewLinkScope');
-        if (scope) scope.hidden = true;
+        if (scope) {
+          scope.hidden = false;
+          scope.textContent = 'External page';
+          scope.title = 'This link opens the external address in a new tab.';
+        }
         try {
           history.replaceState(null, '', location.pathname || '/');
         } catch {
@@ -4289,13 +4458,32 @@
         button.disabled = true;
         try {
           await navigator.clipboard.writeText(state.previewLink);
-          $('previewNote').textContent = `Preview link copied: ${state.previewLink}`;
+          $('previewNote').textContent = state.previewName
+            ? 'Full-page app link copied. It opens this preview in the app in this browser.'
+            : state.previewLink.startsWith('blob:')
+              ? 'Full-page preview link copied. It opens directly in this browser and expires when this tab closes.'
+              : `Preview link copied: ${state.previewLink}`;
         } catch {
           $('previewNote').textContent = `Preview link: ${state.previewLink}`;
         } finally {
           button.disabled = false;
         }
       };
+
+      $('previewFullClose').onclick = () => {
+        setPreviewFull(false);
+        $('rail').hidden = false;
+        switchRail('preview');
+        $('previewCopy').focus();
+      };
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !state.previewFull) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setPreviewFull(false);
+        $('previewCopy').focus();
+      });
 
       function renderStatus() {
         const stats = state.stats;
@@ -5769,13 +5957,15 @@
 
       window.addEventListener('hashchange', () => {
         const name = previewFromHash();
-        if (name) openPreviewFromHash(name);
+        if (name) openPreviewFromHash(name, previewFullFromHash());
+        else if (state.previewFull) setPreviewFull(false, false);
       });
 
       // --------------------------------------------------------------- boot
       (async function boot() {
         // Read the hash before restoring the chat: switching chats clears it.
         const initialPreview = previewFromHash();
+        const initialFull = previewFullFromHash();
         try {
           const res = await fetch('/api/config');
           const cfg = await res.json();
@@ -5816,7 +6006,7 @@
         setHints();
         await loadModels();
         await restoreActiveChat();
-        if (initialPreview) await openPreviewFromHash(initialPreview);
+        if (initialPreview) await openPreviewFromHash(initialPreview, initialFull);
         await refreshQuota();
         await refreshBudget();
         applySidebarPreference();
@@ -5840,7 +6030,7 @@
             location.reload();
           });
         }
-        $('input').focus();
+        if (!state.previewFull) $('input').focus();
       })();
     </script>
     <script id="chatty-core">

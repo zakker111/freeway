@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes are applied to the current 2.23.x line and the most recent published
+Security fixes are applied to the current 2.24.x line and the most recent published
 release. Older builds are unsupported; rebuild from the current source.
 
 ## Reporting a vulnerability

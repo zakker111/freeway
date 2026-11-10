@@ -635,14 +635,23 @@ async function takeBudget(env, request) {
   const ip = clientIp(request);
   if (!ip) return { ok: true, skipped: 'no-ip' };
   const limit = perVisitorLimit(env);
-  const { day, used } = await budgetRow(env, ip);
-  if (used >= limit) return { ok: false, used, limit };
-  await env.DB.prepare(
-    'INSERT INTO budget (day, ip, used) VALUES (?, ?, 1) ON CONFLICT(day, ip) DO UPDATE SET used = used + 1',
+  const day = new Date().toISOString().slice(0, 10);
+  await env.DB.prepare(BUDGET_SCHEMA).run();
+  // One statement, not read-then-write: two requests arriving together must
+  // not both observe the last remaining turn. The WHERE applies only to the
+  // upsert, so a new row still inserts normally.
+  const result = await env.DB.prepare(
+    'INSERT INTO budget (day, ip, used) VALUES (?, ?, 1) ' +
+      'ON CONFLICT(day, ip) DO UPDATE SET used = used + 1 WHERE budget.used < ?',
   )
-    .bind(day, ip)
+    .bind(day, ip, limit)
     .run();
-  return { ok: true, used: used + 1, limit };
+  const changes = Number(result?.meta?.changes ?? result?.changes ?? 1);
+  if (!Number.isFinite(changes) || changes <= 0) {
+    const { used } = await budgetRow(env, ip);
+    return { ok: false, used, limit };
+  }
+  return { ok: true, limit };
 }
 
 function normaliseMessages(input) {

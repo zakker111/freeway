@@ -947,6 +947,40 @@
   }
 
   /**
+   * A full-page shell for a copied preview link. The generated page stays in a
+   * sandboxed iframe, so it never inherits Freeway's origin, storage or API.
+   */
+  function pageShell(html, title) {
+    const label = String(title || 'Preview');
+    return (
+      '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta name="color-scheme" content="light dark">' +
+      '<title>' +
+      escapeHtml(label) +
+      '</title>' +
+      '<style>html,body{margin:0;height:100%;background:#fff}iframe{display:block;width:100%;height:100%;border:0}</style>' +
+      '</head><body><iframe title="' +
+      escapeAttr(label) +
+      '" sandbox="allow-scripts allow-forms allow-popups" referrerpolicy="no-referrer" srcdoc="' +
+      escapeAttr(html ?? '') +
+      '"></iframe></body></html>'
+    );
+  }
+
+  /** A short, browser-only URL for a full-page preview. */
+  function pageUrl(html, title) {
+    if (typeof Blob !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return '';
+    }
+    try {
+      return URL.createObjectURL(new Blob([pageShell(html, title)], { type: 'text/html;charset=utf-8' }));
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Collect bounded, text-only diagnostics from the current preview frame.
    * Messages are accepted only from that frame and are rendered with
    * textContent, never as HTML.
@@ -1066,6 +1100,8 @@
     classify,
     renderError,
     withPreviewBridge,
+    pageShell,
+    pageUrl,
     createPreviewMonitor,
     renderMarkdown,
     markdownToHtml,

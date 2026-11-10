@@ -5,7 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
-| 2.24.0 | 2026-11-10 | Chatty's first-run tour, a livelier cat, and one soft ready chime |
+| 2.24.0 | 2026-11-10 | Chatty's first-run tour, a livelier cat, one soft ready chime, and an animated wordmark |
 | 2.23.2 | 2026-11-10 | Chatty gains 15 more useful tips, for 46 total |
 | 2.23.1 | 2026-11-10 | Chatty greets visitors as the Freeway cat; white animated logo confirmed |
 | 2.23.0 | 2026-11-10 | Chatty companion: tips, jokes, animations and a quiet dismiss |
@@ -184,7 +184,14 @@ change. The running app reports its version in the header badge and at `GET /api
 - **A livelier cat.** Chatty pounces at a click, wanders to a few controls after the tour,
   winks at the cursor and settles into her corner. Reduced-motion users get the same
   information without the movement.
-- **Checks.** 336 unit tests (page contracts included), 36 CLI, 29 + 29 simulations and 28
+- **A wordmark that moves.** The header's "Freeway" now carries a slow pastel sheen and a
+  short entrance, with the icon glow tinted to match. Reduced motion keeps the gradient but
+  stops the movement.
+- **Full-page preview links.** **Copy link** now opens the built page itself, not Freeway's
+  preview panel. Desktop uses its local preview or dev-server URL when possible; cloud saved
+  pages copy a real app URL that opens the preview full-screen, while in-memory samples use a
+  sandboxed browser-only page link. The cloud panel no longer claims account snapshots.
+- **Checks.** 337 unit tests (page contracts included), 36 CLI, 29 + 29 simulations and 29
   cloud checks pass. Desktop and cloud source report 2.24.0; `freeway.mjs` and `freeway.cjs`
   were rebuilt at 2.24.0 and the cloud Worker at 2.24.0-cloud.
 - **Release state.** Source `main` is 2.24.0; the latest published GitHub release and cloud
