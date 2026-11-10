@@ -13,6 +13,7 @@ proxies the model calls. No framework, no bundler, no dependencies, no user buil
 | Simulation against the single file | `APP_PATH=freeway.mjs node test/simulate.mjs` |
 | Cloud Worker suite | `node cloud/build.mjs && node cloud/test.mjs` (or `npm --prefix cloud test` after a build) |
 | Browser cooldown regression | `CHROME_BIN=/path/to/chrome npm run test:cooldown` |
+| Browser Chatty regression | `CHROME_BIN=/path/to/chrome npm run test:chatty` |
 | Rebuild the single file | `node build/bundle.mjs` |
 | Run | `node app.mjs` or `node freeway.mjs` |
 

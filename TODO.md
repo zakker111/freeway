@@ -10,7 +10,7 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.31.2**.
+- Desktop and cloud source are **2.32.0**.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   Cat school (eight three-step lessons), a Settings action with an in-panel guide, tips,
   jokes, pounce, an occasional yarn-ball game with an edge peek, close cooldown, single soft
@@ -20,7 +20,7 @@ releases and commit log; this file tracks what is still open.
   the taller cloud composer. Her guided tour now hops between eleven stops, covers Chats,
   New, the model picker, key/quota, the composer, attachments, Plan, Build, Preview, the rail
   and Settings, and measures the tip bubble so the phone layout keeps every target visible.
-- The latest published GitHub release is **v2.31.2**; it carries the source ZIP,
+- The latest published GitHub release is **v2.32.0**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.
@@ -32,6 +32,9 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
+- [x] Cut the **2.32.0** minor: every Cat school step moves Chatty to a new edge with her tour hop.
+- [x] Add a real-browser regression for tutor movement, tour, the Settings switch and reduced motion.
+- [x] Deploy cloud preview and production at **2.32.0-cloud**.
 - [x] Cut the **2.31.2** patch: malformed catalogs degrade cleanly and split dev-server ports are detected.
 - [x] Verify 349 node tests (78 page checks), 36 CLI, 29 + 29 simulations and 30 cloud checks.
 - [x] Deploy cloud preview and production at **2.31.2-cloud**.

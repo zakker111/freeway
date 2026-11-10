@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.32.0 | 2026-11-10 | Cat school steps move Chatty to a new edge with her tour hop |
 | 2.31.2 | 2026-11-10 | Malformed catalogs degrade cleanly; split dev-server URLs still detect their port |
 | 2.31.1 | 2026-11-10 | Phone shell fits at 320px; cloud drawer no longer hides under the header |
 | 2.31.0 | 2026-11-10 | Chatty tours saved chats, key/quota and attachments: eleven stops |
@@ -182,6 +183,29 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.32.0 — 2026-11-10
+
+- **Cat school steps move.** Each lesson step now sends Chatty to a new edge
+  position with the same hop used by the guided tour. The step label and lesson
+  text change only after she lands, so a lesson reads as a sequence of beats
+  instead of a bubble swapping in place.
+- **The movement is interruptible and accessible.** Finishing, stopping, hiding,
+  switching Chatty off or starting another lesson clears the travel state. Under
+  `prefers-reduced-motion: reduce` she still changes position, but the hop is
+  `none`.
+- **Regression coverage.** `test/ui-chatty.mjs` starts the real desktop app and
+  drives the welcome, three-step Cat school, finish/another/stop flow, tour
+  movement and spotlight, the Settings switch, and a reduced-motion lesson. It
+  samples the 460ms move while the hop is running.
+- **Verification.** 349 node tests (including 78 page checks), 36 CLI checks, 29
+  source simulations, 29 single-file simulations, 30 cloud checks, 5/5 cooldown
+  browser checks and the four-stage Chatty browser check pass.
+- **Release state.** Desktop source is **2.32.0**; cloud preview and production
+  are **2.32.0-cloud**; both environments are published. The source ZIP, Windows
+  ZIP and `SHA256SUMS` accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.32.0](https://github.com/zakker111/freeway/releases/tag/v2.32.0).
 
 ## 2.31.2 — 2026-11-10
 

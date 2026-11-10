@@ -62,3 +62,8 @@ jobs:
         env:
           CHROME_BIN: /usr/bin/google-chrome
         run: npm run test:cooldown
+
+      - name: Browser Chatty regression
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm run test:chatty

@@ -559,6 +559,7 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `test/cli.mjs` | tests the flags and the single-file build |
 | `test/ui-preview.mjs` | real Chromium check for preview cards and frame visibility |
 | `test/ui-cooldown.mjs` | real Chromium check for cooldown countdowns and one-resend behavior on both editions |
+| `test/ui-chatty.mjs` | real Chromium check for Chatty's Cat school, tour, Settings switch and reduced motion |
 
 ## Commands
 
@@ -569,6 +570,7 @@ npm test             # unit tests for selection and tools
 npm run simulate     # mock upstream + real app: retries, tools, errors
 npm run test:cli     # flags, flag precedence, the single-file build
 npm run test:ui      # real browser check; set CHROME_BIN
+npm run test:chatty  # Chatty tutor, tour, switch and reduced motion; set CHROME_BIN
 node cloud/build.mjs && node cloud/test.mjs  # cloud Worker suite
 npm run build:single # regenerate freeway.mjs
 ```
