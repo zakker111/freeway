@@ -189,6 +189,9 @@ change. The running app reports its version in the header badge and at `GET /api
 - **Live.** Desktop 2.23.2 is running on port 3002; cloud preview and production both
   report 2.23.2-cloud and remain published. Both pages serve the 46-tip library, including
   the new shortcut, file, retry and storage tips.
+- **Links.** [Cloud production](https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page),
+  [cloud preview](https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page) and
+  [release v2.23.2](https://github.com/zakker111/freeway/releases/tag/v2.23.2).
 
 ## 2.23.1 — 2026-11-10
 

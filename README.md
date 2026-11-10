@@ -70,14 +70,22 @@ Node.js 20.11 or newer — <https://nodejs.org/en/download> (LTS installer). The
 `Freeway.exe` needs no Node at all; see below. The interactive browser tools need Node 22
 or newer for the built-in WebSocket; the rest of the app still runs on Node 20.11.
 
+## Links
+
+- **Hosted cloud — production:** <https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page>
+- **Hosted cloud — preview:** <https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page>
+- **Release downloads:** [Freeway 2.23.2](https://github.com/zakker111/freeway/releases/tag/v2.23.2)
+- **Repository:** <https://github.com/zakker111/freeway>
+
 ### Which file do I use?
 
 - **`Freeway-<version>.zip`** — the normal download. Unzip it and double-click
   `start.cmd` on Windows (or `start.sh` on macOS/Linux). This is the one to try first.
 - **`Freeway-<version>-windows.zip`** — the same app as one `Freeway.exe`,
   with Node inside. Use it if you do not want to install Node.
-- **`Freeway-<version>-github.zip`** — the source tree for uploading to GitHub; it has
-  no build output and no keys.
+
+There is no separate `-github.zip` in current releases: the normal source ZIP is the
+repository tree and contains no build output or keys.
 
 Download these from [the latest release](https://github.com/zakker111/freeway/releases/latest).
 
