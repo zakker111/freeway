@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.27.0 | 2026-11-10 | Chatty opens Cat school: eight playful, practical lessons with step-by-step coaching |
 | 2.26.0 | 2026-11-10 | Chatty stays above every panel and keeps her tip inside short viewports |
 | 2.25.1 | 2026-11-10 | Hide the standalone viewer's loading card and use the canonical /preview path in docs |
 | 2.25.0 | 2026-11-10 | Standalone full-screen preview pages: links open only the rendered page, not the app shell |
@@ -174,6 +175,31 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.27.0 — 2026-11-10
+
+- **Cat school is open.** Chatty's welcome, tips and post-tour bubble carry a **Tutor me**
+  action. It opens one of eight three-step lessons: The Three-Paw Prompt, Plan Before
+  Pounce, Debug Like a Cat, Explain It Back, The Two-Minute Test, Secret Keeper, The
+  Follow-Up Purr and Review Like a Cat.
+- **Teaching with a tail.** Every step is a short practical move, not a lecture. **Next
+  paw** advances, **Finish lesson** lands the punchline, **Another lesson** picks a
+  different topic, and **Stop** returns to normal Chatty. She remembers the last lesson,
+  so **Another lesson** does not repeat it.
+- **Catty, but still a cat.** Five tutor-themed jokes and 54 tips now live beside the
+  pounce, tour, ready chime and close cooldown. Lesson labels show progress
+  (`Cat school 1/3`), and the completed state offers **Another lesson** or **Done**.
+- **Opt-out and privacy stay intact.** Cat school uses the existing local runtime,
+  Settings switch, reduced-motion behavior and native-dialog pause. It does not read
+  chats, keys or provider requests, and adds no backend, account or network call.
+- **Checks.** 74 page checks (344 unit tests total), 36 CLI, 29 + 29 simulations and
+  29 cloud checks pass. A browser run opened Cat school, advanced all three steps,
+  finished with **Another lesson**, started a different topic, and stopped back to
+  **Tutor me**.
+- **Release state.** Both cloud environments and the published release are **2.27.0**
+  (**2.27.0-cloud**); the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.27.0](https://github.com/zakker111/freeway/releases/tag/v2.27.0).
 
 ## 2.26.0 — 2026-11-10
 

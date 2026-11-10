@@ -7617,11 +7617,13 @@
   const WANDER_MAX_MS = 17 * 1000;
   const TOUR_LIMIT = 2;
   const WELCOME =
-    "Psst! I'm Chatty, the Freeway cat. I can show you where everything lives. Click me to see me pounce, or take the quick tour?";
+    "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, or let me tutor you in Cat school. Short lessons, bad puns, no hairballs.";
   const TOUR_INVITE =
     'The quick tour is still ready when you are. I can point out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings.';
+  const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }];
   const WELCOME_ACTIONS = [
-    { action: 'tour', label: 'Show me around', primary: true },
+    { action: 'tutor', label: 'Tutor me', primary: true },
+    { action: 'tour', label: 'Tour' },
     { action: 'later', label: 'Later' },
   ];
   const TIPS = [
@@ -7671,6 +7673,14 @@
     'A cloud provider key stays in this tab and disappears when the tab closes.',
     'Use New chat for a fresh topic; old chats stay in the left panel.',
     'Ctrl + K also renames and deletes chats, not just opens them.',
+    'Ask for a tiny lesson: context, goal, constraint, and one proof that it works.',
+    'If a reply misses, keep one thing and change one thing; smaller follow-ups land better.',
+    'Stuck on a bug? Ask for the smallest next check, not the whole rewrite.',
+    'Learning something new? Ask for one example and one counter-example.',
+    'Explain an idea back in your own words; the wobble shows you where to study.',
+    'Cat school is open: click Tutor me for a short lesson with a purr-actice challenge.',
+    'A good prompt points at one spot, like a laser pointer with a deadline.',
+    'Tests are catnip for confidence; run the focused one before the whole suite.',
   ];
   const WORKFLOW_TIPS = {
     plan: [
@@ -7708,6 +7718,85 @@
     'Today: mostly code, with a chance of tiny cat.',
     'Good news: the error message is clearer than my handwriting.',
     'If it compiles, ship it. Wait, no. Preview first.',
+    'I taught a class on recursion. I will explain it after I explain it.',
+    'My lesson on focus was going well until a laser pointer walked in.',
+    'I tutor in short bursts: explain, stretch, knock something off the desk.',
+    'My teaching style is paws-on. Mostly on the keyboard.',
+    'A student asked for the answer. I gave them a ball of yarn and a hint.',
+  ];
+  const LESSONS = [
+    {
+      title: 'The Three-Paw Prompt',
+      steps: [
+        'First paw: name the goal in one sentence. "Add a search box to the Files panel." A vague wish is a laser pointer with no dot.',
+        'Second paw: add one constraint. "Filter by filename, keep it keyboard-friendly, no new dependencies." Constraints are catnip for useful answers.',
+        'Third paw: name the proof. "It works when I type log and only log files remain." If you cannot check it, I cannot chase it.',
+      ],
+      finish: 'Purr-fect. That is a testable request, not a wish. Try one; I will supervise from the edge of the keyboard.',
+    },
+    {
+      title: 'Plan Before Pounce',
+      steps: [
+        'Plan is my stretch before the jump: it reads the files and maps the route without changing anything.',
+        'Check that the plan names the right rooms and the check that proves the work. Wrong map, no pounce.',
+        'Switch to Build only when the route looks right. Build is the part with claws.',
+      ],
+      finish: 'Plan first, pounce second. My vet calls it looking before leaping. I call it avoiding the vacuum.',
+    },
+    {
+      title: 'Debug Like a Cat',
+      steps: [
+        'Start with the error, not the whole codebase. Read the first line that names a file and a line number.',
+        'Change one thing that tests one guess. A giant rewrite is just a box; I will sit in it.',
+        'Run the focused check. If it passes, run its neighbour. Then say what changed.',
+      ],
+      finish: 'One paw at a time. Bugs are laser dots with better job security.',
+    },
+    {
+      title: 'Explain It Back',
+      steps: [
+        'Pick one idea and explain it in three sentences without jargon. The wobbly sentence is the one to study.',
+        'Add one tiny example and one counter-example. Cats learn edges by bumping into them.',
+        'Ask for a three-question quiz, then answer before peeking. Peeking is for treats, not learning.',
+      ],
+      finish: 'If you can explain it to a cat, you can explain it to a human. I may still sit on the keyboard.',
+    },
+    {
+      title: 'The Two-Minute Test',
+      steps: [
+        'Before changing code, name the smallest test that should fail. That is your red dot.',
+        'Make the smallest change that turns it green. If it takes three changes, slice the task.',
+        'Run it again after the change. A test that passed once is a rumour.',
+      ],
+      finish: 'Red, green, nap. That is the whole cycle, minus the nap when the tests are slow.',
+    },
+    {
+      title: 'Secret Keeper',
+      steps: [
+        'Keys go in Secrets, not chat. Chat is a window; Secrets is the locked cupboard.',
+        'Never paste a key into a prompt or a file. If it leaks, revoke it at the provider and make a new one.',
+        'A .env file is still a file. The Secrets rail keeps me from pretending I have thumbs.',
+      ],
+      finish: 'Safe, sound, still fluffy. Now rotate the key you definitely did not paste anywhere.',
+    },
+    {
+      title: 'The Follow-Up Purr',
+      steps: [
+        'When an answer misses, name one thing to keep and one thing to change. "Keep the layout; use a native dialog."',
+        'Ask for a smaller slice: "Show only the first failing test." Cats do not eat the whole fish at once.',
+        'Finish with a check: "Run the focused test and tell me the result." Otherwise we are batting at the screen.',
+      ],
+      finish: 'Small corrections, warm laps, working software. That is the follow-up purr.',
+    },
+    {
+      title: 'Review Like a Cat',
+      steps: [
+        'Read the diff for behavior first. What can it do now that it could not before?',
+        'Check the unhappy path: empty input, failed request, missing file. That is where the mice hide.',
+        'Ask for one concrete fix and one test. "Handle a missing file and cover it with a focused test."',
+      ],
+      finish: 'A good review is a gentle paw on the shoulder, not a swat. Unless it is a null. Then swat.',
+    },
   ];
   const TOUR_STOPS = [
     {
@@ -8156,6 +8245,9 @@
   let tourTarget = null;
   let tourStep = -1;
   let tourBusy = false;
+  let tutorLesson = null;
+  let tutorStep = -1;
+  let lastLesson = -1;
 
   function readFlag(key, fallback) {
     try {
@@ -8499,6 +8591,10 @@
       hide();
       return;
     }
+    if (tutorStep >= 0) {
+      scheduleWander(6000);
+      return;
+    }
     if (isEditable(document.activeElement)) {
       scheduleWander(6000);
       return;
@@ -8553,6 +8649,8 @@
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    tutorStep = -1;
+    tutorLesson = null;
     writeFlag(SEEN_KEY, '1');
     wanderCount = TOUR_LIMIT;
     tourStep = -1;
@@ -8625,8 +8723,9 @@
     wanderCount = TOUR_LIMIT;
     hideSpotlight();
     showTip(
-      "That's the tour! You know where everything lives now. Click me any time for a tip, a joke, or a pounce.",
+      "That's the tour! You know where everything lives now. Click me any time for a tip, a joke, a pounce, or a Cat school lesson.",
       16000,
+      TUTOR_ACTIONS,
     );
     spawnHeart(3);
     armHide(28000);
@@ -8642,12 +8741,112 @@
     hide(60000);
   }
 
+  function pickLesson() {
+    let index = Math.floor(Math.random() * LESSONS.length);
+    if (index === lastLesson) index = (index + 1) % LESSONS.length;
+    lastLesson = index;
+    return LESSONS[index];
+  }
+
+  function makeVisible() {
+    if (!rootNode) return;
+    clearTimeout(appearTimer);
+    if (rootNode.hidden) {
+      choosePosition();
+      rootNode.hidden = false;
+    }
+    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+  }
+
+  function showTutorStep() {
+    if (!enabled || !rootNode || !tutorLesson || tutorStep < 0 || isBlocked()) return;
+    const step = tutorStep;
+    if (step >= tutorLesson.steps.length) {
+      finishTutor();
+      return;
+    }
+    const last = step === tutorLesson.steps.length - 1;
+    showTip(
+      tutorLesson.steps[step],
+      0,
+      [
+        { action: 'tutor-next', label: last ? 'Finish lesson' : 'Next paw', primary: true },
+        { action: 'tutor-stop', label: 'Stop' },
+      ],
+      `Cat school ${step + 1}/${tutorLesson.steps.length}`,
+    );
+    armHide(180000);
+  }
+
+  function startTutor() {
+    if (!enabled || !rootNode || isBlocked()) return;
+    clearTimeout(appearTimer);
+    clearTimeout(hideTimer);
+    clearTimeout(wanderTimer);
+    clearTimeout(moveTimer);
+    if (tourStep >= 0 || tourBusy) {
+      tourStep = -1;
+      tourBusy = false;
+      hideSpotlight();
+      rootNode.classList.remove('is-wandering');
+    }
+    tutorLesson = pickLesson();
+    tutorStep = 0;
+    makeVisible();
+    showTutorStep();
+    pouncePet();
+    spawnHeart(2);
+  }
+
+  function advanceTutor() {
+    if (!enabled || !tutorLesson || tutorStep < 0) return;
+    if (tutorStep >= tutorLesson.steps.length - 1) {
+      finishTutor();
+      return;
+    }
+    tutorStep += 1;
+    showTutorStep();
+  }
+
+  function finishTutor() {
+    if (!tutorLesson) {
+      stopTutor();
+      return;
+    }
+    const lesson = tutorLesson;
+    tutorStep = -1;
+    tutorLesson = null;
+    showTip(
+      lesson.finish,
+      22000,
+      [
+        { action: 'tutor-another', label: 'Another lesson', primary: true },
+        { action: 'later', label: 'Done' },
+      ],
+      'Cat school · done',
+    );
+    spawnHeart(3);
+    armHide(32000);
+  }
+
+  function stopTutor() {
+    tutorStep = -1;
+    tutorLesson = null;
+    if (labelNode) labelNode.textContent = 'Chatty';
+    showTip(
+      'Class dismissed. I will be in the corner, pretending not to knock something off the desk.',
+      9000,
+      TUTOR_ACTIONS,
+    );
+    armHide(16000);
+  }
+
   function show() {
     if (!enabled || isBlocked()) {
       if (enabled) schedule(22000);
       return;
     }
-    if (tourStep >= 0) return;
+    if (tourStep >= 0 || tutorStep >= 0) return;
     clearTimeout(appearTimer);
     if (!rootNode) return;
     if (rootNode.hidden) {
@@ -8670,7 +8869,7 @@
         armHide(28000);
       }
     } else if (Math.random() < 0.58) {
-      showTip(pickMessage());
+      showTip(pickMessage(), 13000, TUTOR_ACTIONS);
     }
     if (tourDone) scheduleWander();
     if (pointer) lookAt();
@@ -8690,8 +8889,10 @@
     if (tourStep >= 0 || tourBusy) {
       tourStep = -1;
       tourBusy = false;
-      if (labelNode) labelNode.textContent = 'Chatty';
     }
+    tutorStep = -1;
+    tutorLesson = null;
+    if (labelNode) labelNode.textContent = 'Chatty';
     renderActions(null);
     hideTip();
     petNode.classList.remove('chatty-spin', 'chatty-pounce');
@@ -8754,6 +8955,8 @@
       clearTimeout(moveTimer);
       tourStep = -1;
       tourBusy = false;
+      tutorStep = -1;
+      tutorLesson = null;
       renderActions(null);
       hideTip();
       petNode.classList.remove('chatty-spin', 'chatty-pounce');
@@ -8826,7 +9029,11 @@
       if (!button) return;
       event.stopPropagation();
       const action = button.dataset.chattyAction;
-      if (action === 'tour') startTour();
+      if (action === 'tutor') startTutor();
+      else if (action === 'tutor-next') advanceTutor();
+      else if (action === 'tutor-another') startTutor();
+      else if (action === 'tutor-stop') stopTutor();
+      else if (action === 'tour') startTour();
       else if (action === 'next') advanceTour();
       else if (action === 'skip') abandonTour();
       else if (action === 'later') dismiss();
@@ -8838,6 +9045,10 @@
         advanceTour();
         return;
       }
+      if (tutorStep >= 0) {
+        advanceTutor();
+        return;
+      }
       dismiss();
     });
     petNode.addEventListener('click', (event) => {
@@ -8846,8 +9057,16 @@
         advanceTour();
         return;
       }
+      if (tutorStep >= 0) {
+        if (bubbleNode.hidden) showTutorStep();
+        else advanceTutor();
+        pouncePet();
+        spawnHeart();
+        armHide(26000);
+        return;
+      }
       if (bubbleNode.hidden) {
-        if (readFlag(TOUR_KEY, '') === '1') showTip(pickMessage());
+        if (readFlag(TOUR_KEY, '') === '1') showTip(pickMessage(), 13000, TUTOR_ACTIONS);
         else showTip(WELCOME, 24000, WELCOME_ACTIONS);
       } else hideTip();
       pouncePet();
@@ -8939,6 +9158,8 @@
         clearTimeout(moveTimer);
         tourStep = -1;
         tourBusy = false;
+        tutorStep = -1;
+        tutorLesson = null;
         renderActions(null);
         hideTip();
         rootNode.classList.remove('is-in', 'is-wandering');
@@ -8954,6 +9175,7 @@
     setEnabled,
     show: () => show(),
     hide,
+    tutor: () => startTutor(),
     ready: playReadyChime,
     tip: (message) => {
       if (!enabled) return;
