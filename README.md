@@ -9,10 +9,11 @@ lessons on prompting, Plan/Build, debugging, explaining an idea, focused tests, 
 follow-up requests and code review. Choose **Tutor me** for a three-step lesson with
 **Next paw**, **Finish lesson**, **Another lesson** and **Stop**; Chatty avoids repeating
 the last topic and keeps the puns coming. On the first visit she also offers a guided
-walkthrough of New, the model picker, the composer, Plan and Build, Preview, the rail and
-Settings: choose **Show me around**, then click **Next stop** and watch her hop from one
-control to the next. Plan and Build get their own explanations, and the Settings stop points
-out the gear that holds keys, workspace options, commands, screenshots and her own switch.
+walkthrough of Chats, New, the model picker, your key and quota, the composer and
+attachments, Plan and Build, Preview, the rail and Settings: choose **Show me around**, then
+click **Next stop** and watch her hop from one control to the next. Plan and Build get their
+own explanations, and the Settings stop points out the gear that holds keys, tools, files,
+approvals and her own switch.
 After the tour she keeps you company, highlights controls on later visits, and shares another
 tip when clicked.
 Choose **Settings** in her bubble to open the real panel; she leaves a short guide inside it
@@ -240,7 +241,7 @@ Everything needed to start is in place. Run it without --doctor.
 | 10 | Settings → allow commands, allowlist `node`, then ask it to run `node -v` | Allow card, then output streamed into the answer |
 | 11 | Open the **Status** tab after a few messages | Attempts, latencies and any cooling-down model are listed |
 | 12 | Header → quit | The page says the app stopped and the console window ends |
-| 13 | Find Chatty at the edge of the page; choose **Tutor me** for Cat school or **Show me around** for the tour | A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. The spotlight tour points out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off; choosing **Settings** in her bubble opens that panel with her notes and **Show me** tips. |
+| 13 | Find Chatty at the edge of the page; choose **Tutor me** for Cat school or **Show me around** for the tour | A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. The spotlight tour points out Chats, New, the model picker, key/quota, the composer and attachments, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off; choosing **Settings** in her bubble opens that panel with her notes and **Show me** tips. |
 
 ### If something goes wrong
 

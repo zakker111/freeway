@@ -206,16 +206,28 @@
   ];
   const TOUR_STOPS = [
     {
+      selectors: ['#sideBtn'],
+      tip: 'Chats opens your saved conversations. Search them here, then pick up any thread where you left off.',
+    },
+    {
       selectors: ['#newChatBtn', '#clearBtn'],
-      tip: 'New starts a clean chat. Your saved chats stay in the panel, so start fresh whenever you like.',
+      tip: 'New starts a clean chat. Your saved chats stay under Chats, so a fresh start never loses the old ones.',
     },
     {
       selectors: ['#modelBtn'],
-      tip: 'This is the model picker. Every model inside is free; press Ctrl + M to open it.',
+      tip: 'The model picker lists free models. Choose one here, or press Ctrl + M; every model inside is free.',
+    },
+    {
+      selectors: ['#quota', '#keyBtn'],
+      tip: 'The quota pill opens your provider key and limits. Pick a provider key here, or use one of the free providers that needs none.',
     },
     {
       selectors: ['#input'],
-      tip: 'This is where we chat. Type here and press Enter to send; Shift + Enter adds a line.',
+      tip: 'This is where we chat. Type here and press Enter to send; Shift + Enter adds a line. Stop sits beside Send while I am answering.',
+    },
+    {
+      selectors: ['#attachLabel'],
+      tip: 'The paperclip attaches a text file; the picture beside it adds an image. Attach first and the model can work from what you gave it.',
     },
     {
       selectors: ['#modePlan'],
@@ -235,7 +247,7 @@
     },
     {
       selectors: ['#settingsBtn'],
-      tip: 'Settings is the gear for your key, workspace, screenshots, commands and my own switch. Open it once and I will leave a note beside each section.',
+      tip: 'Settings is the gear for your key, tools, files, approvals and my own switch. Open it once and I will leave a note beside the important sections.',
     },
   ];
   const FUNNY_CHANCE = 0.3;

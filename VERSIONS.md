@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.31.0 | 2026-11-10 | Chatty tours saved chats, key/quota and attachments: eleven stops |
 | 2.30.0 | 2026-11-10 | Chatty's guided tour hops between controls and explains Settings, Plan and Build |
 | 2.29.1 | 2026-11-10 | 60 fps on every viewport, a pre-paint chats panel and a composer-safe Chatty |
 | 2.29.0 | 2026-11-10 | Chatty bats a yarn ball and peeks from the edge between visits |
@@ -179,6 +180,32 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.31.0 — 2026-11-10
+
+- **The tour covers the start line.** Eleven stops now explain saved chats, a new chat, the
+  model picker, the provider key and quota, the composer, attachments, Plan, Build, Preview,
+  the rail and Settings. Nothing primary is left for a first-time user to guess.
+- **Chats comes first.** The stop explains search and resuming a saved thread before New
+  offers a clean slate. The New copy now points back to Chats so neither action is a dead end.
+- **Keys and attachments are explained where they live.** The quota stop falls back to the
+  desktop **Key** button when the wide quota pill is hidden on phones. The attachment stop
+  uses a dedicated `#attachLabel`, and its copy covers both the paperclip and the image button.
+- **The Settings stop speaks both editions.** It names keys, tools, files, approvals and the
+  Chatty switch instead of listing desktop-only workspace, screenshot and command controls.
+- **Verified locally.** Eleven stops, eleven distinct positions and the right target at
+  1366×768 and 375×812, including reduced motion. The Plan→Build hop reports
+  `chatty-tour-hop`; the phone Plan stop keeps the bubble above the cat with no overflow.
+  The page suite stays at 77 checks (347 unit tests total).
+- **Verified on the deployed clouds.** Production and preview report `v2.31.0-cloud`.
+  At 1366×768 and 375×812 each run visits eleven stops with eleven distinct positions,
+  reports the hop on all ten moves, leaves every target uncovered, stays free of horizontal
+  scroll and logs no application errors.
+- **Release state.** Desktop source is **2.31.0**; cloud preview and production are
+  **2.31.0-cloud**; both published environments are up. The source ZIP, Windows ZIP and
+  `SHA256SUMS` accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.31.0](https://github.com/zakker111/freeway/releases/tag/v2.31.0).
 
 ## 2.30.0 — 2026-11-10
 
