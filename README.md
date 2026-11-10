@@ -199,7 +199,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.24.1 — self-check
+Freeway 2.25.0 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable
@@ -430,7 +430,7 @@ between machines.
 | `apply_patch` | Replaces exact text in an existing file | **approved per call with a real unified diff** (unless auto-approve is on), every find must be unique, 1 MB cap |
 | `scaffold_project` | Creates a three-file static starter site | **approved per call**, refuses to overwrite, workspace-contained |
 | `preview_check` | Checks HTML and local CSS/JS/image references for missing files | read-only, no network, JavaScript is not executed |
-| `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or a full-page browser app `#preview=…&full=1` link (cloud) | starts the private preview server or returns a browser-local link that reopens a file from IndexedDB at full-screen; uploads nothing and is never a public share |
+| `preview_link` | Returns a working link to an HTML/SVG preview (desktop) or a standalone full-page browser `/preview.html?chat=…&file=…` page (cloud) | starts the private preview server or returns a browser-local page that renders only the saved file full screen from IndexedDB; uploads nothing and is never a public share |
 | `screenshot_preview` | Captures the local preview for a vision model | desktop Build only, **after preview_check**, local Edge/Chrome, fixed desktop/mobile/tablet sizes, 320 KB cap, at most 2 per run. The Preview panel also has a user Capture / Download PNG flow that does not use a model. |
 | `browser_*` | Drives the local preview in an interactive headless browser: open, snapshot, click/type, wait, console/network diagnostics, screenshot and close | desktop Build only, local loopback preview only, **approved open/click/type**, isolated profile, no app secrets, at most 2 screenshots. The app reloads an open page after a page edit and returns a fresh snapshot automatically. |
 | `git_commit` | Commits only named files | **approved per call**, hooks/signing disabled, never pushes |
@@ -714,11 +714,12 @@ site's API. The workspace is text-only; images belong in the composer. On the de
 reads real files through tools, with an Allow/Deny card before anything is written; cloud
 browser writes ask the same way unless **Auto-approve browser writes** is enabled there.
 
-**Preview links stay in this browser.** A cloud `preview_link` returns a full-page app URL
-(`#preview=…&full=1`) that reopens the saved file only where that file exists in IndexedDB.
-The in-memory sample uses a browser-only sandboxed page link instead. Neither is a public
-share, and neither uploads anything; another browser or device correctly shows the file is
-missing.
+**Preview links stay in this browser.** A cloud `preview_link` returns a standalone
+`preview.html` URL that renders only the saved page, full screen, from IndexedDB. It never
+loads the Freeway app shell. The file must still exist in that browser, so another browser or
+device correctly shows the file is missing. The in-memory sample uses a browser-only
+sandboxed page link instead. Neither is a public share, and neither uploads anything. The
+older `#preview=…&full=1` app deep link still reopens the Preview panel.
 
 **Previewing files.** Both editions preview HTML, SVG and Markdown. Linked CSS, classic
 JavaScript and SVG bundle into one sandboxed document; on the desktop the loopback server also

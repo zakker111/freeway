@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.25.0 | 2026-11-10 | Standalone full-screen preview pages: links open only the rendered page, not the app shell |
 | 2.24.1 | 2026-11-10 | GitHub Pages smoke follows lazy release assets and runs after every push |
 | 2.24.0 | 2026-11-10 | Full-screen previews, Chatty's first-run tour, a livelier cat, one soft ready chime, and an animated wordmark |
 | 2.23.2 | 2026-11-10 | Chatty gains 15 more useful tips, for 46 total |
@@ -171,6 +172,22 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.25.0 — 2026-11-10
+
+- **Preview links are standalone pages.** Cloud `preview_link`, the Preview panel's
+  copy/open controls, and the link returned after a page write now point at
+  `/preview.html?chat=…&file=…`. That page loads only the saved file from IndexedDB and
+  renders it full-viewport in a sandboxed iframe, so the Freeway app shell is never part
+  of the preview. The older `#preview=…&full=1` app deep link still reopens the panel.
+- **The service worker keeps the shell.** A navigation to the viewer no longer overwrites
+  the cached app shell; only `/` and `/index.html` are stored as the offline shell.
+- **Browser-only still.** The viewer reads this browser's IndexedDB. A link opened where
+  the chat's files do not exist shows a clear missing-file page instead of a blank frame.
+- **Checks.** The page suite covers the standalone URL, the viewer's IndexedDB lookup,
+  sandbox and full-viewport layout, and the service-worker shell rule.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.25.0](https://github.com/zakker111/freeway/releases/tag/v2.25.0).
 
 ## 2.24.1 — 2026-11-10
 

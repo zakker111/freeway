@@ -3065,7 +3065,7 @@
           // Every page write carries its link, so the model can show it without
           // having to make a second tool call.
           const link = /\.(html?|svg)$/i.test(written)
-            ? `\n\nPreview link: ${previewLinkFor(written, true)}`
+            ? `\n\nPreview link: ${standalonePreviewLink(written)}`
             : '';
           // A page the model just wrote should be visible, not only stored.
           if (/\.(html?|svg|md|markdown)$/i.test(written)) {
@@ -3083,8 +3083,8 @@
           // "Show it to me" should not only return a URL; open the panel too.
           previewSavedHtml(target).catch(() => {});
           return (
-            `Preview link for ${target}:\n${previewLinkFor(target, true)}\n\n` +
-            'Give this exact link to the user. It reopens the saved file in the Preview panel in this browser.'
+            `Preview link for ${target}:\n${standalonePreviewLink(target)}\n\n` +
+            'Give this exact link to the user. It opens only the rendered page, full screen, in this browser.'
           );
         }
         return `Unknown tool: ${name}`;
@@ -4209,12 +4209,21 @@
       }
 
       // The address bar keeps a stable #preview= link so a saved file can be
-      // reopened. The copy and open controls use a full-page URL instead: a
-      // trusted wrapper with the generated page in a sandboxed iframe.
+      // reopened in the app panel.
       function previewLinkFor(name, full = false) {
         const target = String(name || '').trim().replace(/^\/+/, '');
         const suffix = full ? '&full=1' : '';
         return `${location.origin}${location.pathname || '/'}#preview=${encodeURIComponent(target)}${suffix}`;
+      }
+
+      // A link handed to the user opens /preview.html, a standalone document
+      // that renders only the saved page. It never loads the Freeway shell.
+      function standalonePreviewLink(name) {
+        const target = String(name || '').trim().replace(/^\/+/, '');
+        const url = new URL('/preview', location.origin);
+        url.searchParams.set('chat', workspaceKey());
+        url.searchParams.set('file', target);
+        return url.href;
       }
 
       function dropPreviewPageUrl() {
@@ -4232,7 +4241,7 @@
         state.previewName = target;
         dropPreviewPageUrl();
         const page = !target && html ? FreewayPreview.pageUrl(html, 'Preview') : '';
-        state.previewLink = target ? previewLinkFor(target, true) : page;
+        state.previewLink = target ? standalonePreviewLink(target) : page;
         const copy = $('previewCopy');
         if (copy) copy.hidden = !state.previewLink;
         const full = $('previewFull');
@@ -4243,7 +4252,7 @@
           if (state.previewLink) {
             open.href = state.previewLink;
             open.textContent = target
-              ? 'open full app ↗'
+              ? 'open full page ↗'
               : state.previewLink.startsWith('blob:')
                 ? 'open full page ↗'
                 : 'open in a new tab ↗';
@@ -4253,12 +4262,12 @@
         if (scope) {
           scope.hidden = !state.previewLink;
           scope.textContent = target
-            ? 'Full-page app link'
+            ? 'Standalone preview page'
             : state.previewLink.startsWith('blob:')
               ? 'Full-page browser link'
               : 'Browser-only link';
           scope.title = target
-            ? 'This app link opens the rendered page full-screen in this browser.'
+            ? 'This link opens only the rendered page, full screen, in this browser. The file must stay saved in this browser.'
             : 'This link opens the rendered page directly; it stays in this browser only.';
         }
         try {
@@ -4484,7 +4493,7 @@
         try {
           await navigator.clipboard.writeText(state.previewLink);
           $('previewNote').textContent = state.previewName
-            ? 'Full-page app link copied. It opens this preview in the app in this browser.'
+            ? 'Standalone preview link copied. It opens only the rendered page, full screen, in this browser.'
             : state.previewLink.startsWith('blob:')
               ? 'Full-page preview link copied. It opens directly in this browser and expires when this tab closes.'
               : `Preview link copied: ${state.previewLink}`;

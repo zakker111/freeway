@@ -16,6 +16,16 @@ const bridgeJson = JSON.stringify(PREVIEW_BRIDGE_SOURCE).replace(/</g, () => '\\
 const chatty = fs.readFileSync(path.join(root, 'shared', 'chatty.js'), 'utf8');
 if (chatty.includes('</script')) throw new Error('shared/chatty.js contains a literal </script>');
 
+// The standalone cloud preview page cannot borrow the app's inline core, so the
+// same shared source ships as its own script and is loaded before the viewer.
+fs.writeFileSync(path.join(root, 'cloud', 'public', 'preview-core.js'), core);
+console.log('synced preview core into cloud/public/preview-core.js');
+const viewerPath = path.join(root, 'cloud', 'public', 'preview.html');
+const viewer = fs.readFileSync(viewerPath, 'utf8');
+if (!/src="\.\/preview-core\.js"/.test(viewer)) {
+  throw new Error('cloud/public/preview.html: missing preview-core.js script');
+}
+
 for (const relative of ['public/index.html', 'cloud/public/index.html']) {
   const file = path.join(root, relative);
   const page = fs.readFileSync(file, 'utf8');
