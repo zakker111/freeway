@@ -1519,13 +1519,31 @@
     requestAnimationFrame(() => rootNode.classList.add('is-in'));
   }
 
-  function showTutorStep() {
+  function moveTutorStep() {
+    if (!rootNode) return;
+    rootNode.classList.remove('is-wandering');
+    choosePosition();
+    if (REDUCE_MOTION) {
+      rootNode.classList.remove('is-touring');
+      return;
+    }
+    rootNode.classList.add('is-touring');
+    rootNode.style.setProperty('--chatty-move-ms', '460ms');
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      moveTimer = 0;
+      if (rootNode && tutorStep >= 0) rootNode.classList.remove('is-touring');
+    }, 470);
+  }
+
+  function showTutorStep({ move = false } = {}) {
     if (!enabled || !rootNode || !tutorLesson || tutorStep < 0 || isBlocked()) return;
     const step = tutorStep;
     if (step >= tutorLesson.steps.length) {
       finishTutor();
       return;
     }
+    if (move) moveTutorStep();
     const last = step === tutorLesson.steps.length - 1;
     showTip(
       tutorLesson.steps[step],
@@ -1552,10 +1570,11 @@
       hideSpotlight();
       rootNode.classList.remove('is-wandering');
     }
+    const wasHidden = rootNode.hidden;
     tutorLesson = pickLesson();
     tutorStep = 0;
     makeVisible();
-    showTutorStep();
+    showTutorStep({ move: !wasHidden });
     pouncePet();
     spawnHeart(2);
   }
@@ -1567,7 +1586,7 @@
       return;
     }
     tutorStep += 1;
-    showTutorStep();
+    showTutorStep({ move: true });
   }
 
   function finishTutor() {
@@ -1578,6 +1597,9 @@
     const lesson = tutorLesson;
     tutorStep = -1;
     tutorLesson = null;
+    clearTimeout(moveTimer);
+    moveTimer = 0;
+    if (rootNode) rootNode.classList.remove('is-touring', 'is-wandering');
     showTip(
       lesson.finish,
       22000,
@@ -1595,6 +1617,9 @@
   function stopTutor() {
     tutorStep = -1;
     tutorLesson = null;
+    clearTimeout(moveTimer);
+    moveTimer = 0;
+    if (rootNode) rootNode.classList.remove('is-touring', 'is-wandering');
     if (labelNode) labelNode.textContent = 'Chatty';
     showTip(
       'Class dismissed. I will be in the corner, pretending not to knock something off the desk.',
@@ -1663,7 +1688,7 @@
     renderActions(null);
     hideTip();
     petNode.classList.remove('chatty-spin', 'chatty-pounce');
-    rootNode.classList.remove('is-winking', 'is-wandering');
+    rootNode.classList.remove('is-winking', 'is-wandering', 'is-touring');
     rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
     rootNode.classList.remove('is-in');
     setTimeout(() => {
@@ -1729,7 +1754,7 @@
       hideTip();
       document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
       petNode.classList.remove('chatty-spin', 'chatty-pounce');
-      rootNode.classList.remove('is-winking', 'is-wandering');
+      rootNode.classList.remove('is-winking', 'is-wandering', 'is-touring');
       rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
       rootNode.classList.remove('is-in');
       rootNode.hidden = true;
