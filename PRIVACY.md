@@ -14,6 +14,9 @@ server-side chat history.
 - **Chats and prompt library** are stored in this browser's `localStorage`.
 - **Workspace files** are stored in this browser's IndexedDB, scoped to the open chat.
 - **Settings and preferences** are stored in `localStorage`.
+- **Chatty's preference and seen marker** are stored in `localStorage`. Chatty is a local
+  UI companion: it does not read chats, keys or workspace files, and it makes no network
+  requests.
 - **Provider keys and a GitHub token** are stored in this tab's `sessionStorage` and
   disappear when the tab closes. They are sent only to the provider or to GitHub.
 - A service worker caches the app shell so the page can load quickly.
@@ -54,4 +57,4 @@ For a non-sensitive privacy question, open an issue at
 <https://github.com/zakker111/freeway/issues>. For a security report, follow
 [SECURITY.md](SECURITY.md) and do not post sensitive details publicly.
 
-_Last updated: 9 November 2026._
+_Last updated: 10 November 2026._

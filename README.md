@@ -2,7 +2,13 @@
 
 Freeway is a local chat app for **free** models across OpenRouter, Groq, Gemini,
 Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Cloudflare Workers AI, OVHcloud and local
-Ollama. When the model you picked is
+Ollama. A tiny black cat named **Chatty** lives at the edge of the page: it offers a short
+tip, an occasional joke and a double-click trick. It introduces itself as **Chatty, the
+Freeway cat**, then settles into a quiet corner. Click it for another tip, close its bubble
+with the ×, Escape or a click, and switch it off under **Settings → Show Chatty
+companion**. It never sees chats, keys or provider requests.
+
+When the model you picked is
 rate-limited, it retries the next free model on the same provider automatically and tells
 you which one answered. It never changes provider unless you do. The model can also use
 tools: read the clock, do exact arithmetic, fetch public web pages, and — in Build — edit
@@ -73,6 +79,8 @@ or newer for the built-in WebSocket; the rest of the app still runs on Node 20.1
 - **`Freeway-<version>-github.zip`** — the source tree for uploading to GitHub; it has
   no build output and no keys.
 
+Download these from [the latest release](https://github.com/zakker111/freeway/releases/latest).
+
 In either edition, **Preview** in the header opens a working sample page immediately.
 The sample is shown in memory, so a new chat stays empty; **Files → Sample** writes
 `sample/index.html` and `sample/style.css` into that chat's workspace.
@@ -96,20 +104,22 @@ provide.
 installer. A build copies a Windows `node.exe`, injects the app as a Node SEA blob with
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
-end to end on commit `94715e4` (run 41940445555). The 2.20.0 Windows executable is built
-and smoke-tested on the Windows Actions workflow and attached to the 2.20.0 release; the
-matching source ZIP is built by `release.sh` and attached too. The earlier 2.4.1 download was cross-built from Linux
-with the same steps (see `RELEASING.md`).
+end to end on commit `94715e4` (run 41940445555), including launching the executable and
+reading `/api/config`. The Windows executable for each release is built and smoke-tested
+by that workflow and attached to the release; the source ZIP is built by `release.sh`.
+Download the current build from
+[the latest release](https://github.com/zakker111/freeway/releases/latest). The workflow is
+authoritative: a Linux VM can assemble the binary, but cannot launch it.
 
-Get it:
+Get it from [the latest release](https://github.com/zakker111/freeway/releases/latest):
 
 1. Unzip `Freeway-<version>-windows.zip` anywhere.
 2. Double-click **`Freeway.exe`**. SmartScreen may warn because it is unsigned:
    **More info → Run anyway**.
 3. Your browser opens at <http://127.0.0.1:3002>. Paste a key, pick a model, type.
 
-The 2.20.0 `.exe` is built and smoke-tested by the Windows workflow. The earlier 2.4.1 `.exe` was assembled outside Windows and could not be launched in the build machine, so treat its
-first run as a smoke test. If the published `.exe` refuses to start, use
+The published `.exe` is built and smoke-tested by the Windows workflow. If it refuses to
+start, use
 `Freeway-<version>.zip` with `start.cmd` (fully tested), and rebuild through Actions:
 
 1. Push this folder to GitHub (the workflow is at `.github/workflows/build-windows.yml`).
@@ -174,7 +184,7 @@ writable, whether the port is free, whether a key is saved, and whether OpenRout
 answers — then exits. No browser, no server, no prompt sent.
 
 ```text
-Freeway 2.17.2 — self-check
+Freeway 2.23.2 — self-check
   config file: C:\Users\you\AppData\Roaming\Freeway\config.json
   ok   Node.js 22.11.0
   ok   Config folder …\Freeway — writable
@@ -201,6 +211,7 @@ Everything needed to start is in place. Run it without --doctor.
 | 10 | Settings → allow commands, allowlist `node`, then ask it to run `node -v` | Allow card, then output streamed into the answer |
 | 11 | Open the **Status** tab after a few messages | Attempts, latencies and any cooling-down model are listed |
 | 12 | Header → quit | The page says the app stopped and the console window ends |
+| 13 | Find Chatty at the edge of the page and click it | A tip or joke appears; ×, Escape or a click on the bubble dismisses it, and Settings can switch it off |
 
 ### If something goes wrong
 
@@ -512,6 +523,7 @@ Adding a tool: describe it in `TOOL_DEFINITIONS` and handle it in `runTool`, bot
 | `lib/store.test.mjs` | unit tests for saved chats |
 | `test/simulate.mjs` | end-to-end test against a mock OpenRouter, including a tool round-trip |
 | `public/index.html` | the whole UI — no build step |
+| `shared/chatty.js` | Chatty companion runtime, shared by both editions |
 | `freeway.mjs` | generated: the entire app in one file |
 | `build/bundle.mjs` | builds that single file |
 | `test/cli.mjs` | tests the flags and the single-file build |
@@ -634,7 +646,10 @@ with that message, chat still answering, settings still saving, nothing in the s
 The desktop app needs Node because it writes threads, reads files and runs commands. The
 `cloud/` folder is a smaller program for people who just want to chat: one Cloudflare
 Worker serves the page, lists free models, proxies chat turns, and keeps chats and files in
-this browser. There is no sign-in, and the GitHub token stays in the browser.
+this browser. There is no sign-in, and the GitHub token stays in the browser. The hosted
+build is at <https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page>;
+the preview is at <https://site-ce5b40f2d20a48ed87e869eb5f70e832.freebuff.page>.
+Both are guest-only.
 
 - **No key on the deployment?** The page asks for one, keeps it in that tab
   (`sessionStorage`) and sends it per request. The Worker never stores or echoes it. The

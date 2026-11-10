@@ -5,6 +5,9 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.23.2 | 2026-11-10 | Chatty gains 15 more useful tips, for 46 total |
+| 2.23.1 | 2026-11-10 | Chatty greets visitors as the Freeway cat; white animated logo confirmed |
+| 2.23.0 | 2026-11-10 | Chatty companion: tips, jokes, animations and a quiet dismiss |
 | 2.22.3 | 2026-11-09 | Security audit: secret symlinks, DevTools origin and quota cache hardened |
 | 2.22.2 | 2026-11-09 | Animated speech-bubble brand mark in the header and empty state |
 | 2.22.1 | 2026-11-09 | Cancel-safe Build requests and cooldown cleanup |
@@ -166,6 +169,69 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.23.2 — 2026-11-10
+
+- **More useful things for Chatty to say.** Fifteen new rotating tips cover Alt+H and
+  message search, branching and Markdown export, pinned models, automatic 429 retries,
+  Stop cancellation, Auto-approve, build-adapter cards, sandboxed preview, per-chat files,
+  cloud/desktop file scope, tab-scoped cloud keys, New chat and Ctrl+K rename/delete.
+  Chatty now has **46 tips and 12 jokes**.
+- **The same cat, just chattier.** The tip/joke mix, click and double-click actions,
+  quiet dismissal, Settings switch and reduced-motion behavior are unchanged. A page
+  test now rejects duplicate tips and missing new entries.
+- **Checks.** 336 unit tests (71 page contracts), 36 CLI, 29 + 29 simulations and 28 cloud
+  checks pass.
+- **Artifacts.** Desktop source and ZIP 2.23.2; cloud source and Worker bundle
+  2.23.2-cloud; `freeway.mjs` and `freeway.cjs` rebuilt at 2.23.2.
+- **Windows.** The Windows executable still needs the Windows Actions workflow; this
+  change does not alter that limitation.
+- **Live.** Desktop 2.23.2 is running on port 3002; cloud preview and production both
+  report 2.23.2-cloud and remain published. Both pages serve the 46-tip library, including
+  the new shortcut, file, retry and storage tips.
+
+## 2.23.1 — 2026-11-10
+
+- **Chatty introduces herself.** Her first greeting now says, "Hello! I'm Chatty, the
+  Freeway cat." A new one-time seen marker lets existing visitors hear the greeting once
+  after upgrading without making it repeat on every visit.
+- **The white animated mark is in both editions.** Desktop and cloud use the same
+  white-outlined speech-bubble logo in the header and empty state. The ring pulses, the
+  bubble floats, and the three dots bounce; reduced-motion stops all three. The tests now
+  assert the greeting and all three logo animations in both pages.
+- **Checks.** 336 unit tests (71 page contracts), 36 CLI, 29 + 29 simulations and 28 cloud
+  checks pass.
+- **Artifacts.** Desktop source and ZIP 2.23.1; cloud source and Worker bundle
+  2.23.1-cloud; `freeway.mjs` and `freeway.cjs` rebuilt at 2.23.1.
+- **Windows.** The Windows executable still needs the Windows Actions workflow; this
+  change does not alter that limitation.
+- **Live.** Desktop 2.23.1 is running on port 3002; cloud preview and production both
+  report 2.23.1-cloud and remain published. The white logo's ring, bubble and dots were
+  confirmed running in the live local preview and production page, and Chatty displayed
+  the new greeting in both.
+
+## 2.23.0 — 2026-11-10
+
+- **Chatty joins both editions.** A tiny black cat peeks in from one of four edges with a
+  short tip or an occasional joke. Its 31 tips and 12 jokes teach the app's shortcuts,
+  limits and privacy behavior without interrupting the conversation. Jokes appear about
+  30% of the time and never twice in a row.
+- **Alive, but easy to dismiss.** Chatty bobs, blinks, flicks its tail, twitches its ears,
+  tilts its head and taps its paws; clicking it gets another tip, double-clicking does a
+  trick, and the ×, a click on the bubble or Escape dismisses it for a 2–3.5 minute
+  cooldown. It changes edge each visit and never picks the same position twice in a row.
+- **Off means off.** **Settings → Show Chatty companion** is a persisted switch in both
+  editions. Chatty only reads and writes that local preference; it never touches chats,
+  keys, workspace files or provider requests. Reduced-motion preferences are respected.
+- **Checks.** 336 unit tests (71 page contracts), 36 CLI, 29 + 29 simulations and 28 cloud
+  checks pass. The same Chatty runtime is embedded verbatim in both pages and the settings
+  switches are covered by the page suite.
+- **Artifacts.** Desktop source and ZIP 2.23.0; cloud source and Worker bundle
+  2.23.0-cloud; `freeway.mjs` and `freeway.cjs` rebuilt at 2.23.0.
+- **Windows.** The executable is built and smoke-tested by the Windows Actions workflow;
+  no new `.exe` can be launched from this Linux VM.
+- **Live.** Desktop 2.23.0 on port 3002; cloud preview and production both report
+  2.23.0-cloud, and Chatty surfaced on both pages during the smoke check.
 
 ## 2.22.3 — 2026-11-09
 

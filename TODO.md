@@ -10,7 +10,9 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.22.3**.
+- Desktop and cloud source are **2.23.2**.
+- Chatty ships in both browser pages behind a Settings switch; its tips, jokes, close
+  cooldown and reduced-motion behavior are covered by the page suite.
 - The latest published GitHub release is **v2.20.0**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
@@ -23,11 +25,14 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
-- [ ] Cut a **2.22.3** release from current `main` so the newest published source and
-      Windows build match the app version.
+- [x] Deploy cloud preview and production at **2.23.2-cloud**; both pages serve the
+      46 unique Chatty tips and report the matching version.
+- [ ] Cut a **2.23.2** GitHub release from current `main` so the newest published source
+      and Windows build match the app version.
 - [ ] Rebuild the Windows client on Windows, smoke-test `/api/config` and the page, then
       attach it with a fresh `SHA256SUMS`.
-- [ ] Re-run the desktop and cloud browser smoke checks against the published URLs.
+- [ ] Re-run the desktop and cloud browser smoke checks against the published URLs for
+      the expanded Chatty tip library.
 - [ ] Keep only the newest release's binaries; old release assets were removed.
 
 ## Repository hardening
@@ -51,5 +56,5 @@ releases and commit log; this file tracks what is still open.
       chat, log, artifact or old build. No live key was found in the current tree, but
       the old artifacts and logs were removed rather than certified secret-free.
 - [ ] Re-check that no local secret file is tracked after each release.
-- [ ] Add a release checklist item that downloads published assets back and verifies
-      their checksums.
+- [x] Add a release checklist item that downloads published assets back and verifies
+      their checksums (`verify-release.sh`, documented in `RELEASING.md`).
