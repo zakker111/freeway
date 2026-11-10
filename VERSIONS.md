@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.29.0 | 2026-11-10 | Chatty bats a yarn ball and peeks from the edge between visits |
 | 2.28.0 | 2026-11-10 | Chatty opens Settings and leaves an interactive guide to the controls |
 | 2.27.0 | 2026-11-10 | Chatty opens Cat school: eight playful, practical lessons with step-by-step coaching |
 | 2.26.0 | 2026-11-10 | Chatty stays above every panel and keeps her tip inside short viewports |
@@ -176,6 +177,28 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.29.0 — 2026-11-10
+
+- **Chatty plays with a yarn ball.** Every so often while she is idle, a small yarn ball
+  appears beside her paws. She watches it, bats it, and the ball bounces and rolls through a
+  short 3.2-second game before disappearing.
+- **A playful peek.** Midway through the game she shifts about 18 px toward the edge of the
+  window and dims slightly, as if pretending not to be there, then returns. The move is
+  deliberately small, so it never covers the composer or a control.
+- **Quiet by design.** The first game starts after 10–18 seconds of idle time; if a tip is
+  open she waits for it and stays a little longer. After a game, the next one comes 26–44
+  seconds later. It waits while a tip, tour stop, Cat school lesson, Settings panel, native
+  dialog or active edit is open; it stops when Chatty is hidden or switched off and is
+  cancelled if she is clicked. Nothing is announced to screen readers.
+- **Reduced motion.** With `prefers-reduced-motion: reduce` the ball is never scheduled and
+  the peek is disabled, so the page stays still.
+- **Checks.** 74 page checks (344 unit tests total), 36 CLI, 29 + 29 simulations and 29 cloud
+  checks pass.
+- **Release state.** Both cloud environments and the published release are **2.29.0**
+  (**2.29.0-cloud**); the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.29.0](https://github.com/zakker111/freeway/releases/tag/v2.29.0).
 
 ## 2.28.0 — 2026-11-10
 

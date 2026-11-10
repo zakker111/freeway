@@ -3,7 +3,8 @@
 Freeway is a local chat app for **free** models across OpenRouter, Groq, Gemini,
 Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Cloudflare Workers AI, OVHcloud and local
 Ollama. A tiny black cat named **Chatty** lives at the edge of the page: she offers a short
-tip, an occasional joke, a pounce, a double-click trick and **Cat school**, eight playful
+tip, an occasional joke, a pounce, a double-click trick, an idle game of yarn ball — she bats
+it a few times, slips toward the edge and peeks back — and **Cat school**, eight playful
 lessons on prompting, Plan/Build, debugging, explaining an idea, focused tests, secrets,
 follow-up requests and code review. Choose **Tutor me** for a three-step lesson with
 **Next paw**, **Finish lesson**, **Another lesson** and **Stop**; Chatty avoids repeating
@@ -15,7 +16,8 @@ Choose **Settings** in her bubble to open the real panel; she leaves a short gui
 with **Show me**, **Next tip** and a dismiss button. The guide also appears when you open
 Settings from the gear or the command palette.
 Close her bubble with ×, Escape or a click, and switch her off under
-**Settings → Show Chatty companion**. A soft single-note chime marks each finished answer
+**Settings → Show Chatty companion**. Her yarn ball waits while a tip, tour stop, lesson,
+Settings panel or native dialog is open, and reduced motion keeps the game still. A soft single-note chime marks each finished answer
 and signals that the composer is ready for the next message; it stays silent after errors or
 a stopped turn and is independent of Chatty's visibility switch. She never sees chats, keys
 or provider requests.

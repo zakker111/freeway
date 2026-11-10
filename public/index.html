@@ -7616,6 +7616,8 @@
   const WANDER_MIN_MS = 12 * 1000;
   const WANDER_MAX_MS = 17 * 1000;
   const TOUR_LIMIT = 2;
+  const PLAY_MIN_MS = 26 * 1000;
+  const PLAY_MAX_MS = 44 * 1000;
   const WELCOME =
     "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
   const TOUR_INVITE =
@@ -7846,7 +7848,7 @@
       opacity: 0;
       transform: var(--chatty-enter, translateY(9px)) scale(.96);
       transform-origin: 50% 100%;
-      transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+      transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1), translate .32s ease;
       pointer-events: none;
     }
     .chatty[hidden] { display: none; }
@@ -7867,12 +7869,28 @@
     }
     .chatty-spot.is-on { opacity: .68; }
     .chatty-spot[hidden] { display: none; }
-    .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); }
-    .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); }
+    .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); --chatty-shy-x: 18px; }
+    .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); --chatty-shy-x: -18px; }
     .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh); }
     .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh); }
     .chatty[data-pos="rm"] { right: 16px; top: 46%; }
     .chatty[data-pos="lm"] { left: 16px; top: 46%; }
+    .chatty-ball {
+      position: absolute;
+      right: -18px;
+      bottom: 22px;
+      width: 28px;
+      height: 28px;
+      z-index: 2;
+      opacity: 0;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 7px rgba(0, 0, 0, .28));
+    }
+    .chatty-ball[hidden] { display: none; }
+    .chatty[data-pos="br"] .chatty-ball,
+    .chatty[data-pos="rm"] .chatty-ball { right: auto; left: -22px; }
+    .chatty[data-pos="bl"] .chatty-ball,
+    .chatty[data-pos="lm"] .chatty-ball { left: auto; right: -22px; }
     .chatty-pet {
       display: block;
       width: 84px;
@@ -7920,6 +7938,13 @@
     .chatty.is-in .chatty-pet.chatty-spin { animation: chatty-spin .82s cubic-bezier(.2,.8,.2,1); }
     .chatty-pet.chatty-pounce { animation: chatty-pounce .62s cubic-bezier(.2,.8,.2,1); }
     .chatty.is-in.is-winking .chatty-eye-right { animation: chatty-wink .58s ease; }
+    .chatty.is-playing { animation: chatty-peek 3.2s ease-in-out; }
+    .chatty.is-playing .chatty-ball {
+      opacity: 1;
+      animation: chatty-ball-bounce 3.1s cubic-bezier(.2,.8,.2,1);
+    }
+    .chatty.is-playing .chatty-head { animation: chatty-watch-ball 3.2s ease-in-out; }
+    .chatty.is-playing .chatty-paw-right { animation: chatty-bat .52s ease-in-out 4; }
     .chatty-iris { transition: transform .18s ease-out; }
     .chatty-eye { transform-box: fill-box; transform-origin: center; }
     .chatty-ear { transform-box: fill-box; transform-origin: 50% 100%; }
@@ -8180,6 +8205,30 @@
       18% { opacity: 1; }
       100% { opacity: 0; transform: translate(calc(-50% + var(--chatty-heart-x, 0px)), -44px) scale(1.15) rotate(var(--chatty-heart-rot, 0deg)); }
     }
+    @keyframes chatty-ball-bounce {
+      0% { opacity: 0; transform: translate(0, 2px) rotate(0deg) scale(.55); }
+      12% { opacity: 1; transform: translate(2px, -8px) rotate(40deg) scale(1); }
+      30% { transform: translate(11px, -24px) rotate(120deg) scale(1.02); }
+      48% { transform: translate(-3px, 1px) rotate(200deg) scale(.98); }
+      66% { transform: translate(12px, -16px) rotate(300deg) scale(1); }
+      84% { opacity: .9; transform: translate(3px, -5px) rotate(390deg) scale(.92); }
+      100% { opacity: 0; transform: translate(-8px, 6px) rotate(460deg) scale(.7); }
+    }
+    @keyframes chatty-peek {
+      0%, 28%, 100% { translate: 0 0; opacity: 1; }
+      44%, 74% { translate: var(--chatty-shy-x, 18px) 0; opacity: .86; }
+    }
+    @keyframes chatty-watch-ball {
+      0%, 100% { transform: rotate(var(--chatty-head-tilt, 0deg)); }
+      20% { transform: rotate(calc(var(--chatty-head-tilt, 0deg) - 6deg)); }
+      45% { transform: rotate(calc(var(--chatty-head-tilt, 0deg) + 5deg)); }
+      70% { transform: rotate(calc(var(--chatty-head-tilt, 0deg) - 3deg)); }
+    }
+    @keyframes chatty-bat {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      40% { transform: translate(-4px, -5px) rotate(-10deg); }
+      65% { transform: translate(2px, -2px) rotate(4deg); }
+    }
     @media (max-width: 760px) {
       .chatty { width: 68px; }
       .chatty-pet { width: 68px; }
@@ -8203,7 +8252,12 @@
       .chatty.is-in .chatty-pet.chatty-pounce,
       .chatty.is-in .chatty-pet.chatty-spin,
       .chatty.is-in.is-winking .chatty-eye-right,
+      .chatty.is-playing,
+      .chatty.is-playing .chatty-head,
+      .chatty.is-playing .chatty-paw-right,
+      .chatty.is-playing .chatty-ball,
       .chatty-heart { animation: none; }
+      .chatty.is-playing { translate: 0 0; opacity: 1; }
       .chatty-heart { display: none; }
       .chatty-pet.chatty-pounce { animation: none; }
     }
@@ -8322,6 +8376,10 @@
   let tutorLesson = null;
   let tutorStep = -1;
   let lastLesson = -1;
+  let ballNode = null;
+  let playTimer = 0;
+  let playEndTimer = 0;
+  let ballPlaying = false;
 
   function readFlag(key, fallback) {
     try {
@@ -8644,6 +8702,64 @@
     hideSpotlight();
   }
 
+  function cancelBall() {
+    clearTimeout(playTimer);
+    clearTimeout(playEndTimer);
+    playTimer = 0;
+    playEndTimer = 0;
+    ballPlaying = false;
+    if (rootNode) rootNode.classList.remove('is-playing');
+    if (ballNode) ballNode.hidden = true;
+  }
+
+  function finishBallPlay() {
+    playEndTimer = 0;
+    ballPlaying = false;
+    if (rootNode) rootNode.classList.remove('is-playing');
+    if (ballNode) ballNode.hidden = true;
+    if (enabled) scheduleBall();
+  }
+
+  function scheduleBall(delay = PLAY_MIN_MS + Math.random() * (PLAY_MAX_MS - PLAY_MIN_MS)) {
+    clearTimeout(playTimer);
+    playTimer = 0;
+    if (!enabled || REDUCE_MOTION) return;
+    playTimer = setTimeout(playBall, Math.max(6000, delay));
+  }
+
+  function playBall() {
+    playTimer = 0;
+    if (
+      !enabled ||
+      REDUCE_MOTION ||
+      !rootNode ||
+      !ballNode ||
+      rootNode.hidden ||
+      !rootNode.classList.contains('is-in') ||
+      ballPlaying ||
+      isBlocked() ||
+      rootNode.classList.contains('is-wandering')
+    ) {
+      if (enabled) scheduleBall(12000);
+      return;
+    }
+    if (tourStep >= 0 || tourBusy || tutorStep >= 0 || (bubbleNode && !bubbleNode.hidden)) {
+      // A tip is talking. Wait for it to close, but stay visible long enough for
+      // the game to happen instead of letting the idle hide timer cancel it.
+      armHide(24000);
+      scheduleBall(6000);
+      return;
+    }
+    ballPlaying = true;
+    ballNode.hidden = false;
+    rootNode.classList.add('is-playing');
+    pouncePet();
+    spawnHeart();
+    armHide(36000);
+    clearTimeout(playEndTimer);
+    playEndTimer = setTimeout(finishBallPlay, 3200);
+  }
+
   function openSettings() {
     if (!enabled) return;
     const trigger = document.querySelector('#settingsBtn');
@@ -8765,7 +8881,7 @@
       hide();
       return;
     }
-    if (tutorStep >= 0) {
+    if (tutorStep >= 0 || ballPlaying) {
       scheduleWander(6000);
       return;
     }
@@ -8823,6 +8939,7 @@
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelBall();
     tutorStep = -1;
     tutorLesson = null;
     writeFlag(SEEN_KEY, '1');
@@ -8903,6 +9020,7 @@
     );
     spawnHeart(3);
     armHide(28000);
+    scheduleBall(10000 + Math.random() * 8000);
   }
 
   function abandonTour() {
@@ -8958,6 +9076,7 @@
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelBall();
     if (tourStep >= 0 || tourBusy) {
       tourStep = -1;
       tourBusy = false;
@@ -9001,6 +9120,7 @@
     );
     spawnHeart(3);
     armHide(32000);
+    scheduleBall(10000 + Math.random() * 8000);
   }
 
   function stopTutor() {
@@ -9013,6 +9133,7 @@
       TUTOR_ACTIONS,
     );
     armHide(16000);
+    scheduleBall(10000 + Math.random() * 8000);
   }
 
   function show() {
@@ -9030,6 +9151,7 @@
     }
     requestAnimationFrame(() => rootNode.classList.add('is-in'));
     armHide(26000);
+    if (!playTimer && !ballPlaying) scheduleBall(10000 + Math.random() * 8000);
     const tourDone = readFlag(TOUR_KEY, '') === '1';
     if (isEditable(document.activeElement)) {
       hideTip();
@@ -9058,6 +9180,7 @@
     clearTimeout(winkTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelBall();
     if (!rootNode) return;
     if (rootNode.contains(document.activeElement)) document.activeElement.blur();
     if (tourStep >= 0 || tourBusy) {
@@ -9131,6 +9254,7 @@
       tourBusy = false;
       tutorStep = -1;
       tutorLesson = null;
+      cancelBall();
       renderActions(null);
       hideTip();
       document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
@@ -9143,6 +9267,7 @@
       return;
     }
     schedule(1400);
+    scheduleBall(10000 + Math.random() * 8000);
   }
 
   function onCreate() {
@@ -9187,6 +9312,12 @@
       <button class="chatty-pet" type="button" tabindex="-1" aria-label="Chatty the Freeway cat. Click to pounce and get a tip; double-click for a trick.">
         ${ART}
       </button>
+      <span class="chatty-ball" aria-hidden="true" hidden>
+        <svg viewBox="0 0 56 56" focusable="false">
+          <circle cx="28" cy="28" r="20" fill="#f6c85f" stroke="#f4efe3" stroke-width="2.4"/>
+          <path d="M13 22c11-4 23 0 29 10M11 32c12 5 25 0 32-9M18 43c8-12 22-17 27-9M36 11c-9 10-10 22-5 32" fill="none" stroke="#c2552b" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </span>
     `;
     document.body.append(rootNode);
 
@@ -9195,6 +9326,7 @@
     textNode = rootNode.querySelector('.chatty-text');
     labelNode = rootNode.querySelector('.chatty-label');
     actionsNode = rootNode.querySelector('.chatty-actions');
+    ballNode = rootNode.querySelector('.chatty-ball');
     rootNode.querySelector('.chatty-close').addEventListener('click', (event) => {
       event.stopPropagation();
       dismiss();
@@ -9229,6 +9361,7 @@
     });
     petNode.addEventListener('click', (event) => {
       if (!enabled || event.detail > 1) return;
+      if (ballPlaying) cancelBall();
       if (tourStep >= 0) {
         advanceTour();
         return;
@@ -9338,11 +9471,14 @@
     window.addEventListener('storage', (event) => {
       if (event.key !== ENABLED_KEY) return;
       enabled = readFlag(ENABLED_KEY, '1') !== '0';
-      if (enabled) schedule(1200);
-      else {
+      if (enabled) {
+        schedule(1200);
+        scheduleBall(10000 + Math.random() * 8000);
+      } else {
         clearTimeout(appearTimer);
         clearTimeout(wanderTimer);
         clearTimeout(moveTimer);
+        cancelBall();
         tourStep = -1;
         tourBusy = false;
         tutorStep = -1;
@@ -9356,6 +9492,7 @@
     });
 
     if (enabled) schedule(5200 + Math.random() * 2800);
+    if (enabled) scheduleBall(10000 + Math.random() * 8000);
   }
 
   const api = {
