@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.25.1 | 2026-11-10 | Hide the standalone viewer's loading card and use the canonical /preview path in docs |
 | 2.25.0 | 2026-11-10 | Standalone full-screen preview pages: links open only the rendered page, not the app shell |
 | 2.24.1 | 2026-11-10 | GitHub Pages smoke follows lazy release assets and runs after every push |
 | 2.24.0 | 2026-11-10 | Full-screen previews, Chatty's first-run tour, a livelier cat, one soft ready chime, and an animated wordmark |
@@ -173,11 +174,26 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.25.1 — 2026-11-10
+
+- **The standalone viewer hides its loading card.** `.state` sets `display:grid`, which
+  overrode the `hidden` attribute, leaving the card in the layout and accessibility tree
+  behind the rendered page. `.state[hidden]{display:none}` now removes it after the
+  iframe loads.
+- **Docs use the canonical path.** README and the 2.25.0 history name `/preview?...`; the
+  older `/preview.html` URL still redirects to it.
+- **Checks.** The page suite now asserts the hidden loading card, in addition to the
+  standalone URL, IndexedDB lookup and sandbox checks.
+- **Release state.** Published release is **v2.25.1**, with both cloud environments on
+  **2.25.1-cloud**; the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.25.1](https://github.com/zakker111/freeway/releases/tag/v2.25.1).
+
 ## 2.25.0 — 2026-11-10
 
 - **Preview links are standalone pages.** Cloud `preview_link`, the Preview panel's
   copy/open controls, and the link returned after a page write now point at
-  `/preview.html?chat=…&file=…`. That page loads only the saved file from IndexedDB and
+  `/preview?chat=…&file=…`. That page loads only the saved file from IndexedDB and
   renders it full-viewport in a sandboxed iframe, so the Freeway app shell is never part
   of the preview. The older `#preview=…&full=1` app deep link still reopens the panel.
 - **The service worker keeps the shell.** A navigation to the viewer no longer overwrites

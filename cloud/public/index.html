@@ -4216,7 +4216,7 @@
         return `${location.origin}${location.pathname || '/'}#preview=${encodeURIComponent(target)}${suffix}`;
       }
 
-      // A link handed to the user opens /preview.html, a standalone document
+      // A link handed to the user opens /preview, a standalone document
       // that renders only the saved page. It never loads the Freeway shell.
       function standalonePreviewLink(name) {
         const target = String(name || '').trim().replace(/^\/+/, '');
