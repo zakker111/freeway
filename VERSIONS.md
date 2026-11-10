@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.31.1 | 2026-11-10 | Phone shell fits at 320px; cloud drawer no longer hides under the header |
 | 2.31.0 | 2026-11-10 | Chatty tours saved chats, key/quota and attachments: eleven stops |
 | 2.30.0 | 2026-11-10 | Chatty's guided tour hops between controls and explains Settings, Plan and Build |
 | 2.29.1 | 2026-11-10 | 60 fps on every viewport, a pre-paint chats panel and a composer-safe Chatty |
@@ -180,6 +181,35 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.31.1 — 2026-11-10
+
+- **The cloud shell fits a 320px phone.** At 320×568 the header and footer left only 24px
+  for the transcript. The header is now a compact three-row shell with 40px icon targets,
+  the mode and keyboard hints are hidden, and the idle Stop button no longer forces an
+  extra wrapped row. The chat area is **246px** after load, or **142px** with the first-visit
+  notice, up from 24px.
+- **The cloud chats drawer sits above the header.** On phones the drawer was painted beneath
+  the header, so the header covered its search row and close button; tapping × actually hit
+  the provider selector. The drawer and backdrop now layer above the chrome, so search,
+  close, backdrop and new-chat all work.
+- **The first-visit cloud banner is bounded.** It keeps its copy and desktop-download link
+  but caps at 104px and scrolls on small screens instead of consuming the conversation.
+- **Desktop phone controls are easier to hit.** Chats, Settings and the rail keep a 40px
+  minimum width, and the shared composer stays at 16px so iOS does not zoom on focus.
+- **Verified in a browser.** 18/18 runs pass across both editions at 320×568, 390×844,
+  412×915, 844×390, 768×1024, 1024×768, 1366×768 and 1920×1080. There is no horizontal
+  overflow; composer, Send, attachments and modes are visible; the drawer opens and closes;
+  Settings, rail and Preview fit; Plan/Build switch; typing works; and Chatty opens a
+  contained tip at 320, 390 and laptop sizes. The 320px cloud first visit keeps 142px of
+  chat, and 246px after the banner is dismissed.
+- **All suites pass.** 78 page checks (348 unit tests), 36 CLI, 29 source simulations,
+  29 single-file simulations and 29 cloud checks.
+- **Release state.** Desktop source is **2.31.1**; cloud preview and production are
+  **2.31.1-cloud**; both published environments are up. The source ZIP, Windows ZIP and
+  `SHA256SUMS` accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.31.1](https://github.com/zakker111/freeway/releases/tag/v2.31.1).
 
 ## 2.31.0 — 2026-11-10
 
