@@ -10,14 +10,15 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.29.0**.
+- Desktop and cloud source are **2.29.1**.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   Cat school (eight three-step lessons), a Settings action with an in-panel guide, tips,
   jokes, pounce, an occasional yarn-ball game with an edge peek, close cooldown, single soft
   completion chime and reduced-motion behavior are covered by the page suite. Her layer
   stays above the rail, drawer, preview and full-screen preview; native modal dialogs still
-  pause her. Her tip also shifts to stay inside short windows.
-- The latest published GitHub release is **v2.29.0**; it carries the source ZIP,
+  pause her. Her tip also shifts to stay inside short windows, and her fixed position now clears
+  the taller cloud composer.
+- The latest published GitHub release is **v2.29.1**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.
@@ -29,6 +30,9 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
+- [x] Cut the **2.29.1** patch: a static aura, pre-paint chats state and composer-aware Chatty.
+- [x] Sweep every viewport at 60 fps, including 4× CPU throttling, reduced motion and functional toggles.
+- [x] Deploy cloud preview and production at **2.29.1-cloud**.
 - [x] Cut the **2.29.0** minor with Chatty's idle yarn-ball game and edge peek.
 - [x] Deploy cloud preview and production at **2.29.0-cloud**.
 - [x] Cut the **2.28.0** minor with Chatty's Settings action and in-panel guide.

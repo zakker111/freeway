@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.29.1 | 2026-11-10 | 60 fps on every viewport, a pre-paint chats panel and a composer-safe Chatty |
 | 2.29.0 | 2026-11-10 | Chatty bats a yarn ball and peeks from the edge between visits |
 | 2.28.0 | 2026-11-10 | Chatty opens Settings and leaves an interactive guide to the controls |
 | 2.27.0 | 2026-11-10 | Chatty opens Cat school: eight playful, practical lessons with step-by-step coaching |
@@ -177,6 +178,32 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.29.1 — 2026-11-10
+
+- **Sixty frames on every screen.** The ambient aurora is now a static, unfiltered gradient.
+  The old full-screen `blur(24px)` plus a 28-second drift forced the compositor to repaint the
+  whole page on every frame. A headless-Chrome sweep now holds **60 fps at 320×568, 375×812,
+  414×896, 768×1024, 1366×768 and 1920×1080**, idle and during Chatty's yarn-ball play,
+  including **60 fps at 4× CPU throttling** at 375 and 1366. Before the fix the same page
+  measured 45.5 fps at 375, 24 fps at 768, 18.1 fps at 1366 and 12.1 fps at 1920.
+- **No first-paint jump.** A remembered closed chats panel and the cloud docked state are now
+  applied before the first paint. Local layout shift fell from 0.196 at 1366 and 0.140 at 1920
+  to 0–0.001. The cloud header used to wrap from 64 px to 116 px as its version, provider and
+  quota labels arrived, scoring CLS 0.452 at 1366; reserving its settled height brings that to
+  **0.063–0.073**, and the 375-wide cloud page stays at zero.
+- **Chatty clears the taller cloud composer.** She measures the footer and raises her fixed
+  position by its height plus a small gap. The phone sweep reports no overlap with the input
+  or send button, and the ball stays inside every viewport.
+- **Checked, not assumed.** 77 page checks (347 unit tests total), 36 CLI, 29 + 29 simulations
+  and 29 cloud checks pass. The browser sweep also covers the off/on switch, reduced motion
+  (no ball is scheduled), the 18 px peek, cleanup, zero long tasks, unique page ids and a clean
+  console apart from the deliberately blocked Cloudflare analytics beacon.
+- **Release state.** Desktop source is **2.29.1**; cloud preview and production are
+  **2.29.1-cloud**; both published environments are up. The source ZIP, Windows ZIP and
+  `SHA256SUMS` are attached to the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.29.1](https://github.com/zakker111/freeway/releases/tag/v2.29.1).
 
 ## 2.29.0 — 2026-11-10
 

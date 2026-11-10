@@ -1233,6 +1233,16 @@
         z-index: 20;
       }
 
+      /* Versions, providers and quotas arrive after /api/config. Reserve the
+         wrapped height those controls settle at, so filling them cannot push
+         the notice and transcript down after first paint. */
+      @media (min-width: 901px) and (max-width: 1149px) {
+        header { min-height: 168px; }
+      }
+      @media (min-width: 1150px) and (max-width: 1800px) {
+        header { min-height: 116px; }
+      }
+
       .brand { font-weight: 650; letter-spacing: .2px; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
       .brand-mark {
         width: 26px; height: 26px; flex: none; display: block;
@@ -1629,6 +1639,10 @@
       }
       .sidebar.hidden { display: none; }
       body.docked { padding-left: 268px; }
+      @media (min-width: 901px) {
+        html.sidebar-closed .sidebar { display: none; }
+        html.sidebar-docked body { padding-left: 268px; }
+      }
       #sideBtn { display: inline-flex; align-items: center; gap: 5px; }
       #sideBtn .chats-label { font-size: 12px; font-weight: 550; }
       @media (max-width: 640px) { #sideBtn .chats-label { display: none; } }
@@ -1853,9 +1867,8 @@
           radial-gradient(42% 42% at 26% 22%, var(--aura-1) 0%, transparent 70%),
           radial-gradient(38% 38% at 78% 18%, var(--aura-2) 0%, transparent 72%),
           radial-gradient(46% 46% at 62% 88%, var(--aura-3) 0%, transparent 72%);
-        filter: blur(24px);
-        animation: ambient-drift 28s ease-in-out infinite alternate;
-        will-change: transform;
+        /* Keep the aura static and unfiltered. A moving full-screen blur forced
+           every frame to be repainted, which cut frame rates on large screens. */
       }
       body::after {
         content: "";
@@ -2059,10 +2072,6 @@
       .notice { background: linear-gradient(90deg, var(--accent-soft), var(--surface)); }
       .banner { animation: msg-in .26s cubic-bezier(.2, .8, .2, 1) both; }
 
-      @keyframes ambient-drift {
-        from { transform: translate3d(-3%, -2%, 0) scale(1) rotate(-2deg); }
-        to { transform: translate3d(3%, 2%, 0) scale(1.08) rotate(3deg); }
-      }
       @keyframes orbit { to { transform: rotate(360deg); } }
       @keyframes hero-in {
         from { opacity: 0; transform: translateY(12px); }
@@ -2131,6 +2140,16 @@
         .notice-close { right: 6px; }
       }
 </style>
+  <script>
+    // Resolve the remembered chats-panel state before the first paint. The
+    // docked column used to be added after load, shifting the cloud page.
+    try {
+      const closed = localStorage.getItem("orc.sidebar") === "closed";
+      if (innerWidth > 900) {
+        document.documentElement.classList.add(closed ? "sidebar-closed" : "sidebar-docked");
+      }
+    } catch { /* private mode */ }
+  </script>
   </head>
   <body>
     <svg class="chatty-logo-defs" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;overflow:hidden"><symbol id="chatty-mark" viewBox="0 0 220 240">
@@ -5516,6 +5535,7 @@
       function applySidebarPreference() {
         const stored = localStorage.getItem(SIDEBAR_KEY);
         if (isNarrow()) {
+          document.documentElement.classList.remove('sidebar-closed', 'sidebar-docked');
           const open = stored === 'open';
           $('sidebar').classList.remove('hidden');
           $('sidebar').classList.toggle('open', open);
@@ -5527,17 +5547,22 @@
         $('sidebar').classList.remove('open');
         $('sidebar').classList.toggle('hidden', closed);
         document.body.classList.toggle('docked', !closed);
+        document.documentElement.classList.toggle('sidebar-closed', closed);
+        document.documentElement.classList.toggle('sidebar-docked', !closed);
         $('sideBackdrop').classList.add('hidden');
       }
 
       function openSidebar() {
         renderHistory();
         $('sidebar').classList.remove('hidden');
+        document.documentElement.classList.remove('sidebar-closed');
         if (isNarrow()) {
           $('sidebar').classList.add('open');
           $('sideBackdrop').classList.remove('hidden');
         } else {
+          $('sidebar').classList.remove('hidden');
           document.body.classList.add('docked');
+          document.documentElement.classList.add('sidebar-docked');
         }
         localStorage.setItem(SIDEBAR_KEY, 'open');
       }
@@ -5554,6 +5579,8 @@
         if (drawerOnly) return;
         $('sidebar').classList.add('hidden');
         document.body.classList.remove('docked');
+        document.documentElement.classList.remove('sidebar-docked');
+        document.documentElement.classList.add('sidebar-closed');
         localStorage.setItem(SIDEBAR_KEY, 'closed');
       }
 
@@ -6356,8 +6383,8 @@
     .chatty-spot[hidden] { display: none; }
     .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); --chatty-shy-x: 18px; }
     .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); --chatty-shy-x: -18px; }
-    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh); }
-    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh); }
+    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
+    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
     .chatty[data-pos="rm"] { right: 16px; top: 46%; }
     .chatty[data-pos="lm"] { left: 16px; top: 46%; }
     .chatty-ball {
@@ -6717,8 +6744,8 @@
     @media (max-width: 760px) {
       .chatty { width: 68px; }
       .chatty-pet { width: 68px; }
-      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh); }
-      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh); }
+      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
+      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
       .chatty[data-pos="rm"] { right: 10px; }
       .chatty[data-pos="lm"] { left: 10px; }
       .chatty-bubble { max-width: 208px; min-width: 152px; font-size: 12px; }
@@ -7081,8 +7108,23 @@
     spotNode.hidden = true;
   }
 
+  function fitToComposer() {
+    if (!rootNode || rootNode.dataset.pos === 'tour') return;
+    const footer = document.querySelector('footer');
+    const rect = footer ? footer.getBoundingClientRect() : null;
+    // The cloud footer is much taller than the desktop one on a phone. Keep the
+    // pet above the composer instead of trusting a fixed bottom offset.
+    const clearance =
+      rect && rect.height > 0 && rect.top > innerHeight * 0.25 && rect.top < innerHeight
+        ? Math.ceil(innerHeight - rect.top + 12)
+        : 0;
+    if (clearance > 0) rootNode.style.setProperty('--chatty-clearance', `${clearance}px`);
+    else rootNode.style.removeProperty('--chatty-clearance');
+  }
+
   function choosePosition() {
     clearTourPlacement();
+    fitToComposer();
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
     rootNode.dataset.pos = lastPosition;
@@ -7629,6 +7671,7 @@
     if (tourStep >= 0 || tutorStep >= 0) return;
     clearTimeout(appearTimer);
     if (!rootNode) return;
+    fitToComposer();
     if (rootNode.hidden) {
       wanderCount = 0;
       choosePosition();
@@ -7766,6 +7809,8 @@
     document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
     document.addEventListener('keydown', unlockAudio, { once: true });
     window.addEventListener('resize', () => {
+      if (!rootNode) return;
+      if (rootNode.dataset.pos !== 'tour') fitToComposer();
       if (!tourTarget || !rootNode || rootNode.hidden || rootNode.dataset.pos !== 'tour') return;
       if (!visibleTarget(tourTarget)) {
         hideSpotlight();

@@ -56,9 +56,11 @@ straight away. OVHcloud publishes a public demo endpoint with no key, no card an
 At that demo limit the app reports the limit and keeps OVHcloud selected; it does not silently
 switch the answer to a different provider.
 
-Dark, easy-on-the-eyes interface, no build step, no sign-in, no telemetry. Your API key stays in
-the local server process and is never sent to the browser. The header and empty state carry the
-same Chatty mark, with a warm off-white outline and a reduced-motion fallback.
+Dark, easy-on-the-eyes interface, no build step, no sign-in, no telemetry. The aurora is a
+static, unfiltered gradient, so the page holds 60 fps from a 320 px phone to a 1920 px desktop,
+even while Chatty plays. Your API key stays in the local server process and is never sent to the
+browser. The header and empty state carry the same Chatty mark, with a warm off-white outline and
+a reduced-motion fallback.
 
 ## Secrets and a clean first visit
 

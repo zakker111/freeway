@@ -1760,6 +1760,9 @@
       #sideBtn .chats-label { font-size: 12px; font-weight: 550; }
       @media (max-width: 640px) { #sideBtn .chats-label { display: none; } }
       .sidebar.collapsed { display: none; }
+      @media (min-width: 901px) {
+        html.sidebar-closed .sidebar { display: none; }
+      }
       .side-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 14; }
       .side-backdrop:not(.hidden) { display: block; }
 
@@ -2079,9 +2082,8 @@
           radial-gradient(42% 42% at 26% 22%, var(--aura-1) 0%, transparent 70%),
           radial-gradient(38% 38% at 78% 18%, var(--aura-2) 0%, transparent 72%),
           radial-gradient(46% 46% at 62% 88%, var(--aura-3) 0%, transparent 72%);
-        filter: blur(24px);
-        animation: ambient-drift 28s ease-in-out infinite alternate;
-        will-change: transform;
+        /* Keep the aura static and unfiltered. A moving full-screen blur forced
+           every frame to be repainted, which cut frame rates on large screens. */
       }
       body::after {
         content: "";
@@ -2271,10 +2273,6 @@
         box-shadow: 0 10px 28px var(--glow);
       }
 
-      @keyframes ambient-drift {
-        from { transform: translate3d(-3%, -2%, 0) scale(1) rotate(-2deg); }
-        to { transform: translate3d(3%, 2%, 0) scale(1.08) rotate(3deg); }
-      }
       @keyframes orbit { to { transform: rotate(360deg); } }
       @keyframes hero-orb {
         0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -2305,6 +2303,15 @@
         .empty-mark { width: 42px; height: 42px; margin-bottom: 14px; }
       }
 </style>
+  <script>
+    // Apply the remembered chats-panel state before the first paint, so the
+    // docked column cannot flash open and shift the app on the next frame.
+    try {
+      if (innerWidth > 900 && localStorage.getItem("openrouter.sidebar") === "closed") {
+        document.documentElement.classList.add("sidebar-closed");
+      }
+    } catch { /* private mode */ }
+  </script>
   </head>
   <body>
     <svg class="chatty-logo-defs" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;overflow:hidden"><symbol id="chatty-mark" viewBox="0 0 220 240">
@@ -3489,17 +3496,21 @@
       function applySidebarPreference() {
         const stored = localStorage.getItem(SIDEBAR_KEY);
         if (isNarrow()) {
+          document.documentElement.classList.remove("sidebar-closed");
           const open = stored === "open";
           $("sidebar").classList.toggle("open", open);
           $("sideBackdrop").classList.toggle("hidden", !open);
           return;
         }
         // Docked by default: the list is there without a click.
-        $("sidebar").classList.toggle("collapsed", stored === "closed");
+        const closed = stored === "closed";
+        $("sidebar").classList.toggle("collapsed", closed);
+        document.documentElement.classList.toggle("sidebar-closed", closed);
         $("sideBackdrop").classList.add("hidden");
       }
 
       function openSidebar() {
+        document.documentElement.classList.remove("sidebar-closed");
         if (isNarrow()) {
           $("sidebar").classList.add("open");
           $("sideBackdrop").classList.remove("hidden");
@@ -3516,8 +3527,10 @@
           $("sidebar").classList.remove("open");
           $("sideBackdrop").classList.add("hidden");
         } else {
-          if (!drawerOnly) $("sidebar").classList.add("collapsed");
-          else return;
+          if (!drawerOnly) {
+            $("sidebar").classList.add("collapsed");
+            document.documentElement.classList.add("sidebar-closed");
+          } else return;
         }
         if (!drawerOnly) localStorage.setItem(SIDEBAR_KEY, "closed");
       }
@@ -7871,8 +7884,8 @@
     .chatty-spot[hidden] { display: none; }
     .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); --chatty-shy-x: 18px; }
     .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); --chatty-shy-x: -18px; }
-    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh); }
-    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh); }
+    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
+    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
     .chatty[data-pos="rm"] { right: 16px; top: 46%; }
     .chatty[data-pos="lm"] { left: 16px; top: 46%; }
     .chatty-ball {
@@ -8232,8 +8245,8 @@
     @media (max-width: 760px) {
       .chatty { width: 68px; }
       .chatty-pet { width: 68px; }
-      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh); }
-      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh); }
+      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
+      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
       .chatty[data-pos="rm"] { right: 10px; }
       .chatty[data-pos="lm"] { left: 10px; }
       .chatty-bubble { max-width: 208px; min-width: 152px; font-size: 12px; }
@@ -8596,8 +8609,23 @@
     spotNode.hidden = true;
   }
 
+  function fitToComposer() {
+    if (!rootNode || rootNode.dataset.pos === 'tour') return;
+    const footer = document.querySelector('footer');
+    const rect = footer ? footer.getBoundingClientRect() : null;
+    // The cloud footer is much taller than the desktop one on a phone. Keep the
+    // pet above the composer instead of trusting a fixed bottom offset.
+    const clearance =
+      rect && rect.height > 0 && rect.top > innerHeight * 0.25 && rect.top < innerHeight
+        ? Math.ceil(innerHeight - rect.top + 12)
+        : 0;
+    if (clearance > 0) rootNode.style.setProperty('--chatty-clearance', `${clearance}px`);
+    else rootNode.style.removeProperty('--chatty-clearance');
+  }
+
   function choosePosition() {
     clearTourPlacement();
+    fitToComposer();
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
     rootNode.dataset.pos = lastPosition;
@@ -9144,6 +9172,7 @@
     if (tourStep >= 0 || tutorStep >= 0) return;
     clearTimeout(appearTimer);
     if (!rootNode) return;
+    fitToComposer();
     if (rootNode.hidden) {
       wanderCount = 0;
       choosePosition();
@@ -9281,6 +9310,8 @@
     document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
     document.addEventListener('keydown', unlockAudio, { once: true });
     window.addEventListener('resize', () => {
+      if (!rootNode) return;
+      if (rootNode.dataset.pos !== 'tour') fitToComposer();
       if (!tourTarget || !rootNode || rootNode.hidden || rootNode.dataset.pos !== 'tour') return;
       if (!visibleTarget(tourTarget)) {
         hideSpotlight();

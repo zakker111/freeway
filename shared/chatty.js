@@ -271,8 +271,8 @@
     .chatty-spot[hidden] { display: none; }
     .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); --chatty-shy-x: 18px; }
     .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); --chatty-shy-x: -18px; }
-    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh); }
-    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh); }
+    .chatty[data-pos="br"] { right: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
+    .chatty[data-pos="bl"] { left: 16px; bottom: max(170px, 14dvh, var(--chatty-clearance, 0px)); }
     .chatty[data-pos="rm"] { right: 16px; top: 46%; }
     .chatty[data-pos="lm"] { left: 16px; top: 46%; }
     .chatty-ball {
@@ -632,8 +632,8 @@
     @media (max-width: 760px) {
       .chatty { width: 68px; }
       .chatty-pet { width: 68px; }
-      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh); }
-      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh); }
+      .chatty[data-pos="br"] { right: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
+      .chatty[data-pos="bl"] { left: 10px; bottom: max(146px, 12dvh, var(--chatty-clearance, 0px)); }
       .chatty[data-pos="rm"] { right: 10px; }
       .chatty[data-pos="lm"] { left: 10px; }
       .chatty-bubble { max-width: 208px; min-width: 152px; font-size: 12px; }
@@ -996,8 +996,23 @@
     spotNode.hidden = true;
   }
 
+  function fitToComposer() {
+    if (!rootNode || rootNode.dataset.pos === 'tour') return;
+    const footer = document.querySelector('footer');
+    const rect = footer ? footer.getBoundingClientRect() : null;
+    // The cloud footer is much taller than the desktop one on a phone. Keep the
+    // pet above the composer instead of trusting a fixed bottom offset.
+    const clearance =
+      rect && rect.height > 0 && rect.top > innerHeight * 0.25 && rect.top < innerHeight
+        ? Math.ceil(innerHeight - rect.top + 12)
+        : 0;
+    if (clearance > 0) rootNode.style.setProperty('--chatty-clearance', `${clearance}px`);
+    else rootNode.style.removeProperty('--chatty-clearance');
+  }
+
   function choosePosition() {
     clearTourPlacement();
+    fitToComposer();
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
     rootNode.dataset.pos = lastPosition;
@@ -1544,6 +1559,7 @@
     if (tourStep >= 0 || tutorStep >= 0) return;
     clearTimeout(appearTimer);
     if (!rootNode) return;
+    fitToComposer();
     if (rootNode.hidden) {
       wanderCount = 0;
       choosePosition();
@@ -1681,6 +1697,8 @@
     document.addEventListener('pointerdown', unlockAudio, { passive: true, once: true });
     document.addEventListener('keydown', unlockAudio, { once: true });
     window.addEventListener('resize', () => {
+      if (!rootNode) return;
+      if (rootNode.dataset.pos !== 'tour') fitToComposer();
       if (!tourTarget || !rootNode || rootNode.hidden || rootNode.dataset.pos !== 'tour') return;
       if (!visibleTarget(tourTarget)) {
         hideSpotlight();
