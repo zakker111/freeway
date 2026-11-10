@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.26.0 | 2026-11-10 | Chatty stays above every panel and keeps her tip inside short viewports |
 | 2.25.1 | 2026-11-10 | Hide the standalone viewer's loading card and use the canonical /preview path in docs |
 | 2.25.0 | 2026-11-10 | Standalone full-screen preview pages: links open only the rendered page, not the app shell |
 | 2.24.1 | 2026-11-10 | GitHub Pages smoke follows lazy release assets and runs after every push |
@@ -173,6 +174,28 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.26.0 — 2026-11-10
+
+- **Chatty stays above every panel.** Her fixed layer moved from `z-index: 12` to
+  `2147483000`, above the header, right rail, saved-chat drawer, preview pane and
+  full-screen preview. Opening those surfaces no longer hides her or clips a tip.
+- **Full-screen preview keeps Chatty.** Both pages drop the `body.preview-full .chatty`
+  hide rule. Her guided-tour spotlight uses `2147482999`, so a highlighted control is
+  still visibly ringed above the panel.
+- **Short windows keep the whole tip.** After a tip renders, Chatty measures the bubble and
+  shifts just enough to keep it inside the viewport, without pushing the cat off the bottom.
+- **Modal dialogs still take the top layer.** Settings, the key dialog, the command
+  palette and other native dialogs intentionally pause Chatty through the existing
+  `dialog[open], .overlay:not(.hidden)` guard, so she cannot cover a focused form.
+- **Checks.** 74 page checks (344 unit tests total), 36 CLI, 29 + 29 simulations and
+  29 cloud checks pass. A browser run confirmed Chatty's tip hit-tests to Chatty over the
+  rail, `body.preview-full` leaves her at `display:block`, and a short-window check keeps
+  the whole tip in view.
+- **Release state.** Published release is **v2.26.0**, with both cloud environments on
+  **2.26.0-cloud**; the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.26.0](https://github.com/zakker111/freeway/releases/tag/v2.26.0).
 
 ## 2.25.1 — 2026-11-10
 

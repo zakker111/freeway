@@ -1,6 +1,6 @@
 {
   "name": "freeway",
-  "version": "2.25.1",
+  "version": "2.26.0",
   "private": true,
   "type": "module",
   "description": "Freeway — local and cloud chat for free models across providers, with model retries and local tools.",

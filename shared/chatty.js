@@ -148,7 +148,7 @@
   const STYLE = `
     .chatty {
       position: fixed;
-      z-index: 12;
+      z-index: 2147483000;
       width: 84px;
       opacity: 0;
       transform: var(--chatty-enter, translateY(9px)) scale(.96);
@@ -165,7 +165,7 @@
     .chatty.is-in.is-wandering .chatty-pet { pointer-events: none; }
     .chatty-spot {
       position: fixed;
-      z-index: 45;
+      z-index: 2147482999;
       pointer-events: none;
       border: 1.5px dashed var(--accent, #f0f0f0);
       border-radius: 10px;
@@ -840,6 +840,24 @@
     }
   }
 
+  function fitBubble() {
+    if (!rootNode || !bubbleNode || bubbleNode.hidden) return;
+    const margin = 8;
+    const bubble = bubbleNode.getBoundingClientRect();
+    const root = rootNode.getBoundingClientRect();
+    const shift =
+      bubble.top < margin
+        ? margin - bubble.top
+        : bubble.bottom > innerHeight - margin
+          ? innerHeight - margin - bubble.bottom
+          : 0;
+    if (!shift) return;
+    const top = root.top + shift;
+    if (top < margin || top + root.height > innerHeight - margin) return;
+    rootNode.style.top = `${Math.round(top)}px`;
+    rootNode.style.bottom = 'auto';
+  }
+
   function showTip(message, duration = 13000, actions = null, label = 'Chatty') {
     if (!bubbleNode) return;
     hideSpotlight();
@@ -847,6 +865,8 @@
     if (labelNode) labelNode.textContent = label;
     renderActions(actions);
     bubbleNode.hidden = false;
+    requestAnimationFrame(fitBubble);
+    setTimeout(fitBubble, 260);
     clearTimeout(tipTimer);
     if (duration > 0) tipTimer = setTimeout(hideTip, duration);
   }

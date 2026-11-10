@@ -10,11 +10,13 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.25.1**.
+- Desktop and cloud source are **2.26.0**.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   tips, jokes, pounce, close cooldown, single soft completion chime and reduced-motion
-  behavior are covered by the page suite.
-- The latest published GitHub release is **v2.25.1**; it carries the source ZIP,
+  behavior are covered by the page suite. Her layer stays above the rail, drawer, preview and
+  full-screen preview; native modal dialogs still pause her. Her tip also shifts to stay
+  inside short windows.
+- The latest published GitHub release is **v2.26.0**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.
@@ -26,6 +28,9 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
+- [x] Cut the **2.26.0** minor so Chatty stays above the rail, drawer, preview and
+      full-screen preview.
+- [x] Deploy cloud preview and production at **2.26.0-cloud**.
 - [x] Cut the **2.25.1** patch so the standalone viewer really removes its loading card
       after the page renders.
 - [x] Deploy cloud preview and production at **2.25.1-cloud**.
