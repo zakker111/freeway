@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <title>Page not found — Freeway</title>
+  <meta name="description" content="That page is not here. The Freeway project page still works: static HTML served by GitHub Pages, with no server or cloud dependency.">
+  <meta name="theme-color" content="#0b0f0e">
+  <link rel="icon" href="/freeway/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/freeway/icon.svg">
+  <style>
+    :root {
+      --bg: #0b0f0e;
+      --panel: #111916;
+      --line: #283b33;
+      --text: #edf2ee;
+      --muted: #9db4ab;
+      --accent: #b8ffdf;
+      --accent-ink: #07120d;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      padding: 32px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main {
+      width: min(620px, 100%);
+      padding: clamp(24px, 5vw, 44px);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .38);
+    }
+    img {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: #f4efe3;
+      display: block;
+      margin-bottom: 22px;
+    }
+    .code {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(26px, 5vw, 34px);
+      line-height: 1.15;
+      letter-spacing: -.02em;
+    }
+    p { margin: 0 0 14px; color: var(--muted); }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 24px 0 18px;
+    }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+    .button:hover { border-color: var(--accent); }
+    .fine {
+      margin: 0;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/freeway/icon.svg" width="72" height="72" alt="Chatty, the Freeway cat">
+    <p class="code">404 · page not found</p>
+    <h1>This page took a wrong turn.</h1>
+    <p>
+      The address you followed is not part of this site. Nothing is broken on your side —
+      the Freeway project page is a static page on GitHub Pages and does not depend on the
+      cloud app, a server, or any API.
+    </p>
+    <div class="actions">
+      <a class="button primary" href="/freeway/">Back to the project page</a>
+      <a class="button" href="https://github.com/zakker111/freeway">Source on GitHub ↗</a>
+    </div>
+    <p class="fine">
+      Looking for the app? Try the
+      <a href="https://site-c1cb742a18434d968b0e1d32eb992bac.freebuff.page">cloud edition ↗</a>
+      or the
+      <a href="https://github.com/zakker111/freeway/releases/latest">desktop release ↗</a>.
+    </p>
+  </main>
+</body>
+</html>

@@ -4,7 +4,7 @@ This folder is a static landing page. GitHub Pages can host it directly; it cann
 Freeway Node server or the Cloudflare Worker. The app itself stays at its hosted cloud URL
 and in the desktop release.
 
-The page uses only `index.html`, `icon.svg`, `og.png`, and `.nojekyll`. There is no build step and no
+The page uses only `index.html`, `404.html`, `icon.svg`, `og.png`, and `.nojekyll`. There is no build step and no
 JavaScript requirement.
 
 ## What is ready
@@ -12,6 +12,7 @@ JavaScript requirement.
 - `index.html` — responsive landing page with links to the live cloud app, latest release,
   source, security, and privacy.
 - `icon.svg` — the Chatty app icon.
+- `404.html` — a self-contained not-found page so a mistyped URL still lands somewhere useful.
 - `og.png` — the 1200×630 social card behind `og:image` and `twitter:image`.
 - `.nojekyll` — tells GitHub Pages to serve the files exactly as written instead of running
   Jekyll.
@@ -67,8 +68,8 @@ Expected: both return `HTTP/2 200`. Open the page and check:
 
 ## Update it
 
-Edit `docs/index.html` or replace `docs/icon.svg`, then push to `main`. Pages republishes the
-branch automatically. No workflow file is needed.
+Edit `docs/index.html`, `docs/404.html` or replace `docs/icon.svg`, then push to `main`. Pages
+republishes the branch automatically. No workflow file is needed.
 
 ## Troubleshooting
 
