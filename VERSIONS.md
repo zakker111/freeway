@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.28.0 | 2026-11-10 | Chatty opens Settings and leaves an interactive guide to the controls |
 | 2.27.0 | 2026-11-10 | Chatty opens Cat school: eight playful, practical lessons with step-by-step coaching |
 | 2.26.0 | 2026-11-10 | Chatty stays above every panel and keeps her tip inside short viewports |
 | 2.25.1 | 2026-11-10 | Hide the standalone viewer's loading card and use the canonical /preview path in docs |
@@ -175,6 +176,28 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.28.0 — 2026-11-10
+
+- **Chatty opens Settings.** Her welcome, tips and post-tour bubble now carry a **Settings**
+  action. Choosing it closes her tip, opens the real Settings panel, and leaves a short guide
+  inside it. The same guide appears when Settings is opened from the gear or the command
+  palette.
+- **A guide, not another modal.** “Chatty's settings notes” adapts to the edition. Desktop
+  tips cover the system prompt, temperature, tools, workspace folder, auto-approve and her
+  own switch; cloud tips cover the tab-scoped key, browser tools, write approval and the
+  Chatty switch. **Show me** focuses the control described by the current note, **Next tip**
+  cycles without changing a setting, and × dismisses the note.
+- **Still local and optional.** The feature uses the existing Chatty runtime and Settings
+  controls. It adds no backend, account or network call, keeps the native-dialog pause, and
+  removes the note when Chatty is switched off.
+- **Checks.** 74 page checks (344 unit tests total), 36 CLI, 29 + 29 simulations and 29
+  cloud checks pass. A live browser run opened Settings from Chatty, cycled the note,
+  focused the provider-key control with **Show me**, and closed the panel cleanly.
+- **Release state.** Both cloud environments and the published release are **2.28.0**
+  (**2.28.0-cloud**); the source ZIP, Windows ZIP and `SHA256SUMS` are attached.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.28.0](https://github.com/zakker111/freeway/releases/tag/v2.28.0).
 
 ## 2.27.0 — 2026-11-10
 

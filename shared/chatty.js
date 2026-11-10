@@ -17,12 +17,14 @@
   const WANDER_MAX_MS = 17 * 1000;
   const TOUR_LIMIT = 2;
   const WELCOME =
-    "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, or let me tutor you in Cat school. Short lessons, bad puns, no hairballs.";
+    "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
   const TOUR_INVITE =
     'The quick tour is still ready when you are. I can point out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings.';
-  const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }];
+  const SETTINGS_ACTION = { action: 'settings', label: 'Settings' };
+  const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }, SETTINGS_ACTION];
   const WELCOME_ACTIONS = [
     { action: 'tutor', label: 'Tutor me', primary: true },
+    SETTINGS_ACTION,
     { action: 'tour', label: 'Tour' },
     { action: 'later', label: 'Later' },
   ];
@@ -81,6 +83,8 @@
     'Cat school is open: click Tutor me for a short lesson with a purr-actice challenge.',
     'A good prompt points at one spot, like a laser pointer with a deadline.',
     'Tests are catnip for confidence; run the focused one before the whole suite.',
+    'The Settings gear is where my switch lives; I can open it and leave you a note.',
+    'The Chatty switch hides me only; chats and keys stay exactly where they are.',
   ];
   const WORKFLOW_TIPS = {
     plan: [
@@ -413,6 +417,76 @@
     }
     .chatty-action.primary:hover { filter: brightness(1.06); }
     .chatty-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .chatty-settings-note {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line-2, #3f3f3f);
+      border-radius: 12px;
+      background: var(--surface-3, #262626);
+      color: var(--text, #e8e8e8);
+      font: 12px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    .chatty-settings-note__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .chatty-settings-note__head strong {
+      color: var(--accent, #f0f0f0);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .chatty-settings-note__close {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      margin-left: auto;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      box-shadow: none;
+      color: var(--dim, #8f8f8f);
+      font: 16px/1 "Segoe UI", system-ui, sans-serif;
+      cursor: pointer;
+    }
+    .chatty-settings-note__close:hover {
+      background: var(--surface-2, #1d1d1d);
+      color: var(--text, #e8e8e8);
+    }
+    .chatty-settings-note__text {
+      margin: 0;
+      color: var(--muted, #b3b3b3);
+    }
+    .chatty-settings-note__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .chatty-settings-note__button {
+      min-height: 26px;
+      padding: 4px 8px;
+      border: 1px solid var(--line-2, #3f3f3f);
+      border-radius: 999px;
+      background: var(--surface-2, #1d1d1d);
+      box-shadow: none;
+      color: var(--text, #e8e8e8);
+      font: 600 11px/1.2 "Segoe UI", system-ui, -apple-system, sans-serif;
+      cursor: pointer;
+    }
+    .chatty-settings-note__button:hover {
+      background: var(--surface-3, #262626);
+      border-color: var(--line-2, #3f3f3f);
+    }
+    .chatty-settings-note__button:focus-visible,
+    .chatty-settings-note__close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .chatty-close {
       position: absolute;
       top: 3px;
@@ -970,6 +1044,106 @@
     hideSpotlight();
   }
 
+  function openSettings() {
+    if (!enabled) return;
+    const trigger = document.querySelector('#settingsBtn');
+    if (!trigger) {
+      showTip(
+        'I cannot find the Settings gear on this page, but the header gear is the one with the note.',
+        9000,
+        TUTOR_ACTIONS,
+      );
+      return;
+    }
+    hide(90000);
+    trigger.click();
+  }
+
+  function showSettingsNotes() {
+    if (!enabled) return;
+    const panel = document.querySelector('#settingsDialog, #settingsOverlay .modal');
+    if (!panel) return;
+    const overlay = panel.closest('.overlay');
+    const open =
+      panel.tagName === 'DIALOG' ? panel.open : Boolean(overlay && !overlay.classList.contains('hidden'));
+    if (!open) return;
+    document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
+    const cloud = panel.id === 'settingsDialog';
+    const tips = cloud
+      ? [
+          { text: 'The provider key stays in this tab; use the key button, never chat.', focus: '#keyBtn' },
+          { text: 'Workspace tools read and write browser files. Off means chat only.', focus: '#settingTools' },
+          { text: 'Auto-approve skips only the write_file card; everything else still asks.', focus: '#settingAutoApprove' },
+          { text: 'The Chatty switch hides me only; chats and keys stay exactly where they are.', focus: '#settingChatty' },
+        ]
+      : [
+          { text: 'Keep the system prompt short: one sentence about tone or format is plenty.', focus: '#sPrompt' },
+          { text: 'Temperature low is focused; high is loose. Leave it blank for the provider default.', focus: '#sTemp' },
+          { text: 'Tools let me read the workspace and act in Build. Off means chat only.', focus: '#sTools' },
+          { text: 'The workspace folder is the only place my file tools may touch.', focus: '#sWorkspace' },
+          { text: 'Auto-approve skips Allow cards. Leave it off unless you can restore the folder.', focus: '#sAutoApprove' },
+          { text: 'The Chatty switch hides me only; chats and settings stay put.', focus: '#sChatty' },
+        ];
+    let index = 0;
+    const note = document.createElement('section');
+    note.className = 'chatty-settings-note';
+    note.setAttribute('role', 'note');
+    note.setAttribute('aria-label', "Chatty's settings notes");
+    const head = document.createElement('div');
+    head.className = 'chatty-settings-note__head';
+    const title = document.createElement('strong');
+    title.textContent = "Chatty's settings notes";
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'chatty-settings-note__close';
+    close.textContent = '×';
+    close.title = "Hide Chatty's settings notes";
+    close.setAttribute('aria-label', "Hide Chatty's settings notes");
+    head.append(title, close);
+    const text = document.createElement('p');
+    text.className = 'chatty-settings-note__text';
+    text.setAttribute('aria-live', 'polite');
+    const actions = document.createElement('div');
+    actions.className = 'chatty-settings-note__actions';
+    const show = document.createElement('button');
+    show.type = 'button';
+    show.className = 'chatty-settings-note__button';
+    show.textContent = 'Show me';
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'chatty-settings-note__button';
+    next.textContent = 'Next tip';
+    actions.append(show, next);
+    note.append(head, text, actions);
+    const render = () => {
+      const tip = tips[index];
+      text.textContent = tip.text;
+      show.disabled = !tip.focus;
+    };
+    show.addEventListener('click', () => {
+      const tip = tips[index];
+      const target = tip.focus ? panel.querySelector(tip.focus) : null;
+      if (!target) return;
+      target.scrollIntoView({ block: 'center', behavior: REDUCE_MOTION ? 'auto' : 'smooth' });
+      target.focus({ preventScroll: true });
+    });
+    next.addEventListener('click', () => {
+      index = (index + 1) % tips.length;
+      render();
+    });
+    close.addEventListener('click', () => note.remove());
+    if (cloud) {
+      const anchor = panel.querySelector('#settingsTitle') || panel.firstElementChild;
+      if (!anchor) return;
+      anchor.insertAdjacentElement('afterend', note);
+    } else {
+      const body = panel.querySelector('.body');
+      if (!body) return;
+      body.prepend(note);
+    }
+    render();
+  }
+
   function armHide(delay) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(hide, delay);
@@ -1123,7 +1297,7 @@
     wanderCount = TOUR_LIMIT;
     hideSpotlight();
     showTip(
-      "That's the tour! You know where everything lives now. Click me any time for a tip, a joke, a pounce, or a Cat school lesson.",
+      "That's the tour! You know where everything lives now. Click me any time for a tip, a joke, a pounce, a Cat school lesson, or Settings.",
       16000,
       TUTOR_ACTIONS,
     );
@@ -1359,6 +1533,7 @@
       tutorLesson = null;
       renderActions(null);
       hideTip();
+      document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
       petNode.classList.remove('chatty-spin', 'chatty-pounce');
       rootNode.classList.remove('is-winking', 'is-wandering');
       rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
@@ -1429,7 +1604,8 @@
       if (!button) return;
       event.stopPropagation();
       const action = button.dataset.chattyAction;
-      if (action === 'tutor') startTutor();
+      if (action === 'settings') openSettings();
+      else if (action === 'tutor') startTutor();
       else if (action === 'tutor-next') advanceTutor();
       else if (action === 'tutor-another') startTutor();
       else if (action === 'tutor-stop') stopTutor();
@@ -1519,6 +1695,17 @@
     document.addEventListener(
       'click',
       (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (!event.target.closest('#settingsBtn')) return;
+        setTimeout(() => {
+          if (enabled) showSettingsNotes();
+        }, 0);
+      },
+      true,
+    );
+    document.addEventListener(
+      'click',
+      (event) => {
         if (rootNode.contains(event.target)) return;
         setTimeout(() => {
           if (isBlocked()) hide();
@@ -1562,6 +1749,7 @@
         tutorLesson = null;
         renderActions(null);
         hideTip();
+        document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
         rootNode.classList.remove('is-in', 'is-wandering');
         rootNode.hidden = true;
       }
@@ -1576,6 +1764,7 @@
     show: () => show(),
     hide,
     tutor: () => startTutor(),
+    settings: () => openSettings(),
     ready: playReadyChime,
     tip: (message) => {
       if (!enabled) return;

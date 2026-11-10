@@ -11,6 +11,9 @@ the last topic and keeps the puns coming. On the first visit she also offers a g
 walkthrough of New, the model picker, the composer, Plan/Build, Preview, the rail and
 Settings: choose **Show me around**, then click **Next stop** to follow her. After that she
 keeps you company, highlights controls on later visits, and shares another tip when clicked.
+Choose **Settings** in her bubble to open the real panel; she leaves a short guide inside it
+with **Show me**, **Next tip** and a dismiss button. The guide also appears when you open
+Settings from the gear or the command palette.
 Close her bubble with ×, Escape or a click, and switch her off under
 **Settings → Show Chatty companion**. A soft single-note chime marks each finished answer
 and signals that the composer is ready for the next message; it stays silent after errors or
@@ -230,7 +233,7 @@ Everything needed to start is in place. Run it without --doctor.
 | 10 | Settings → allow commands, allowlist `node`, then ask it to run `node -v` | Allow card, then output streamed into the answer |
 | 11 | Open the **Status** tab after a few messages | Attempts, latencies and any cooling-down model are listed |
 | 12 | Header → quit | The page says the app stopped and the console window ends |
-| 13 | Find Chatty at the edge of the page; choose **Tutor me** for Cat school or **Show me around** for the tour | A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. The spotlight tour points out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off. |
+| 13 | Find Chatty at the edge of the page; choose **Tutor me** for Cat school or **Show me around** for the tour | A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. The spotlight tour points out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off; choosing **Settings** in her bubble opens that panel with her notes and **Show me** tips. |
 
 ### If something goes wrong
 
