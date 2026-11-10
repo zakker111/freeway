@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.30.0 | 2026-11-10 | Chatty's guided tour hops between controls and explains Settings, Plan and Build |
 | 2.29.1 | 2026-11-10 | 60 fps on every viewport, a pre-paint chats panel and a composer-safe Chatty |
 | 2.29.0 | 2026-11-10 | Chatty bats a yarn ball and peeks from the edge between visits |
 | 2.28.0 | 2026-11-10 | Chatty opens Settings and leaves an interactive guide to the controls |
@@ -178,6 +179,31 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.30.0 — 2026-11-10
+
+- **The tour has legs.** Chatty now glides to each stop and does a two-beat hop on the way,
+  keeping the control in view instead of fading out and reappearing somewhere else. Every
+  stop still gets a dashed spotlight, a plain-language tip and **Next stop**.
+- **Plan and Build are separate stops.** Plan explains the read-only route; Build explains
+  the write-capable step and its Allow cards. The Settings stop points at the gear and
+  explains the key, workspace, screenshots, commands and the Chatty switch, with the
+  in-panel guide ready to explain each section.
+- **The tip follows the cat, not the other way around.** Placement now measures her bubble
+  as part of her footprint. On a 375-wide screen the Plan/Build row stays uncovered; on
+  desktop the cat lands beside the target without covering it. Reduced motion places her
+  immediately with no hop, keeping the same eight stops.
+- **Checked in a browser.** Eight stops, eight distinct positions and the correct target at
+  1366×768 and 375×812; the Plan and Build spotlights land on `#modePlan` and `#modeBuild`,
+  the hop reports `chatty-tour-hop`, the Settings stop reports `#settingsBtn`, and the console
+  stays clean. The same eight stops pass on production and preview at both widths, with no
+  covered target, horizontal scroll or console errors. The static page suite remains at
+  77 checks (347 unit tests total).
+- **Release state.** Desktop source is **2.30.0**; cloud preview and production are
+  **2.30.0-cloud**; both published environments are up. The source ZIP, Windows ZIP and
+  `SHA256SUMS` are attached to the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.30.0](https://github.com/zakker111/freeway/releases/tag/v2.30.0).
 
 ## 2.29.1 — 2026-11-10
 

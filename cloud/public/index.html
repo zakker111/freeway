@@ -6133,7 +6133,7 @@
   const WELCOME =
     "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
   const TOUR_INVITE =
-    'The quick tour is still ready when you are. I can point out New, the model picker, the composer, Plan/Build, Preview, the rail and Settings.';
+    'The quick tour is ready when you are. Watch me bounce to New, the model picker, the composer, Plan and Build, Preview, the rail and Settings.';
   const SETTINGS_ACTION = { action: 'settings', label: 'Settings' };
   const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }, SETTINGS_ACTION];
   const WELCOME_ACTIONS = [
@@ -6330,8 +6330,12 @@
       tip: 'This is where we chat. Type here and press Enter to send; Shift + Enter adds a line.',
     },
     {
+      selectors: ['#modePlan'],
+      tip: 'Plan is the read-only stop: I map the files and checks without touching them. Start here when you want a route before the pounce.',
+    },
+    {
       selectors: ['#modeBuild'],
-      tip: 'Plan maps the work. Build is where I make files; switch here when you are ready to build.',
+      tip: 'Build is the paws-on stop. Writes and commands need an Allow card, so switch here only after the plan looks right.',
     },
     {
       selectors: ['#quickPreview'],
@@ -6343,7 +6347,7 @@
     },
     {
       selectors: ['#settingsBtn'],
-      tip: 'Settings holds your key, workspace and my own switch. This is the gear.',
+      tip: 'Settings is the gear for your key, workspace, screenshots, commands and my own switch. Open it once and I will leave a note beside each section.',
     },
   ];
   const FUNNY_CHANCE = 0.3;
@@ -6360,7 +6364,12 @@
       opacity: 0;
       transform: var(--chatty-enter, translateY(9px)) scale(.96);
       transform-origin: 50% 100%;
-      transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1), translate .32s ease;
+      transition:
+        opacity .22s ease,
+        transform .28s cubic-bezier(.2,.8,.2,1),
+        translate .32s ease,
+        left var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1),
+        top var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1);
       pointer-events: none;
     }
     .chatty[hidden] { display: none; }
@@ -6370,6 +6379,11 @@
       transform: translateY(8px) scale(.92);
     }
     .chatty.is-in.is-wandering .chatty-pet { pointer-events: none; }
+    .chatty.is-in.is-touring { opacity: 1; transform: none; }
+    .chatty.is-in.is-touring .chatty-pet,
+    .chatty.is-in.is-touring .chatty-pet.chatty-pounce {
+      animation: chatty-tour-hop var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1);
+    }
     .chatty-spot {
       position: fixed;
       z-index: 2147482999;
@@ -6671,6 +6685,14 @@
       58% { transform: translateY(-9px) scale(1.01, .99) rotate(-2deg); }
       76% { transform: translateY(3px) scale(1.04, .96) rotate(1deg); }
       100% { transform: translateY(0) scale(1) rotate(0); }
+    }
+    @keyframes chatty-tour-hop {
+      0% { transform: translateY(0) scale(1); }
+      18% { transform: translateY(-14px) scale(.98, 1.03); }
+      38% { transform: translateY(1px) scale(1.04, .96); }
+      58% { transform: translateY(-8px) scale(.99, 1.01); }
+      78% { transform: translateY(1px) scale(1.02, .98); }
+      100% { transform: translateY(0) scale(1); }
     }
     @keyframes chatty-tip-in {
       from { opacity: 0; transform: translateY(4px) scale(.97); }
@@ -7073,16 +7095,25 @@
     const width = box.width || 84;
     const height = box.height || width * 1.14;
     const gap = 10;
+    // The tip is part of the cat's footprint. If it is already visible, keep
+    // the whole bubble clear of the target instead of letting fitBubble slide
+    // the cat back over the control on a short phone screen.
+    // While a tour tip is hidden for travel, reserve a typical tip height so
+    // the cat starts on the side she will finish on instead of correcting late.
+    const bubbleHeight = bubbleNode && !bubbleNode.hidden ? bubbleNode.offsetHeight : 220;
+    const bubbleGap = bubbleHeight ? gap : 0;
     const below = rect.bottom + gap;
     const above = rect.top - height - gap;
-    const y = below + height <= innerHeight - 8 ? below : Math.max(8, above);
+    const belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
+    const aboveFits = above - bubbleHeight - bubbleGap >= 8;
+    const y = belowFits ? below : aboveFits ? above : Math.max(8, above);
     const x = Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;
     rootNode.style.top = `${Math.round(y)}px`;
     rootNode.style.right = 'auto';
     rootNode.style.bottom = 'auto';
-    rootNode.dataset.bubble = y > rect.bottom ? 'below' : 'above';
+    rootNode.dataset.bubble = belowFits ? 'below' : 'above';
     rootNode.dataset.bubbleSide = x + width / 2 < innerWidth / 2 ? 'left' : 'right';
   }
 
@@ -7123,6 +7154,7 @@
   }
 
   function choosePosition() {
+    if (rootNode) rootNode.classList.remove('is-touring');
     clearTourPlacement();
     fitToComposer();
     const options = POSITIONS.filter((position) => position !== lastPosition);
@@ -7431,8 +7463,8 @@
         return;
       }
       if (tour && visibleTarget(tour.target)) {
-        placeNear(tour.target);
         showTip(message, 10000);
+        placeNear(tour.target);
         showSpotlight(tour.target);
       } else {
         choosePosition();
@@ -7493,24 +7525,24 @@
     hideTip();
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
+    clearTimeout(moveTimer);
     const arrive = () => {
       moveTimer = 0;
       if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+      rootNode.classList.remove('is-touring');
       if (!visibleTarget(found.target)) {
         tourBusy = false;
-        rootNode.classList.remove('is-wandering');
         showTourStep(found.index + 1);
         return;
       }
-      placeNear(found.target);
       showTip(
         found.stop.tip,
         0,
         tourActions(found.index),
         `Tour ${found.index + 1}/${TOUR_STOPS.length}`,
       );
+      placeNear(found.target);
       showSpotlight(found.target);
-      rootNode.classList.remove('is-wandering');
       pouncePet();
       tourBusy = false;
       armHide(180000);
@@ -7519,9 +7551,17 @@
       arrive();
       return;
     }
-    rootNode.classList.add('is-wandering');
-    clearTimeout(moveTimer);
-    moveTimer = setTimeout(arrive, 240);
+    // Keep the cat visible while she travels so the user can follow the hop,
+    // then land with a pounce. The old fade made the movement look like a redraw.
+    rootNode.classList.remove('is-wandering');
+    if (petNode) {
+      petNode.classList.remove('chatty-pounce');
+      clearTimeout(pounceTimer);
+    }
+    rootNode.classList.add('is-touring');
+    rootNode.style.setProperty('--chatty-move-ms', '460ms');
+    placeNear(found.target);
+    moveTimer = setTimeout(arrive, 470);
   }
 
   function advanceTour() {
@@ -7534,6 +7574,7 @@
   }
 
   function finishTour() {
+    if (rootNode) rootNode.classList.remove('is-touring');
     tourStep = -1;
     tourBusy = false;
     writeFlag(TOUR_KEY, '1');
@@ -7551,6 +7592,7 @@
   }
 
   function abandonTour() {
+    if (rootNode) rootNode.classList.remove('is-touring');
     tourStep = -1;
     tourBusy = false;
     writeFlag(TOUR_KEY, '1');
@@ -8031,6 +8073,7 @@
     show: () => show(),
     hide,
     tutor: () => startTutor(),
+    tour: () => startTour(),
     settings: () => openSettings(),
     ready: playReadyChime,
     tip: (message) => {

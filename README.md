@@ -9,9 +9,12 @@ lessons on prompting, Plan/Build, debugging, explaining an idea, focused tests, 
 follow-up requests and code review. Choose **Tutor me** for a three-step lesson with
 **Next paw**, **Finish lesson**, **Another lesson** and **Stop**; Chatty avoids repeating
 the last topic and keeps the puns coming. On the first visit she also offers a guided
-walkthrough of New, the model picker, the composer, Plan/Build, Preview, the rail and
-Settings: choose **Show me around**, then click **Next stop** to follow her. After that she
-keeps you company, highlights controls on later visits, and shares another tip when clicked.
+walkthrough of New, the model picker, the composer, Plan and Build, Preview, the rail and
+Settings: choose **Show me around**, then click **Next stop** and watch her hop from one
+control to the next. Plan and Build get their own explanations, and the Settings stop points
+out the gear that holds keys, workspace options, commands, screenshots and her own switch.
+After the tour she keeps you company, highlights controls on later visits, and shares another
+tip when clicked.
 Choose **Settings** in her bubble to open the real panel; she leaves a short guide inside it
 with **Show me**, **Next tip** and a dismiss button. The guide also appears when you open
 Settings from the gear or the command palette.
