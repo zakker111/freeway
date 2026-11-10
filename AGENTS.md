@@ -90,7 +90,8 @@ generated, never edited by hand.
 | `lib/git.mjs` | bounded Git status/diff/history/commit/revert; fixed executable, no shell, filtered env, hooks disabled |
 | `lib/preview-bridge.mjs` | shared runtime-error bridge, injected into srcdoc and served previews |
 | `shared/preview.js` | one preview core: static bundler, Markdown renderer, build adapters |
-| `build/sync-preview.mjs` | inlines the shared core into both pages; function replacer required |
+| `shared/chatty.js` | Chatty companion runtime; the same source is embedded in both pages |
+| `build/sync-preview.mjs` | inlines the shared preview core and Chatty into both pages; function replacer required |
 | `lib/github.mjs` | GitHub REST client behind the panel and the `github_*` tools |
 | `lib/commands.mjs` | allowlisted program runner; `shell: false`, filtered env, timeouts |
 | `lib/processes.mjs` | managed long-running programs: cap, port detection, bounded logs, TTL |

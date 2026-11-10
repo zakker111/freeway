@@ -1,0 +1,60 @@
+name: Verify release
+
+# Verify every published release against its attached SHA256SUMS. The Windows
+# job attaches its ZIP from build-windows.yml, so wait for all assets before
+# treating a publish that races that build as a checksum failure.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Download and verify assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Wait for release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          version="${TAG#v}"
+          required=(
+            "Freeway-${version}.zip"
+            "Freeway-${version}-windows.zip"
+            "SHA256SUMS"
+          )
+          for attempt in $(seq 1 60); do
+            assets="$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+            missing=0
+            for file in "${required[@]}"; do
+              if ! grep -Fxq "$file" <<<"$assets"; then
+                missing=1
+              fi
+            done
+            if [ "$missing" -eq 0 ]; then
+              echo "All release assets are present (check $attempt)."
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "Timed out waiting for $TAG assets: ${required[*]}" >&2
+          printf 'Assets currently on the release:\n%s\n' "$assets" >&2
+          exit 1
+
+      - name: Verify published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: ./verify-release.sh "$TAG" --repo "$REPO"

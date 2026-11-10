@@ -8,13 +8,13 @@ preview is a bug.
 
 | Place | Field | Format |
 | --- | --- | --- |
-| `app.mjs` | `VERSION` | `2.18.1` |
-| `package.json` | `version` | `2.18.1` |
-| `cloud/worker.mjs` | `VERSION` | `2.18.1-cloud` |
-| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.18.1` |
-| `VERSIONS.md` | table row + section | `2.18.1` |
-| `CURRENT-LINK.txt` | app + zip line | `2.18.1` |
-| ZIP | `dist/Freeway-<version>.zip` | `2.18.1` |
+| `app.mjs` | `VERSION` | `2.23.0` |
+| `package.json` | `version` | `2.23.0` |
+| `cloud/worker.mjs` | `VERSION` | `2.23.0-cloud` |
+| `cloud/package.json`, `cloud/package-lock.json` | name / version | `freeway-cloud` @ `2.23.0` |
+| `VERSIONS.md` | table row + section | `2.23.0` |
+| `CURRENT-LINK.txt` | app + zip line | `2.23.0` |
+| ZIP | `dist/Freeway-<version>.zip` | `2.23.0` |
 
 The cloud build carries the app version with a `-cloud` suffix, so app and site can never
 drift. Extra cloud-only deploys during a debug session use `-cloud.2`, `-cloud.3`, … until the
@@ -24,7 +24,7 @@ next real release collapses them back to `<version>-cloud`.
 
 ```bash
 cd freeway
-./release.sh 2.18.1
+./release.sh 2.23.0
 ```
 
 It rewrites all three version strings, rebuilds `freeway.mjs` (the CLI/SEA bundle),
@@ -64,7 +64,25 @@ Name the result `Freeway.exe`, zip it with the README, and keep it out of the so
 ZIP. It is unsigned, so SmartScreen shows **More info → Run anyway**. The `.exe` cannot be
 executed in the Linux VM; `.github/workflows/build-windows.yml` is the authoritative,
 Windows-tested build. It passed on commit `94715e4` (run 41940445555); its
-`windows-client` artifact is attached by the 2.4.2 tag workflow; launching it on a Windows desktop is still pending.
+`windows-client` artifact is attached by the release tag workflow; launching the newly
+built binary on a Windows desktop is still required.
+
+## Verify the published assets
+
+After the release is published and the Windows workflow has attached its ZIP, download
+the files back from GitHub and check them against the published manifest:
+
+```bash
+cd freeway
+./verify-release.sh 2.23.0
+```
+
+The script downloads every asset from `v2.23.0` into a temporary directory, checks that
+both `Freeway-2.23.0.zip` and `Freeway-2.23.0-windows.zip` are present and listed in
+`SHA256SUMS`, runs `sha256sum -c`, and exits non-zero on a missing asset, download failure
+or checksum mismatch. It uses the authenticated `gh` CLI, so no token is stored in the
+script. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
+fork. `sha256sum` is used where available, with `shasum -a 256` as the macOS fallback.
 
 ## Live smoke matrix
 

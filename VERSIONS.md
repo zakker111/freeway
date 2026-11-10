@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.23.0 | 2026-11-10 | Chatty companion: tips, jokes, animations and a quiet dismiss |
 | 2.22.3 | 2026-11-09 | Security audit: secret symlinks, DevTools origin and quota cache hardened |
 | 2.22.2 | 2026-11-09 | Animated speech-bubble brand mark in the header and empty state |
 | 2.22.1 | 2026-11-09 | Cancel-safe Build requests and cooldown cleanup |
@@ -166,6 +167,29 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.23.0 — 2026-11-10
+
+- **Chatty joins both editions.** A tiny black cat peeks in from one of four edges with a
+  short tip or an occasional joke. Its 31 tips and 12 jokes teach the app's shortcuts,
+  limits and privacy behavior without interrupting the conversation. Jokes appear about
+  30% of the time and never twice in a row.
+- **Alive, but easy to dismiss.** Chatty bobs, blinks, flicks its tail, twitches its ears,
+  tilts its head and taps its paws; clicking it gets another tip, double-clicking does a
+  trick, and the ×, a click on the bubble or Escape dismisses it for a 2–3.5 minute
+  cooldown. It changes edge each visit and never picks the same position twice in a row.
+- **Off means off.** **Settings → Show Chatty companion** is a persisted switch in both
+  editions. Chatty only reads and writes that local preference; it never touches chats,
+  keys, workspace files or provider requests. Reduced-motion preferences are respected.
+- **Checks.** 336 unit tests (71 page contracts), 36 CLI, 29 + 29 simulations and 28 cloud
+  checks pass. The same Chatty runtime is embedded verbatim in both pages and the settings
+  switches are covered by the page suite.
+- **Artifacts.** Desktop source and ZIP 2.23.0; cloud source and Worker bundle
+  2.23.0-cloud; `freeway.mjs` and `freeway.cjs` rebuilt at 2.23.0.
+- **Windows.** The executable is built and smoke-tested by the Windows Actions workflow;
+  no new `.exe` can be launched from this Linux VM.
+- **Live.** Desktop 2.23.0 on port 3002; cloud preview and production both report
+  2.23.0-cloud, and Chatty surfaced on both pages during the smoke check.
 
 ## 2.22.3 — 2026-11-09
 
