@@ -1500,6 +1500,9 @@
       textarea#input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
       textarea#input::placeholder { color: var(--dim); }
       .hint { max-width: var(--content); margin: 7px auto 0; font-size: 11.5px; color: var(--dim); display: flex; gap: 10px; flex-wrap: wrap; }
+      /* The <560px rule hides .hint to save footer height, but this note is the
+         only place the phone layout says what the browser edition cannot do. */
+      .composer-note { max-width: var(--content); margin: 7px auto 0; font-size: 11.5px; line-height: 1.45; color: var(--dim); }
 
       .sr-only {
         position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -2456,7 +2459,7 @@
         <span>·</span>
         <span>Enter to send · Shift+Enter newline · Ctrl+K commands · Ctrl+M models · Alt+N new chat</span>
       </div>
-      <div class="hint" id="desktopOnlyHint">
+      <div class="composer-note" id="desktopOnlyHint">
         <span>Files on disk, commands and GitHub writes need the desktop app.</span>
       </div>
     </footer>

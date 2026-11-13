@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.7 | 2026-11-13 | The desktop-only note stays visible on phones instead of hiding with the footer hints |
 | 2.35.6 | 2026-11-13 | The cloud composer says files on disk, commands and GitHub writes need the desktop app |
 | 2.35.5 | 2026-11-13 | Fix the CRLF-sensitive test that made 2.35.4 red on Windows; same features |
 | 2.35.4 | 2026-11-13 | Settings groups its fields with a live abilities summary; expired approvals offer a retry |
@@ -192,6 +193,13 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.7 — 2026-11-13
+
+- **The desktop-only note survives the phone layout.** 2.35.6 put the line in the
+  footer hint row, which the <560px rule hides to save height, so the phones that
+  needed it most never saw it. It has its own class and stays visible at every
+  width.
 
 ## 2.35.6 — 2026-11-13
 
