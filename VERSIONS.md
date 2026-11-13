@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.2 | 2026-11-13 | Tests keep every offered tool and the cross-chat switch documented |
 | 2.35.1 | 2026-11-13 | README documents cross-chat reading: tools, setting, caps and cloud behaviour |
 | 2.35.0 | 2026-11-12 | Cloud edition reads your other saved chats on request, off by default |
 | 2.34.0 | 2026-11-12 | Other saved chats readable on request, off by default; bundle completeness check |
@@ -187,6 +188,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.2 — 2026-11-13
+
+- **The README cannot lose a tool again.** A new test compares the tool table
+  with `TOOL_DEFINITIONS`: every offered tool needs a row, with `browser_*`
+  counting as one family for the browser tools. It found `propose_plan` and
+  `update_plan_step` undocumented, so both gained rows describing their
+  schemas.
+- **The cross-chat switch is guarded in both places.** A second test requires
+  the two tool names, the Settings label, the off-by-default wording and the
+  switch's save/load wiring to survive in the README and in both pages.
 
 ## 2.35.1 — 2026-11-13
 

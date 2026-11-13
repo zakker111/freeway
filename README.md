@@ -478,6 +478,8 @@ between machines.
 | `stop_process` | Stops one managed process, or all of them | **approved per call**, frees the port |
 | `list_chats` | Lists your other saved chats with ids, titles, dates and message counts, optionally filtered by text (desktop reads `threads.json`, cloud reads this browser's history) | off by default, **read-only**, current chat excluded, 40 rows, 3 lookups per turn |
 | `read_chat` | Reads one other saved chat by id, optionally filtered by text | off by default, **read-only**, 30 messages / 12 KB, secrets redacted, images and tool records dropped, current chat refused |
+| `propose_plan` | Records or revises this chat's plan: goal, assumptions, ordered steps with files and verification, and risks | never touches a file, **plan artifact only**, shape validated before it is shown |
+| `update_plan_step` | Marks one plan step `pending`, `active` or `done` while building | **plan artifact only**, zero-based index, other statuses refused |
 
 Tool loops are bounded: a Build turn gets at most 40 tool steps and 15 minutes, with a live
 budget in the composer; Plan stays read-only and is capped at 3 rounds. A round can carry 4
