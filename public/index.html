@@ -1835,6 +1835,25 @@
       .modal .foot.split { justify-content: space-between; align-items: center; }
 
       .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+      .settings-group {
+        margin: 22px 0 10px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--dim, #8b93a1);
+        font-weight: 650;
+      }
+      .settings-group:first-child { margin-top: 0; }
+      .ability-summary {
+        margin: 0 0 14px;
+        padding: 8px 10px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: 8px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.04));
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted, #aab2c0);
+      }
       .field label { font-size: 12.5px; color: var(--muted); font-weight: 550; }
       .field .help { font-size: 11.5px; color: var(--dim); }
 
@@ -2680,7 +2699,7 @@
     <div class="overlay hidden" id="settingsOverlay">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <header><strong id="settingsTitle">Settings</strong></header>
-        <div class="body">
+        <div class="body">          <h3 class="settings-group">Model</h3>
           <div class="field">
             <div class="field-head">
               <label for="sPrompt">System prompt</label>
@@ -2709,60 +2728,6 @@
           </div>
           <div class="field">
             <div class="field-head">
-              <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
-              <button class="qmark" type="button" aria-label="More about tools" aria-describedby="tipTools">?</button>
-              <span class="qtip" id="tipTools" role="tooltip">Clock, exact calculator, public web fetch, workspace files and GitHub, plus allowlisted commands when enabled below. When this is on, the model is told to use the tools instead of guessing. Only sent to models that support tool calling.</span>
-            </div>
-            <span class="help">Clock, calculator, web, files, GitHub and allowlisted commands.</span>
-          </div>
-          <div class="field">
-            <div class="field-head">
-              <label class="check"><input type="checkbox" id="sScreenshot" /> Screenshot previews for vision models</label>
-              <button class="qmark" type="button" aria-label="More about screenshot previews" aria-describedby="tipScreenshots">?</button>
-              <span class="qtip" id="tipScreenshots" role="tooltip">On by default. After a preview check passes, a local headless Edge or Chrome can capture the preview for a vision-capable model. At most two captures per Build run, and no image is sent when this is off.</span>
-            </div>
-            <span class="help">Up to two per Build run; off stops all captures.</span>
-          </div>
-          <div class="field">
-            <div class="field-head">
-              <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
-              <button class="qmark" type="button" aria-label="More about the retry log" aria-describedby="tipRetryLog">?</button>
-              <span class="qtip" id="tipRetryLog" role="tooltip">A collapsed “What happened” line under an answer shows every model attempt and retry.</span>
-            </div>
-            <span class="help">Shows which models answered after a retry.</span>
-          </div>
-          <div class="field">
-            <div class="field-head">
-              <label class="check"><input type="checkbox" id="sChatty" /> Show Chatty companion</label>
-              <button class="qmark" type="button" aria-label="More about Chatty" aria-describedby="tipChatty">?</button>
-              <span class="qtip" id="tipChatty" role="tooltip">A tiny cat that sometimes peeks in from the edge with a small tip. Turn this off to keep Chatty out of the way; the rest of Freeway is unchanged.</span>
-            </div>
-            <span class="help">A playful helper; turn it off for a quiet window.</span>
-          </div>
-          <div class="field" id="settingsSecrets">
-            <div class="field-head">
-              <label>Secrets</label>
-            </div>
-            <span class="help">
-              GitHub uses a personal access token.
-              <a id="settingsGithubLogin" href="https://github.com/login" target="_blank" rel="noreferrer">Sign in to GitHub ↗</a>
-              ·
-              <a id="settingsGithubToken" href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=Freeway" target="_blank" rel="noreferrer">Create a token ↗</a>.
-              Save it below as <code>GITHUB_TOKEN</code>. Secrets save immediately.
-            </span>
-            <div class="field">
-              <input id="secName" type="text" placeholder="GITHUB_TOKEN" autocomplete="off" spellcheck="false" />
-              <input id="secValue" type="password" placeholder="value" autocomplete="off" />
-            </div>
-            <div class="row">
-              <button class="mini" id="secAdd" type="button">Add secret</button>
-              <span class="fine" id="secStatus"></span>
-            </div>
-            <div class="fs-list" id="secList"></div>
-            <span class="help">Values stay on this computer. The page only ever sees the last four characters.</span>
-          </div>
-          <div class="field">
-            <div class="field-head">
               <label for="sCap">Free requests per chat</label>
               <button class="qmark" type="button" aria-label="More about the request cap" aria-describedby="tipRequestCap">?</button>
               <span class="qtip" id="tipRequestCap" role="tooltip">Soft cap for one conversation. The footer counts requests and warns near the limit; 0 turns it off.</span>
@@ -2770,14 +2735,16 @@
             <input id="sCap" type="number" min="0" max="1000" step="1" />
             <span class="help">Soft cap per chat; 0 turns it off.</span>
           </div>
+
+          <h3 class="settings-group">Abilities</h3>
+          <div class="ability-summary" id="abilitySummary" aria-live="polite"></div>
           <div class="field">
             <div class="field-head">
-              <label for="sWorkspace">Workspace folder</label>
-              <button class="qmark" type="button" aria-label="More about the workspace folder" aria-describedby="tipWorkspace">?</button>
-              <span class="qtip" id="tipWorkspace" role="tooltip">The only folder the Files panel and the model's file tools may touch. Leave it blank to turn both off.</span>
+              <label class="check"><input type="checkbox" id="sTools" /> Let the model use tools</label>
+              <button class="qmark" type="button" aria-label="More about tools" aria-describedby="tipTools">?</button>
+              <span class="qtip" id="tipTools" role="tooltip">Clock, exact calculator, public web fetch, workspace files and GitHub, plus allowlisted commands when enabled below. When this is on, the model is told to use the tools instead of guessing. Only sent to models that support tool calling.</span>
             </div>
-            <input id="sWorkspace" type="text" placeholder="C:\Users\you\projects" spellcheck="false" />
-            <span class="help">Files and tools stay inside this folder; blank disables both.</span>
+            <span class="help">Clock, calculator, web, files, GitHub and allowlisted commands.</span>
           </div>
           <div class="field">
             <div class="field-head">
@@ -2811,6 +2778,67 @@
               <span class="qtip" id="tipCrossChat" role="tooltip">Off by default. When on, the model may list and read your other saved chats with two read-only tools. It sees their text only when it asks, at most three lookups per turn, keys are redacted, and it can never change or delete a chat.</span>
             </div>
             <span class="help" id="sCrossChatHelp">Read-only, on request; off by default.</span>
+          </div>
+          <div class="field">
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sScreenshot" /> Screenshot previews for vision models</label>
+              <button class="qmark" type="button" aria-label="More about screenshot previews" aria-describedby="tipScreenshots">?</button>
+              <span class="qtip" id="tipScreenshots" role="tooltip">On by default. After a preview check passes, a local headless Edge or Chrome can capture the preview for a vision-capable model. At most two captures per Build run, and no image is sent when this is off.</span>
+            </div>
+            <span class="help">Up to two per Build run; off stops all captures.</span>
+          </div>
+
+          <h3 class="settings-group">Workspace</h3>
+          <div class="field">
+            <div class="field-head">
+              <label for="sWorkspace">Workspace folder</label>
+              <button class="qmark" type="button" aria-label="More about the workspace folder" aria-describedby="tipWorkspace">?</button>
+              <span class="qtip" id="tipWorkspace" role="tooltip">The only folder the Files panel and the model's file tools may touch. Leave it blank to turn both off.</span>
+            </div>
+            <input id="sWorkspace" type="text" placeholder="C:\Users\you\projects" spellcheck="false" />
+            <span class="help">Files and tools stay inside this folder; blank disables both.</span>
+          </div>
+
+          <h3 class="settings-group">Interface</h3>
+          <div class="field">
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sLog" /> Show the retry log</label>
+              <button class="qmark" type="button" aria-label="More about the retry log" aria-describedby="tipRetryLog">?</button>
+              <span class="qtip" id="tipRetryLog" role="tooltip">A collapsed “What happened” line under an answer shows every model attempt and retry.</span>
+            </div>
+            <span class="help">Shows which models answered after a retry.</span>
+          </div>
+          <div class="field">
+            <div class="field-head">
+              <label class="check"><input type="checkbox" id="sChatty" /> Show Chatty companion</label>
+              <button class="qmark" type="button" aria-label="More about Chatty" aria-describedby="tipChatty">?</button>
+              <span class="qtip" id="tipChatty" role="tooltip">A tiny cat that sometimes peeks in from the edge with a small tip. Turn this off to keep Chatty out of the way; the rest of Freeway is unchanged.</span>
+            </div>
+            <span class="help">A playful helper; turn it off for a quiet window.</span>
+          </div>
+
+          <h3 class="settings-group">Your data</h3>
+          <div class="field" id="settingsSecrets">
+            <div class="field-head">
+              <label>Secrets</label>
+            </div>
+            <span class="help">
+              GitHub uses a personal access token.
+              <a id="settingsGithubLogin" href="https://github.com/login" target="_blank" rel="noreferrer">Sign in to GitHub ↗</a>
+              ·
+              <a id="settingsGithubToken" href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=Freeway" target="_blank" rel="noreferrer">Create a token ↗</a>.
+              Save it below as <code>GITHUB_TOKEN</code>. Secrets save immediately.
+            </span>
+            <div class="field">
+              <input id="secName" type="text" placeholder="GITHUB_TOKEN" autocomplete="off" spellcheck="false" />
+              <input id="secValue" type="password" placeholder="value" autocomplete="off" />
+            </div>
+            <div class="row">
+              <button class="mini" id="secAdd" type="button">Add secret</button>
+              <span class="fine" id="secStatus"></span>
+            </div>
+            <div class="fs-list" id="secList"></div>
+            <span class="help">Values stay on this computer. The page only ever sees the last four characters.</span>
           </div>
           <div class="field">
             <label>Saved chats</label>
@@ -5509,6 +5537,22 @@
         }
       }
 
+      // The server settles an unanswered card as a deny after three minutes. The
+      // card used to keep its buttons, so that click could only fail; it now says
+      // what happened and offers a way to ask again.
+      const CONFIRM_TIMEOUT_MS = 180_000;
+
+      function retryToolStep(name) {
+        const text = `Try the ${name} step again \u2014 my approval timed out before I could answer.`;
+        if (state.streaming || state.queue.length > 0) {
+          enqueue(text);
+          state.paused = false;
+          drainQueue();
+          return;
+        }
+        void send({ text });
+      }
+
       // A model asking to write a file: nothing happens until this is answered.
       function addConfirmCard(node, event) {
         let args = {};
@@ -5594,7 +5638,12 @@
         deny.type = "button";
         deny.className = "ghost";
         deny.textContent = "Deny";
+        let answered = false;
+        let expiryTimer = null;
         const answer = async (value) => {
+          if (answered) return;
+          answered = true;
+          clearTimeout(expiryTimer);
           allow.disabled = true;
           deny.disabled = true;
           try {
@@ -5614,6 +5663,32 @@
         row.append(allow, deny);
         card.append(title, detail, row);
         node.appendChild(card);
+
+        expiryTimer = setTimeout(() => {
+          if (answered) return;
+          answered = true;
+          allow.disabled = true;
+          deny.disabled = true;
+          card.classList.add("no");
+          title.textContent = "Approval timed out";
+          const note = document.createElement("div");
+          note.className = "fine";
+          note.textContent =
+            "No answer in three minutes, so this step was treated as a Deny and skipped.";
+          const retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "mini";
+          retry.textContent = "Try again";
+          retry.title = `Ask the assistant for ${event.name} again`;
+          retry.addEventListener("click", () => {
+            retry.disabled = true;
+            retry.textContent = "Asked again";
+            retryToolStep(event.name);
+          });
+          card.insertBefore(note, row);
+          row.replaceChildren(retry);
+          setStatus(`${event.name} timed out \u2014 treated as Deny`);
+        }, CONFIRM_TIMEOUT_MS);
       }
 
       /* --------------------------------------------------------------- api */
@@ -6878,6 +6953,27 @@
 
       /* ---------------------------------------------------------- settings */
 
+      const ABILITY_FIELDS = [
+        ["sTools", "tools"],
+        ["sCommands", "commands"],
+        ["sAutoApprove", "auto-approve"],
+        ["sCrossChat", "other chats"],
+        ["sScreenshot", "screenshots"],
+      ];
+
+      function updateAbilitySummary() {
+        const on = ABILITY_FIELDS.filter(([id]) => $(id)?.checked);
+        const labels = on.map(([, label]) => label);
+        let text =
+          on.length === 0
+            ? "All abilities are off \u2014 the assistant answers with the model alone."
+            : `Abilities: ${on.length} of ${ABILITY_FIELDS.length} on \u2014 ${labels.join(", ")}.`;
+        if (on.length > 0 && !$("sTools").checked) {
+          text += " Tools are off, so none of them can run.";
+        }
+        $("abilitySummary").textContent = text;
+      }
+
       function openSettings() {
         $("sPrompt").value = state.settings.systemPrompt || "";
         $("sTemp").value = state.settings.temperature ?? "";
@@ -6894,6 +6990,7 @@
         $("sAllowlist").value = state.settings.commandAllowlist || "";
         $("sAutoApprove").checked = state.settings.autoApprove === true;
         $("sCrossChat").checked = state.settings.crossChat === true;
+        updateAbilitySummary();
         $("settingsError").textContent = "";
         $("settingsOverlay").classList.remove("hidden");
         void refreshSecrets();
@@ -7333,6 +7430,7 @@
       $("settingsBtn").addEventListener("click", openSettings);
       $("settingsCancel").addEventListener("click", () => $("settingsOverlay").classList.add("hidden"));
       $("settingsSave").addEventListener("click", saveSettings);
+      for (const [id] of ABILITY_FIELDS) $(id).addEventListener("change", updateAbilitySummary);
       $("modePlan").addEventListener("click", () => setMode("plan"));
       $("modeBuild").addEventListener("click", () => setMode("build"));
       $("newChatBtn").addEventListener("click", resetThread);

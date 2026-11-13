@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.4 | 2026-11-13 | Settings groups its fields with a live abilities summary; expired approvals offer a retry |
 | 2.35.3 | 2026-11-13 | Every release dispatches its own asset verification; re-run it by hand |
 | 2.35.2 | 2026-11-13 | Tests keep every offered tool and the cross-chat switch documented |
 | 2.35.1 | 2026-11-13 | README documents cross-chat reading: tools, setting, caps and cloud behaviour |
@@ -189,6 +190,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.4 — 2026-11-13
+
+- **Settings reads as five groups.** Model, Abilities, Workspace, Interface and
+  Your data in the desktop app; the cloud edition gets the same headings for the
+  four it has. Requests-per-chat moved beside the other model knobs, and the
+  abilities sit together instead of being split across the panel.
+- **A live abilities summary.** `Abilities: 2 of 5 on — tools, screenshots.`
+  updates on every change, and warns when tools are off while dependent
+  abilities are on, because nothing used to say the rest could not run.
+- **An expired approval explains itself.** After three minutes the card says
+  "Approval timed out", records that the step was treated as a Deny and
+  skipped, and offers Try again, which asks for that step in a new turn so the
+  arguments are shown again before anything runs.
+- **Releases verify before they are announced.** The checklist now starts with
+  the dispatch-triggered Verify release run, and a red or missing run blocks
+  recording or announcing the release.
 
 ## 2.35.3 — 2026-11-13
 

@@ -492,7 +492,8 @@ a model rejects the parameter. By default, anything that writes or executes —
 `github_create_release`, `github_create_repo`, `github_pull`, `github_push`, `github_branch`,
 `github_clone`, `run_command`, `run_check`, `run_tests`, `git_commit`, `git_revert`, `start_process`,
 `stop_process` — stops at an Allow / Deny card first, and a dropped
-connection or a three-minute wait counts as Deny. The off-by-default **Auto-approve Build
+connection or a three-minute wait counts as Deny. An expired card says so, marks the step
+skipped, and offers **Try again**, which asks the assistant for that step in a new turn. The off-by-default **Auto-approve Build
 actions** setting can skip those cards for every Build workspace while it is on. Plan mode
 never auto-approves, and the workspace and command allowlist still apply. Each skipped card
 is marked in the transcript. Tool calls are only run when that response was offered tools;

@@ -4,6 +4,10 @@ Rule: **every change ships with a version bump, and every site is updated.** No 
 "tiny" edits — a fix that exists only in the workspace is not shipped, and production behind
 preview is a bug.
 
+**A release is not announced until its `Verify release` run is green.** The publish job starts
+that run itself; a red or missing run means the published ZIPs have not been checked against
+`SHA256SUMS`, so nothing public may describe the release as ready.
+
 ## One version everywhere
 
 | Place | Field | Format |
@@ -35,14 +39,24 @@ cloud test; running it by hand needs `node cloud/build.mjs` first.
 
 Then, from the chat (the Sites tools hold the credentials; the repo has none):
 
-1. `sites_deploy` → **production**
-2. `sites_deploy` → **preview**
-3. Restart the preview server on port 3002
-4. Verify all three report the new version, `/api/providers` still lists the full provider
+1. Confirm the `Verify release` run the publish job dispatched for this tag is green:
+
+   ```bash
+   gh run list --workflow verify-release.yml --event workflow_dispatch --limit 1
+   ```
+
+   A red or missing run means the shipped ZIPs are unverified. Stop here and fix it — see
+   [Re-running a failed verification](#re-running-a-failed-verification) — before recording
+   the release or announcing it. Do not mark the release as ready on the strength of the
+   asset upload alone.
+2. `sites_deploy` → **production**
+3. `sites_deploy` → **preview**
+4. Restart the preview server on port 3002
+5. Verify all three report the new version, `/api/providers` still lists the full provider
    set (including OVHcloud and Ollama), the cloud page still has `#provider`, and a paid id
    is still refused
-5. Add the `VERSIONS.md` row + section, update `TODO.md` if the release closes something
-6. On the desktop, `GET /api/processes` must be empty after a restart: no orphan dev server
+6. Add the `VERSIONS.md` row + section, update `TODO.md` if the release closes something
+7. On the desktop, `GET /api/processes` must be empty after a restart: no orphan dev server
 
 ## The Windows `.exe`
 

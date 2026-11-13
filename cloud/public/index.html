@@ -1544,6 +1544,25 @@
       dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; font-weight: 550; }
 
       .setting { margin: 0 0 14px; }
+      .settings-group {
+        margin: 22px 0 10px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--dim, #8b93a1);
+        font-weight: 650;
+      }
+      .settings-group:first-child { margin-top: 0; }
+      .ability-summary {
+        margin: 0 0 14px;
+        padding: 8px 10px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: 8px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.04));
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted, #aab2c0);
+      }
       .settings-head {
         position: relative; display: flex; align-items: center; gap: 7px;
         flex-wrap: wrap;
@@ -2488,6 +2507,7 @@
     <dialog id="settingsDialog" aria-labelledby="settingsTitle">
       <h2 id="settingsTitle">Settings</h2>
       <p>Applied to every request from this tab.</p>
+      <h3 class="settings-group">Model</h3>
       <div class="setting">
         <div class="settings-head">
           <label for="settingSystem">System prompt</label>
@@ -2514,6 +2534,9 @@
         <input id="settingTemp" type="number" min="0" max="2" step="0.1" placeholder="0.7" />
         <div class="setting-note">0 focused · 2 varied · blank uses provider default.</div>
       </div>
+
+      <h3 class="settings-group">Abilities</h3>
+      <div class="ability-summary" id="abilitySummary" aria-live="polite"></div>
       <div class="setting">
         <div class="settings-head">
           <label class="checkline" for="settingTools"><input id="settingTools" type="checkbox" /> Workspace tools</label>
@@ -2538,6 +2561,8 @@
         </div>
         <div class="setting-note" id="settingCrossChatHelp">Read-only, on request; off by default.</div>
       </div>
+
+      <h3 class="settings-group">Interface</h3>
       <div class="setting">
         <div class="settings-head">
           <label class="checkline" for="settingChatty"><input id="settingChatty" type="checkbox" /> Show Chatty companion</label>
@@ -2546,6 +2571,8 @@
         </div>
         <div class="setting-note">A playful helper; turn it off for a quiet tab.</div>
       </div>
+
+      <h3 class="settings-group">Your data</h3>
       <div class="setting" id="settingsSecrets">
         <div class="settings-head">
           <label>Secrets</label>
@@ -5027,6 +5054,25 @@
         };
       }
 
+      const ABILITY_FIELDS = [
+        ['settingTools', 'tools'],
+        ['settingAutoApprove', 'auto-approve'],
+        ['settingCrossChat', 'other chats'],
+      ];
+
+      function updateAbilitySummary() {
+        const on = ABILITY_FIELDS.filter(([id]) => $(id)?.checked);
+        const labels = on.map(([, label]) => label);
+        let text =
+          on.length === 0
+            ? 'All abilities are off \u2014 the assistant answers with the model alone.'
+            : `Abilities: ${on.length} of ${ABILITY_FIELDS.length} on \u2014 ${labels.join(', ')}.`;
+        if (on.length > 0 && !$('settingTools').checked) {
+          text += ' Tools are off, so none of them can run.';
+        }
+        $('abilitySummary').textContent = text;
+      }
+
       $('settingsBtn').onclick = () => {
         const settings = readSettings();
         $('settingSystem').value = settings.system;
@@ -5035,6 +5081,7 @@
         $('settingTools').checked = settings.tools === true;
         $('settingAutoApprove').checked = settings.autoApproveWrites === true;
         $('settingCrossChat').checked = settings.crossChat === true;
+        updateAbilitySummary();
         $('settingChatty').checked = window.FreewayChatty
           ? window.FreewayChatty.isEnabled()
           : localStorage.getItem('freeway.chatty.enabled') !== '0';
@@ -5042,6 +5089,7 @@
         $('settingsDialog').showModal();
       };
       $('settingsCancel').onclick = () => $('settingsDialog').close();
+      for (const [id] of ABILITY_FIELDS) $(id).addEventListener('change', updateAbilitySummary);
       $('settingsSave').onclick = () => {
         const max = Number($('settingMax').value);
         const rawTemp = $('settingTemp').value.trim();
