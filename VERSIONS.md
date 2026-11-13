@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.6 | 2026-11-13 | The cloud composer says files on disk, commands and GitHub writes need the desktop app |
 | 2.35.5 | 2026-11-13 | Fix the CRLF-sensitive test that made 2.35.4 red on Windows; same features |
 | 2.35.4 | 2026-11-13 | Settings groups its fields with a live abilities summary; expired approvals offer a retry |
 | 2.35.3 | 2026-11-13 | Every release dispatches its own asset verification; re-run it by hand |
@@ -191,6 +192,12 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.6 — 2026-11-13
+
+- **The cloud composer says what it cannot do.** A line under the message box
+  reads "Files on disk, commands and GitHub writes need the desktop app", so the
+  browser edition no longer looks like it is silently missing them.
 
 ## 2.35.5 — 2026-11-13
 
