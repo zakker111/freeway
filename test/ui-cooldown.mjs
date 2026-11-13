@@ -398,6 +398,20 @@ async function startDesktopApp(temp) {
 }
 
 async function startChrome(temp, onEvent) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      return await launchChrome(temp, onEvent, attempt === 1 ? 12_000 : 25_000);
+    } catch (error) {
+      lastError = error;
+      console.log('Chrome launch attempt ' + attempt + ' failed: ' + error.message.split('\n')[0]);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw lastError;
+}
+
+async function launchChrome(temp, onEvent, devtoolsTimeoutMs) {
   const debugPort = await freePort();
   let log = '';
   const chrome = spawn(
@@ -416,7 +430,7 @@ async function startChrome(temp, onEvent) {
   );
   chrome.stderr.on('data', (chunk) => (log += chunk));
   try {
-    await waitForJson(`http://127.0.0.1:${debugPort}/json/version`);
+    await waitForJson(`http://127.0.0.1:${debugPort}/json/version`, devtoolsTimeoutMs);
     console.log('Chrome DevTools is listening.');
     const targets = await waitForJson(`http://127.0.0.1:${debugPort}/json/list`);
     const target = targets.find((entry) => entry.type === 'page');
