@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.11 | 2026-11-13 | Re-cut 2.35.10 after its tag push created no Release assets run |
 | 2.35.10 | 2026-11-13 | Retry the browser harness launch when headless Chrome is slow to answer |
 | 2.35.9 | 2026-11-13 | The media guard parses every style block and checks the note's parent chain |
 | 2.35.8 | 2026-11-13 | A test fails if any media query hides the cloud desktop-only note |
@@ -196,6 +197,13 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.11 — 2026-11-13
+
+- **Re-cut of 2.35.10, no code change.** 2.35.10's Tests and Pages smoke runs
+  passed, but the tag push produced no "Release assets" run at all, so no release
+  or binaries were created for it. The tag `v2.35.10` stays where it is; this
+  version exists so the same tree is pushed under a tag the workflow picked up.
 
 ## 2.35.10 — 2026-11-13
 
