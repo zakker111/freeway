@@ -67,6 +67,15 @@ Windows-tested build. It passed on commit `94715e4` (run 41940445555); its
 `windows-client` artifact is attached by the release tag workflow; launching the newly
 built binary on a Windows desktop is still required.
 
+## Release assets come from the tag workflow
+
+Push the `v<version>` tag and `.github/workflows/build-windows.yml` publishes all three
+assets by itself: the source ZIP built from the tag with the same `zip` invocation and
+exclusions as `release.sh`, the Windows ZIP built and smoke-tested on `windows-latest`, and
+`SHA256SUMS` covering both. The manifest is written in one job that waits for both ZIPs, so
+it is never uploaded half-filled. Nothing is packaged or hashed locally any more; once the
+workflow finishes, run `./verify-release.sh <version>`.
+
 ## Verify the published assets
 
 After the release is published and the Windows workflow has attached its ZIP, download

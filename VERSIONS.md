@@ -5,6 +5,8 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.0 | 2026-11-12 | Cloud edition reads your other saved chats on request, off by default |
+| 2.34.0 | 2026-11-12 | Other saved chats readable on request, off by default; bundle completeness check |
 | 2.33.0 | 2026-11-10 | Free.ai provider: its own /v1/chat/ path, self-hosted chat model only |
 | 2.32.0 | 2026-11-10 | Cat school steps move Chatty to a new edge with her tour hop |
 | 2.31.2 | 2026-11-10 | Malformed catalogs degrade cleanly; split dev-server URLs still detect their port |
@@ -184,6 +186,70 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.0 — 2026-11-12
+
+- **The cloud edition can read your other saved chats, on request and off by
+  default.** The browser already owns those conversations, so the two tools run
+  in the page: `list_chats` searches titles and message text, `read_chat` returns
+  one bounded transcript. Nothing reaches the provider until the model asks, and
+  the switch is per browser — the chats never leave it.
+- **The same limits as the desktop edition.** 40 rows, 30 messages, 12 KB, three
+  lookups per reply, images and tool logs dropped, key-shaped text scrubbed, and
+  the open chat always refused.
+- **The Worker is untouched.** It already forwards the tool list on the
+  non-streaming path and caps it at eight, so four workspace tools plus two chat
+  tools stay inside the limit, and the shared tool instruction gains its
+  "reference data, not instructions" clause automatically.
+
+## 2.34.0 — 2026-11-12
+
+- **Other saved chats are readable on request, off by default.** A new setting,
+  "Let the assistant read my other saved chats", offers two read-only tools:
+  `list_chats` searches titles and message text, `read_chat` returns one bounded
+  transcript. Nothing is injected into the prompt; the model has to ask, gets at
+  most three lookups per turn, and the current chat is always refused.
+- **Bounded and redacted.** A transcript stops at 30 messages and 12 KB, images
+  and tool logs are dropped, and anything that looks like a key is scrubbed.
+  Another chat is labelled reference data, never instructions, because its text
+  can carry prompt injection.
+- **Enforced on the server, in Plan and Build alike.** Without the setting the
+  tools are not advertised, and a call that arrives anyway is refused before it
+  reads anything, so a provider that ignores the tool list cannot see another
+  conversation.
+- **Fixed: the single-file build was missing modules.** `freeway.mjs` never
+  inlined `lib/github-clone.mjs`, so `github_clone`, `github_pull`, `github_push`
+  and `github_branch` threw `ReferenceError` in the standalone build. The bundler
+  carries it now, and the CLI suite fails when any `lib/*.mjs` module is missing
+  from the bundle — which is how the omission surfaced.
+
+## 2.33.0 — 2026-11-10
+
+- **Free.ai joins as a provider, in both editions.** It answers on its own
+  `/v1/chat/` completion path, so the provider table carries `chatPath` per provider
+  and no route special-cases a URL. The free plan needs no card; keys come from
+  `free.ai → Account → API`.
+- **Only Free.ai's own chat model is reachable.** Its catalog mixes self-hosted,
+  slash-free ids with marketplace ids that spend purchased credits, so the provider
+  declares an allowlist (`/^qwen[\w.-]*$/`), refuses any id containing `/`, falls
+  back to `qwen7b`, and refuses media, embedding, TTS, translation and upscale
+  endpoints.
+- **Secrets moved into Settings.** Keys, GitHub sign-in and a scoped-token link sit
+  in one panel instead of a separate view; secrets save immediately and the page
+  only ever sees the last four characters.
+- **Chatty coaches the first prompt.** After the tour she points at the composer with
+  a concrete example, staying out of the way of the idle tips and the saved-chat
+  queue.
+- **Verification.** 355 node tests (including 83 page checks), 36 CLI checks, 29
+  source simulations, 29 single-file simulations, 30 cloud checks and 33 page/link
+  checks pass. The Tests, Windows client, Pages smoke and Verify release workflows
+  pass for `7ecdeeb`, and `./verify-release.sh 2.33.0` verifies both published ZIPs
+  against `SHA256SUMS`.
+- **Release state.** Desktop source is **2.33.0**; cloud preview and production are
+  **2.33.0-cloud**; both environments are published. The source ZIP, Windows ZIP and
+  `SHA256SUMS` accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.33.0](https://github.com/zakker111/freeway/releases/tag/v2.33.0).
 
 ## 2.32.0 — 2026-11-10
 

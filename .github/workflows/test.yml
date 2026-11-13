@@ -27,6 +27,12 @@ jobs:
           cache: npm
           cache-dependency-path: cloud/package-lock.json
 
+      - name: Check version consistency
+        # A release rewrites five version strings across four files. A partial
+        # rewrite ships a cloud Worker reporting a different version than the
+        # app it belongs to, which is what 2.33.0 did.
+        run: node scripts/check-versions.mjs
+
       - name: Install cloud dependencies
         working-directory: cloud
         run: npm ci

@@ -2805,6 +2805,14 @@
             <span class="help" id="sAutoApproveHelp">Skips Allow cards in Build; Plan stays read-only.</span>
           </div>
           <div class="field">
+            <div class="field-head">
+              <label class="check" for="sCrossChat"><input type="checkbox" id="sCrossChat" aria-describedby="sCrossChatHelp" /> Let the assistant read my other saved chats</label>
+              <button class="qmark" type="button" aria-label="More about reading other chats" aria-describedby="tipCrossChat">?</button>
+              <span class="qtip" id="tipCrossChat" role="tooltip">Off by default. When on, the model may list and read your other saved chats with two read-only tools. It sees their text only when it asks, at most three lookups per turn, keys are redacted, and it can never change or delete a chat.</span>
+            </div>
+            <span class="help" id="sCrossChatHelp">Read-only, on request; off by default.</span>
+          </div>
+          <div class="field">
             <label>Saved chats</label>
             <div class="row">
               <button id="exportBtn" type="button">Export all chats</button>
@@ -6885,6 +6893,7 @@
         $("sCommands").checked = state.settings.allowCommands === true;
         $("sAllowlist").value = state.settings.commandAllowlist || "";
         $("sAutoApprove").checked = state.settings.autoApprove === true;
+        $("sCrossChat").checked = state.settings.crossChat === true;
         $("settingsError").textContent = "";
         $("settingsOverlay").classList.remove("hidden");
         void refreshSecrets();
@@ -6922,6 +6931,7 @@
           allowCommands: $("sCommands").checked,
           commandAllowlist: $("sAllowlist").value,
           autoApprove: $("sAutoApprove").checked,
+          crossChat: $("sCrossChat").checked,
         };
         $("settingsError").textContent = "";
         try {

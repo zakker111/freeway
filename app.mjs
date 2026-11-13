@@ -13,6 +13,13 @@ import { gzipSync } from 'node:zlib';
 import { filterModels, buildChain, estimateTokens, supportsParam, cleanImages, toUpstreamMessage } from './lib/models.mjs';
 import { compactMessages } from './lib/memory.mjs';
 import { TOOL_DEFINITIONS, runTool, parseTextToolCalls, postAsText } from './lib/tools.mjs';
+import {
+  CROSS_CHAT_TOOL_NAMES,
+  CROSS_CHAT_TURN_LIMIT,
+  crossChatEnabled,
+  formatChatList,
+  formatChatTranscript,
+} from './lib/chats.mjs';
 import { normalizePlan, PLAN_TOOL_NAMES } from './lib/plan.mjs';
 import { resolveCheck } from './lib/project.mjs';
 import { withToolInstruction } from './lib/tool-prompt.mjs';
@@ -230,7 +237,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.33.0';
+const VERSION = '2.35.0';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -273,6 +280,10 @@ const DEFAULT_SETTINGS = {
   // write and run allowlisted commands without an Allow / Deny card. Plan mode
   // never reaches this path, and the workspace/allowlist checks still apply.
   autoApprove: false,
+  // Reading another saved chat is a separate permission: it exposes a
+  // conversation the user never pasted into this one, so it stays off until
+  // they ask for it. The server enforces it in both Plan and Build.
+  crossChat: false,
 };
 
 let catalog = { models: [], fetchedAt: 0 };
@@ -592,6 +603,16 @@ async function runToolConfirmed(res, name, args, ctx, signal) {
       content: `Error: Plan mode is read-only. \`${name}\` is not available until the user presses Build.`,
     };
   }
+  // A provider can emit a call for a tool that was never advertised. Reading
+  // another chat is a permission, not a capability, so it is refused here as
+  // well, before any confirmation card or read.
+  if (CROSS_CHAT_TOOL_NAMES.has(name) && !crossChatEnabled(loadSettings())) {
+    return {
+      ok: false,
+      content:
+        'Error: reading other saved chats is off in Settings. Answer without them, or ask the user to turn on "Let the assistant read my other saved chats".',
+    };
+  }
   // A stopped or disconnected turn must not start a new action, even when the
   // user has auto-approved Build. The confirmation path otherwise supplies this
   // check through its abort listener.
@@ -898,6 +919,7 @@ function sanitizeSettings(input = {}) {
     next.commandAllowlist = input.commandAllowlist.slice(0, 300);
   }
   if (typeof input.autoApprove === 'boolean') next.autoApprove = input.autoApprove;
+  if (typeof input.crossChat === 'boolean') next.crossChat = input.crossChat;
   if (typeof input.requestCap === 'number' && Number.isFinite(input.requestCap)) {
     next.requestCap = Math.min(Math.max(Math.round(input.requestCap), 0), 1000);
   }
@@ -1345,6 +1367,11 @@ async function handleChat(req, res) {
   } else if (settings.tools && toolsSupported) {
     tools = TOOL_DEFINITIONS;
   }
+  // Reading other chats is its own opt-in, in Plan and Build alike: without the
+  // setting the tools are never advertised, so a model cannot learn they exist.
+  if (!crossChatEnabled(settings)) {
+    tools = tools.filter((tool) => !CROSS_CHAT_TOOL_NAMES.has(tool.function.name));
+  }
   // Do not advertise command tools unless they could actually work: a workspace
   // folder, the checkbox, and at least one program on the allowlist. run_tests
   // uses the same runner as run_command, so it must disappear under the same
@@ -1451,6 +1478,35 @@ async function handleChat(req, res) {
     void browserManager.close();
   });
 
+  // One cross-chat budget for this request: a few lookups, never the library.
+  let crossChatLookups = 0;
+  const takeChatLookup = () => {
+    crossChatLookups += 1;
+    return crossChatLookups <= CROSS_CHAT_TURN_LIMIT;
+  };
+  const chatLibrary = {
+    list: (input = {}) =>
+      takeChatLookup()
+        ? formatChatList(store().list(String(input.query ?? '')), {
+            currentId: draftId,
+            limit: input.limit,
+          })
+        : {
+            ok: false,
+            content: `Error: the ${CROSS_CHAT_TURN_LIMIT}-lookup limit for this turn is used up. Answer with what you have.`,
+          },
+    read: (input = {}) =>
+      takeChatLookup()
+        ? formatChatTranscript(store().get(String(input.id ?? '')), {
+            currentId: draftId,
+            query: input.query,
+            maxMessages: input.maxMessages,
+          })
+        : {
+            ok: false,
+            content: `Error: the ${CROSS_CHAT_TURN_LIMIT}-lookup limit for this turn is used up. Answer with what you have.`,
+          },
+  };
   const conversation = [];
   if (settings.systemPrompt.trim()) conversation.push({ role: 'system', content: settings.systemPrompt.trim() });
   conversation.push(...messages.map(toUpstreamMessage));
@@ -1763,6 +1819,7 @@ async function handleChat(req, res) {
           {
             getCatalog,
             workspace: turnWorkspace,
+            chats: chatLibrary,
             github: github(),
             githubClone: (repo, folder) =>
               cloneGithubRepo({

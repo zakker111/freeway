@@ -1,18 +1,50 @@
-name: Windows client
+name: Release assets
 
-# Builds Freeway.exe from the single-file bundle on a real Windows machine.
-# Node SEA injects a blob into node.exe, so the result can only be produced (and
-# smoke-tested) on Windows — which is why this runs here and not in the local app.
+# Every release carries three assets: the source ZIP built from the tag, the
+# Windows client built and smoke-tested on a real Windows machine, and
+# SHA256SUMS covering both. Building them here means a release needs no local
+# packaging or checksum step at all — pushing the tag is the whole publish.
+#
+# Node SEA injects a blob into node.exe, so the Windows result can only be
+# produced (and smoke-tested) on Windows. The source ZIP stays on Linux because
+# it must keep the exact `zip` invocation and exclusions release.sh uses.
 on:
   workflow_dispatch:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  source:
+    name: Source ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build the source ZIP
+        # Same command and exclusions as release.sh: runtime state, secrets,
+        # build output and the cloud edition (served separately) never ship.
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          rm -f "$RUNNER_TEMP/Freeway-$version.zip"
+          cd ..
+          zip -r -q "$RUNNER_TEMP/Freeway-$version.zip" freeway \
+            -x 'freeway/cloud/*' 'freeway/node_modules/*' 'freeway/dist/*' 'freeway/.git/*' '*/.DS_Store' \
+               'freeway/.env*' 'freeway/config.json' 'freeway/threads.json' 'freeway/secrets.json' \
+               'freeway/*.tmp' 'freeway/.tmp/*' 'freeway/*.log'
+          ls -l "$RUNNER_TEMP/Freeway-$version.zip"
+          unzip -l "$RUNNER_TEMP/Freeway-$version.zip" | tail -3
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-zip
+          path: ${{ runner.temp }}/Freeway-*.zip
+
   windows:
+    name: Windows client
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -117,8 +149,59 @@ jobs:
           name: windows-client
           path: ${{ env.ZIP }}
 
-      - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+  publish:
+    name: Release
+    # Both ZIPs must exist before hashing: SHA256SUMS that lists only one asset
+    # makes verify-release.sh fail, so the manifest is written once, complete.
+    needs: [source, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          files: ${{ env.ZIP }}
+          name: source-zip
+          path: assets
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: windows-client
+          path: assets
+
+      - name: Write and check SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd assets
+          ls -l
+          sha256sum Freeway-*.zip | sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Take the release notes from VERSIONS.md
+        # The tagged commit owns its own notes, so the body cannot drift from the
+        # changelog. A tag without a section still publishes, with a plain title.
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          {
+            printf '# Freeway %s\n\n' "$version"
+            awk -v v="$version" '
+              $0 ~ "^## " v "( |$)" { found = 1; next }
+              found && /^## / { exit }
+              found { print }
+            ' VERSIONS.md
+          } > "$RUNNER_TEMP/notes.md"
+          if [ "$(wc -c < "$RUNNER_TEMP/notes.md")" -lt 30 ]; then
+            printf '# Freeway %s\n\nSee VERSIONS.md.\n' "$version" > "$RUNNER_TEMP/notes.md"
+          fi
+          cat "$RUNNER_TEMP/notes.md"
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: assets/*
+          body_path: ${{ runner.temp }}/notes.md
+          fail_on_unmatched_files: true
+          make_latest: true

@@ -954,6 +954,19 @@ async function main() {
 
   const single = path.join(root, 'freeway.mjs');
   if (fs.existsSync(single)) {
+    // The bundler inlines an explicit module list, and a relative import it does
+    // not know about is dropped silently: the bundle then loads but dies inside
+    // the route that uses the missing names. 2.34.0 shipped that bug once
+    // (lib/chats.mjs was in app.mjs but not in build/bundle.mjs).
+    await check('the single-file build inlines every lib module', async () => {
+      const bundle = fs.readFileSync(single, 'utf8');
+      const modules = fs
+        .readdirSync(path.join(root, 'lib'))
+        .filter((name) => name.endsWith('.mjs') && !name.endsWith('.test.mjs'));
+      const missing = modules.filter((name) => !bundle.includes(`lib/${name}`));
+      assert.deepEqual(missing, [], `missing from the bundle: ${missing.join(', ')}`);
+    });
+
     await check('the single-file build runs standalone', async () => {
       const app = await startApp({ entry: 'freeway.mjs' });
       try {

@@ -72,6 +72,7 @@ const planMod = stripModule(read('lib/plan.mjs'), 'lib/plan.mjs');
 const toolPrompt = stripModule(read('lib/tool-prompt.mjs'), 'lib/tool-prompt.mjs');
 const chatStore = stripModule(read('lib/store.mjs'), 'lib/store.mjs');
 const redact = stripModule(read('lib/redact.mjs'), 'lib/redact.mjs');
+const chatsMod = stripModule(read('lib/chats.mjs'), 'lib/chats.mjs');
 const workspaceMod = stripModule(read('lib/workspace.mjs'), 'lib/workspace.mjs');
 const previewBridgeMod = stripModule(read('lib/preview-bridge.mjs'), 'lib/preview-bridge.mjs');
 const previewServerMod = stripModule(read('lib/preview-server.mjs'), 'lib/preview-server.mjs');
@@ -81,6 +82,7 @@ const checkpointsMod = stripModule(read('lib/checkpoints.mjs'), 'lib/checkpoints
 const repairMod = stripModule(read('lib/repair.mjs'), 'lib/repair.mjs');
 const secretsMod = stripModule(read('lib/secrets.mjs'), 'lib/secrets.mjs');
 const githubMod = stripModule(read('lib/github.mjs'), 'lib/github.mjs');
+const githubCloneMod = stripModule(read('lib/github-clone.mjs'), 'lib/github-clone.mjs');
 const commandsMod = stripModule(read('lib/commands.mjs'), 'lib/commands.mjs');
 const processesMod = stripModule(read('lib/processes.mjs'), 'lib/processes.mjs');
 const statusMod = stripModule(read('lib/status.mjs'), 'lib/status.mjs');
@@ -105,6 +107,7 @@ collectNames(planMod.code, 'lib/plan.mjs');
 collectNames(toolPrompt.code, 'lib/tool-prompt.mjs');
 collectNames(chatStore.code, 'lib/store.mjs');
 collectNames(redact.code, 'lib/redact.mjs');
+collectNames(chatsMod.code, 'lib/chats.mjs');
 collectNames(workspaceMod.code, 'lib/workspace.mjs');
 collectNames(previewBridgeMod.code, 'lib/preview-bridge.mjs');
 collectNames(previewServerMod.code, 'lib/preview-server.mjs');
@@ -114,6 +117,7 @@ collectNames(checkpointsMod.code, 'lib/checkpoints.mjs');
 collectNames(repairMod.code, 'lib/repair.mjs');
 collectNames(secretsMod.code, 'lib/secrets.mjs');
 collectNames(githubMod.code, 'lib/github.mjs');
+collectNames(githubCloneMod.code, 'lib/github-clone.mjs');
 collectNames(commandsMod.code, 'lib/commands.mjs');
 collectNames(processesMod.code, 'lib/processes.mjs');
 collectNames(statusMod.code, 'lib/status.mjs');
@@ -189,6 +193,7 @@ const imports = mergeImports([
   ...toolPrompt.imports,
   ...chatStore.imports,
   ...redact.imports,
+  ...chatsMod.imports,
   ...workspaceMod.imports,
   ...previewBridgeMod.imports,
   ...previewServerMod.imports,
@@ -198,6 +203,7 @@ const imports = mergeImports([
   ...repairMod.imports,
   ...secretsMod.imports,
     ...githubMod.imports,
+    ...githubCloneMod.imports,
     ...commandsMod.imports,
     ...processesMod.imports,
     ...statusMod.imports,
@@ -281,6 +287,10 @@ ${toolPrompt.code}
 
 ${redact.code}
 
+/* --------------------------------------------------------- lib/chats.mjs */
+
+${chatsMod.code}
+
 /* ------------------------------------------------------------ lib/git.mjs */
 
 ${gitMod.code}
@@ -312,6 +322,10 @@ ${secretsMod.code}
 /* --------------------------------------------------------- lib/github.mjs */
 
 ${githubMod.code}
+
+/* --------------------------------------------------- lib/github-clone.mjs */
+
+${githubCloneMod.code}
 
 /* ------------------------------------------------------ lib/commands.mjs */
 
