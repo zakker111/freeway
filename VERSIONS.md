@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.1 | 2026-11-13 | README documents cross-chat reading: tools, setting, caps and cloud behaviour |
 | 2.35.0 | 2026-11-12 | Cloud edition reads your other saved chats on request, off by default |
 | 2.34.0 | 2026-11-12 | Other saved chats readable on request, off by default; bundle completeness check |
 | 2.33.0 | 2026-11-10 | Free.ai provider: its own /v1/chat/ path, self-hosted chat model only |
@@ -186,6 +187,14 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.1 — 2026-11-13
+
+- **The README documents cross-chat reading.** `list_chats` and `read_chat` are
+  rows in the tool table, a new "Reading your other chats" section names the
+  setting, its 40-row, 30-message and 12 KB caps, the three-lookup budget and
+  the redaction, and the cloud section says the switch exists there too and
+  that the Worker stores nothing. Documentation only; no behaviour changed.
 
 ## 2.35.0 — 2026-11-12
 
