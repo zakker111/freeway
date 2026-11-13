@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.5 | 2026-11-13 | Fix the CRLF-sensitive test that made 2.35.4 red on Windows; same features |
 | 2.35.4 | 2026-11-13 | Settings groups its fields with a live abilities summary; expired approvals offer a retry |
 | 2.35.3 | 2026-11-13 | Every release dispatches its own asset verification; re-run it by hand |
 | 2.35.2 | 2026-11-13 | Tests keep every offered tool and the cross-chat switch documented |
@@ -191,6 +192,13 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.5 — 2026-11-13
+
+- **2.35.4 did not ship.** Its Windows unit job failed on a new assertion that
+  embedded a bare `\n`, while that checkout uses CRLF. The test now normalizes
+  line endings, is verified against a CRLF copy of the page, and everything else
+  in 2.35.4 ships unchanged here.
+
 ## 2.35.4 — 2026-11-13
 
 - **Settings reads as five groups.** Model, Abilities, Workspace, Interface and
@@ -207,6 +215,10 @@ change. The running app reports its version in the header badge and at `GET /api
 - **Releases verify before they are announced.** The checklist now starts with
   the dispatch-triggered Verify release run, and a red or missing run blocks
   recording or announcing the release.
+
+- **Not published.** The Windows unit job failed on a CRLF-sensitive assertion in
+  the new timeout test, so no release was created. 2.35.5 fixes the test and
+  ships these changes.
 
 ## 2.35.3 — 2026-11-13
 
