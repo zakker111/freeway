@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.8 | 2026-11-13 | A test fails if any media query hides the cloud desktop-only note |
 | 2.35.7 | 2026-11-13 | The desktop-only note stays visible on phones instead of hiding with the footer hints |
 | 2.35.6 | 2026-11-13 | The cloud composer says files on disk, commands and GitHub writes need the desktop app |
 | 2.35.5 | 2026-11-13 | Fix the CRLF-sensitive test that made 2.35.4 red on Windows; same features |
@@ -193,6 +194,14 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.8 — 2026-11-13
+
+- **A test covers the bug 2.35.6 shipped.** It reads the note's own markup,
+  walks every rule inside every `@media` block, and fails if a selector that
+  matches the note sets `display: none` or `visibility: hidden`. Reverting the
+  note to the shared `.hint` class makes it fail, which is what a phone used to
+  get.
 
 ## 2.35.7 — 2026-11-13
 
