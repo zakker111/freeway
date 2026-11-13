@@ -3,12 +3,65 @@
 # Deploying happens right after this from the chat (Sites tools) — see RELEASING.md.
 set -euo pipefail
 
+MODE="release"
+if [ "${1:-}" = "--wait-tag" ]; then
+  MODE="wait-tag"
+  shift
+fi
+
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-  echo "usage: ./release.sh <version>   e.g. ./release.sh 1.14.3" >&2
+  echo "usage: ./release.sh <version>             cut a release, e.g. ./release.sh 1.14.3" >&2
+  echo "       ./release.sh --wait-tag <version>  after pushing the tag, wait for its Release assets run" >&2
   exit 1
 fi
 cd "$(dirname "$0")"
+
+# A tag push that creates no workflow run publishes nothing and still exits 0
+# from git. After pushing, this mode polls the Actions API for the tag's own
+# "Release assets" run and fails loudly when none appears, so the gap is caught
+# before anyone announces a release that has no binaries.
+if [ "$MODE" = "wait-tag" ]; then
+  if [ -z "${GH_TOKEN:-}" ]; then
+    echo "--wait-tag needs GH_TOKEN to read the workflow runs." >&2
+    exit 1
+  fi
+  REPO="${GITHUB_REPO:-}"
+  if [ -z "$REPO" ]; then
+    REPO="$(git config --get remote.origin.url 2>/dev/null \
+      | sed -E 's#.*github\.com[:/]([^/]+)/([^/]+?)(\.git)?$#\1/\2#' || true)"
+  fi
+  if [ -z "$REPO" ]; then
+    # A source ZIP unpacked without .git still knows its repository here.
+    REPO="$(node -p "const u=require('./package.json').repository; typeof u === 'string' ? u : (u && u.url) || ''" 2>/dev/null \
+      | sed -E 's#.*github\.com[:/]([^/]+)/([^/]+?)(\.git)?$#\1/\2#' || true)"
+  fi
+  REPO="${REPO%.git}"
+  if ! printf '%s' "$REPO" | grep -Eq '^[^/]+/[^/]+$'; then
+    echo "Cannot tell which repository to watch; set GITHUB_REPO=owner/name." >&2
+    exit 1
+  fi
+  TAG="v$VERSION"
+  DEADLINE="${WAIT_TAG_SECONDS:-180}"
+  echo "== waiting for the Release assets run on $TAG ($REPO, ${DEADLINE}s) =="
+  waited=0
+  while [ "$waited" -lt "$DEADLINE" ]; do
+    RUN_URL="$(curl -fsS -H "authorization: Bearer $GH_TOKEN" \
+      -H 'accept: application/vnd.github+json' \
+      "https://api.github.com/repos/$REPO/actions/runs?branch=$TAG&per_page=20" 2>/dev/null \
+      | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const run=(j.workflow_runs||[]).find((r)=>r.name==="Release assets");process.stdout.write(run?run.html_url:"")}catch{process.stdout.write("")}})' || true)"
+    if [ -n "$RUN_URL" ]; then
+      echo "Release assets run: $RUN_URL"
+      exit 0
+    fi
+    sleep 5
+    waited=$((waited + 5))
+  done
+  echo "FAIL: no Release assets run appeared for $TAG within ${DEADLINE}s." >&2
+  echo "  Check https://github.com/$REPO/actions and do not announce the release." >&2
+  echo "  If the tag is sound, push a fresh tag for the same tree." >&2
+  exit 1
+fi
 
 echo "== bumping to $VERSION =="
 node - "$VERSION" <<'NODE'

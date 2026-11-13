@@ -94,6 +94,22 @@ created with `GITHUB_TOKEN` never fires its own `release: published` trigger. Th
 downloads the assets back and checks them against `SHA256SUMS`, and the publish job fails
 if no verification run appears, so a tag cannot quietly publish unverified assets.
 
+### Confirm the tag started its build
+
+A tag push can occasionally create no workflow run at all: git reports success, the tag
+exists, and nothing is ever built. After pushing, ask for the run explicitly instead of
+trusting the push:
+
+```bash
+GH_TOKEN=... ./release.sh --wait-tag 2.35.11
+```
+
+It polls the Actions API for the tag's own "Release assets" run for up to
+`WAIT_TAG_SECONDS` (180 by default), prints the run URL when one appears, and exits
+non-zero with "no Release assets run appeared" when none does — so a silent tag is caught
+before the release is announced. `GITHUB_REPO=owner/name` overrides the repository taken
+from the git remote.
+
 ## Verify the published assets
 
 This happens on its own after every tag (see above). To repeat it locally, or to check a

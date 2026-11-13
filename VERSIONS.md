@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.12 | 2026-11-13 | release.sh --wait-tag fails loudly when a tag push creates no build run |
 | 2.35.11 | 2026-11-13 | Re-cut 2.35.10 after its tag push created no Release assets run |
 | 2.35.10 | 2026-11-13 | Retry the browser harness launch when headless Chrome is slow to answer |
 | 2.35.9 | 2026-11-13 | The media guard parses every style block and checks the note's parent chain |
@@ -197,6 +198,16 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.12 — 2026-11-13
+
+- **A tag with no workflow run now fails loudly.** 2.35.10's tag push created no
+  Release assets run, git still reported success, and nothing noticed until the
+  release was missing. `./release.sh --wait-tag <version>` polls the Actions API
+  for that tag's own run for 180s (`WAIT_TAG_SECONDS`), prints the run URL, and
+  exits non-zero with "no Release assets run appeared" when none does. The
+  repository comes from `GITHUB_REPO`, the git remote, or `package.json`, and
+  a missing `GH_TOKEN` is refused before any polling.
 
 ## 2.35.11 — 2026-11-13
 
