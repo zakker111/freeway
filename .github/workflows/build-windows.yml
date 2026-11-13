@@ -158,6 +158,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Dispatching the verification workflow is an Actions write.
+      actions: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -205,3 +207,28 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           fail_on_unmatched_files: true
           make_latest: true
+
+      - name: Trigger the release verification
+        # Creating the release above used GITHUB_TOKEN, so GitHub never starts
+        # the Verify release workflow's release:published trigger. Dispatch it
+        # explicitly and fail if no run appears: an unverified release is the
+        # state this job exists to prevent.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          gh workflow run verify-release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG" -f version="$version"
+          for attempt in $(seq 1 24); do
+            sleep 5
+            started="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow verify-release.yml --limit 20 \
+              --json event,headSha \
+              --jq "[.[] | select(.event == \"workflow_dispatch\" and .headSha == \"$GITHUB_SHA\")] | length")"
+            if [ "$started" -gt 0 ]; then
+              echo "Verify release started for $TAG."
+              exit 0
+            fi
+          done
+          echo "The Verify release workflow never started for $TAG." >&2
+          exit 1

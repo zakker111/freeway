@@ -3,9 +3,21 @@ name: Verify release
 # Verify every published release against its attached SHA256SUMS. The Windows
 # job attaches its ZIP from build-windows.yml, so wait for all assets before
 # treating a publish that races that build as a checksum failure.
+#
+# A release created with GITHUB_TOKEN never emits release:published runs, which
+# is why the old trigger silently did nothing after the assets workflow started
+# creating releases. build-windows.yml therefore dispatches this workflow once
+# the assets are uploaded; workflow_dispatch is the one event GitHub still
+# starts for a run that used GITHUB_TOKEN.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release to verify, with or without the v prefix
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,12 +33,26 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
+      - name: Resolve the tag
+        # The release event carries a tag; a dispatch carries only a version.
+        env:
+          RAW: ${{ github.event.release.tag_name || inputs.version }}
+        run: |
+          set -euo pipefail
+          tag="$RAW"
+          case "$tag" in
+            v*) ;;
+            *) tag="v$tag" ;;
+          esac
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "Verifying $tag"
+
       - name: Wait for release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
           REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           version="${TAG#v}"
           required=(
             "Freeway-${version}.zip"
@@ -55,6 +81,5 @@ jobs:
       - name: Verify published checksums
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
           REPO: ${{ github.repository }}
-        run: ./verify-release.sh "$TAG" --repo "$REPO"
+        run: ./verify-release.sh "${TAG#v}" --repo "$REPO"

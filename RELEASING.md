@@ -73,13 +73,17 @@ Push the `v<version>` tag and `.github/workflows/build-windows.yml` publishes al
 assets by itself: the source ZIP built from the tag with the same `zip` invocation and
 exclusions as `release.sh`, the Windows ZIP built and smoke-tested on `windows-latest`, and
 `SHA256SUMS` covering both. The manifest is written in one job that waits for both ZIPs, so
-it is never uploaded half-filled. Nothing is packaged or hashed locally any more; once the
-workflow finishes, run `./verify-release.sh <version>`.
+it is never uploaded half-filled. Nothing is packaged or hashed locally any more.
+
+The same publish job then dispatches the `Verify release` workflow, because a release
+created with `GITHUB_TOKEN` never fires its own `release: published` trigger. That run
+downloads the assets back and checks them against `SHA256SUMS`, and the publish job fails
+if no verification run appears, so a tag cannot quietly publish unverified assets.
 
 ## Verify the published assets
 
-After the release is published and the Windows workflow has attached its ZIP, download
-the files back from GitHub and check them against the published manifest:
+This happens on its own after every tag (see above). To repeat it locally, or to check a
+fork, download the files back from GitHub and run them against the published manifest:
 
 ```bash
 cd freeway
@@ -92,6 +96,34 @@ both `Freeway-2.24.0.zip` and `Freeway-2.24.0-windows.zip` are present and liste
 or checksum mismatch. It uses the authenticated `gh` CLI, so no token is stored in the
 script. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
 fork. `sha256sum` is used where available, with `shasum -a 256` as the macOS fallback.
+
+### Re-running a failed verification
+
+The dispatch entry point shipped with 2.35.3, so it works for that tag and every later one,
+and a red or skipped check does not need a new release — the tag does not have to move.
+Older tags lack the trigger and can only be checked by running `./verify-release.sh <version>`
+by hand:
+
+```bash
+gh workflow run verify-release.yml --ref v2.35.3 -f version=2.35.3
+run_id="$(gh run list --workflow verify-release.yml --event workflow_dispatch \
+  --limit 1 --json databaseId --jq '.[0].databaseId')"
+gh run watch "$run_id" --exit-status
+```
+
+If the new run has not appeared yet, the second line picks up the previous one; wait a few
+seconds and run it again, then watch the id it prints.
+
+Either form of the version is accepted (`2.35.3` or `v2.35.3`). Pass the tag as `--ref`, not
+the default branch: that runs the workflow and the checkout from the release being verified.
+Use `--ref main` only when the verification script itself was broken and the old tag cannot
+run it. The same thing is available without a shell: **Actions → Verify release → Run
+workflow**, then enter the version.
+
+A re-run re-downloads the assets and checks them against the published `SHA256SUMS`, so it
+notices assets replaced after the fact. It cannot notice a release whose manifest was
+uploaded wrong in the first place and never had a passing run to compare against — that
+needs a human reading the output.
 
 ## Live smoke matrix
 

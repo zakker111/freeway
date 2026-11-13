@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.3 | 2026-11-13 | Every release dispatches its own asset verification; re-run it by hand |
 | 2.35.2 | 2026-11-13 | Tests keep every offered tool and the cross-chat switch documented |
 | 2.35.1 | 2026-11-13 | README documents cross-chat reading: tools, setting, caps and cloud behaviour |
 | 2.35.0 | 2026-11-12 | Cloud edition reads your other saved chats on request, off by default |
@@ -188,6 +189,21 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.3 — 2026-11-13
+
+- **Releases verify their own assets.** A release created with `GITHUB_TOKEN`
+  never emits `release: published`, so the Verify release workflow had been
+  skipped silently since the tag workflow began publishing. The publish job now
+  dispatches it for its own tag, waits for the run to appear and fails the
+  release if it does not; the workflow gained the matching `workflow_dispatch`
+  input.
+- **A red check can be re-run without moving a tag.** `RELEASING.md` documents
+  the dispatch command and the Actions button, which ref to use, and what a
+  re-run can and cannot detect.
+- **The README cannot lose a tool again.** One test requires a row for every
+  offered tool, another rejects rows whose tool no longer exists, and a third
+  keeps the publish job and the dispatch trigger wired together.
 
 ## 2.35.2 — 2026-11-13
 
