@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.9 | 2026-11-13 | The media guard parses every style block and checks the note's parent chain |
 | 2.35.8 | 2026-11-13 | A test fails if any media query hides the cloud desktop-only note |
 | 2.35.7 | 2026-11-13 | The desktop-only note stays visible on phones instead of hiding with the footer hints |
 | 2.35.6 | 2026-11-13 | The cloud composer says files on disk, commands and GitHub writes need the desktop app |
@@ -194,6 +195,15 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.9 — 2026-11-13
+
+- **The 2.35.8 guard was not scanning the stylesheet.** It read the first
+  `<style>` block, a 23-character placeholder, so the media scan matched nothing
+  and only the class-name assertion could fail. It now concatenates every style
+  block, walks the open-element chain at the note (`html > body > footer > div`),
+  and fails when a media rule hides the note or any parent. Hiding `footer` in
+  the 560px block reports `footer hides <footer>`.
 
 ## 2.35.8 — 2026-11-13
 
