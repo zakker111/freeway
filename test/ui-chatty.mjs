@@ -543,6 +543,93 @@ async function runTour(cdp) {
   );
 }
 
+async function runDismissRace(cdp) {
+  // A show schedules its entry frame; a dismiss in the same task must win.
+  await evaluate(
+    cdp,
+    `(() => {
+      window.FreewayChatty.show();
+      document.querySelector('.chatty-close').click();
+      return true;
+    })()`,
+  );
+  await waitForPage(cdp, `document.querySelector('#chatty').hidden === true`, 4000);
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      return Boolean(root && !root.hidden && root.classList.contains('is-in'));
+    })()`,
+    4000,
+  );
+}
+
+async function runTutorDoubleClick(cdp) {
+  await evaluate(cdp, `window.FreewayChatty.tutor(); true`);
+  await waitForPage(
+    cdp,
+    `document.querySelector('.chatty-label')?.textContent?.startsWith('Cat school 1/')`,
+    5000,
+  );
+  await evaluate(
+    cdp,
+    `(() => {
+      const pet = document.querySelector('.chatty-pet');
+      pet.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+      return true;
+    })()`,
+  );
+  await sleep(120);
+  const after = await state(cdp);
+  assert.match(after.label, /^Cat school /, `the double-click left ${after.label}`);
+  assert.ok(after.actions.includes('tutor-next'), 'the double-click removed the lesson controls');
+  assert.ok(after.actions.includes('tutor-stop'), 'the double-click removed the Stop control');
+  assert.doesNotMatch(after.text, /Wheee/, 'the double-click replaced the lesson with the trick tip');
+  await evaluate(cdp, `document.querySelector('[data-chatty-action="tutor-stop"]')?.click(); true`);
+  await sleep(120);
+}
+
+async function coachState(cdp, text) {
+  await evaluate(
+    cdp,
+    `(() => {
+      const input = document.querySelector('#input');
+      input.value = ${JSON.stringify(text)};
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const bubble = document.querySelector('.chatty-bubble');
+      if (bubble && !bubble.hidden) document.querySelector('.chatty-pet').click();
+      return window.FreewayChatty.coach();
+    })()`,
+  );
+  await waitForPage(
+    cdp,
+    `document.querySelector('.chatty-label')?.textContent === 'Prompt coach'`,
+    4000,
+  );
+  return state(cdp);
+}
+
+async function runPromptCoach(cdp) {
+  const weak = await coachState(cdp, 'fix it');
+  assert.match(weak.text, /whisker short/, 'the weak draft did not get the prompt coach');
+  assert.ok(weak.actions.includes('prompt-lesson'), 'the coach tip has no prompt lesson');
+
+  const shapes = ['sk-' + 'a'.repeat(32), 'gsk_' + 'a'.repeat(30), 'AIza' + 'a'.repeat(30)];
+  for (const key of shapes) {
+    const warning = await coachState(cdp, key);
+    assert.match(warning.text, /credential/, `the coach did not flag ${key.slice(0, 4)}…`);
+    assert.ok(!warning.text.includes('a'.repeat(8)), 'the coach repeated the credential');
+  }
+
+  const good = await coachState(
+    cdp,
+    'Add a filename filter to the Files panel. Keep the keyboard shortcuts. Verify by typing log and seeing only log files.',
+  );
+  assert.match(good.text, /good bones/, 'the strong prompt was not recognised');
+  await evaluate(cdp, `document.querySelector('#input').value = ''; window.FreewayChatty.hide(); true`);
+}
+
 async function runPlanReady(cdp) {
   await evaluate(
     cdp,
@@ -677,6 +764,15 @@ async function main() {
     stage = 'tour';
     await runTour(cdp);
     console.log('  PASS  all 11 tour stops, targets, movement and end');
+
+    stage = 'dismiss race and lesson double-click';
+    await runDismissRace(cdp);
+    await runTutorDoubleClick(cdp);
+    console.log('  PASS  quick dismiss wins the entry frame; double-click keeps lesson controls');
+
+    stage = 'prompt coach';
+    await runPromptCoach(cdp);
+    console.log('  PASS  prompt coach flags weak drafts and provider key shapes');
 
     stage = 'plan-ready notice';
     await runPlanReady(cdp);

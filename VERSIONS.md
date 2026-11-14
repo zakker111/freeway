@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.26 | 2026-11-14 | Chatty audit: a quick dismiss can no longer strand the cat on screen |
 | 2.35.25 | 2026-11-14 | Chatty's first greeting survives the desktop app's boot autofocus |
 | 2.35.24 | 2026-11-14 | a script refreshes Requesty's free-model allowlist from its public catalog |
 | 2.35.23 | 2026-11-14 | Requesty joins the picker: 200 free requests a day, eight verified $0 ids |
@@ -212,6 +213,26 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.26 — 2026-11-14
+
+- **A quick dismiss no longer leaves a stranded cat.** `show()` scheduled its
+  entry frame, so dismissing in the same task (the × , Later, or a bubble
+  click) could be undone by that frame: she stayed on screen with no bubble
+  for minutes. Entry frames are now cancellable and every hide cancels one.
+- **The double-click trick keeps out of Cat school.** A double-click during a
+  lesson used to replace the lesson bubble with the trick tip, taking Next paw
+  and Stop with it. The trick now declines while a lesson is active.
+- **The prompt coach knows the keys this app actually uses.** It caught
+  `sk-` keys but missed Groq `gsk_…` and Google `AIza…` keys, both of which
+  belong to providers in the picker. All three shapes now warn before send,
+  and the warning still never repeats the key.
+- **A zero-distance hop restores the layout transition.** When she was already
+  where the next stop wanted her, the glide returned early and left the
+  transition muted, so later position changes jumped instead of sliding.
+
+  The browser suite now covers the dismiss race, the lesson double-click
+  guard and the three key shapes. 372 unit tests pass; the Chatty UI suite
+  cannot run here without Chrome and is left to CI.
 ## 2.35.25 — 2026-11-14
 
 - **Chatty's first greeting now survives the desktop's autofocus.** The

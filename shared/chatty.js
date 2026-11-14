@@ -810,6 +810,7 @@
   let wanderTimer = 0;
   let moveTimer = 0;
   let raf = 0;
+  let enterRaf = 0;
   let lastTip = -1;
   let lastJoke = -1;
   let lastWasFunny = false;
@@ -961,7 +962,7 @@
 
     if (
       /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(text) ||
-      /\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})\b/.test(text) ||
+      /\b(?:sk-[A-Za-z0-9_-]{16,}|gsk_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})\b/.test(text) ||
       /(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}/i.test(text)
     ) {
       return reply('Whoa — that looks like a credential. Take it out before sending and keep it in Settings → Secrets; I will not repeat it.');
@@ -1014,7 +1015,7 @@
       choosePosition();
       rootNode.hidden = false;
     }
-    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    enterSoon();
     showTip(tip.message, 17000, tip.actions, tip.label);
     armHide(32000);
     pouncePet();
@@ -1175,7 +1176,10 @@
     const dx = Math.round(before.left - after.left);
     const dy = Math.round(before.top - after.top);
     const distance = Math.hypot(dx, dy);
-    if (REDUCE_MOTION || distance < 4 || typeof rootNode.animate !== 'function') return 0;
+    if (REDUCE_MOTION || distance < 4 || typeof rootNode.animate !== 'function') {
+      rootNode.style.transition = '';
+      return 0;
+    }
     const duration = Math.round(Math.min(560, 300 + distance * 0.22));
     const lift = Math.min(26, 9 + distance * 0.035);
     const animation = rootNode.animate(
@@ -1588,7 +1592,7 @@
     if (rootNode.hidden) {
       choosePosition();
       rootNode.hidden = false;
-      requestAnimationFrame(() => rootNode.classList.add('is-in'));
+      enterSoon();
     }
     showTourStep(0);
   }
@@ -1700,7 +1704,7 @@
       choosePosition();
       rootNode.hidden = false;
     }
-    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    enterSoon();
   }
 
   function moveTutorStep() {
@@ -1820,6 +1824,16 @@
     scheduleBall(10000 + Math.random() * 8000);
   }
 
+  // One pending entry frame. Hiding before it runs must cancel it, or a quick
+  // show-then-dismiss leaves the cat on screen with no bubble.
+  function enterSoon() {
+    cancelAnimationFrame(enterRaf);
+    enterRaf = requestAnimationFrame(() => {
+      enterRaf = 0;
+      if (rootNode && !rootNode.hidden) rootNode.classList.add('is-in');
+    });
+  }
+
   function show() {
     if (!enabled || isBlocked()) {
       if (enabled) schedule(22000);
@@ -1834,7 +1848,7 @@
       choosePosition();
       rootNode.hidden = false;
     }
-    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    enterSoon();
     armHide(26000);
     if (!playTimer && !ballPlaying) scheduleBall(10000 + Math.random() * 8000);
     const tourDone = readFlag(TOUR_KEY, '') === '1';
@@ -1868,7 +1882,7 @@
       choosePosition();
       rootNode.hidden = false;
     }
-    requestAnimationFrame(() => rootNode.classList.add('is-in'));
+    enterSoon();
     armHide(36000);
     showTip(
       'The plan is ready. Review the steps, then switch to Build when you approve. Build still asks before it writes anything.',
@@ -1881,6 +1895,8 @@
 
   function hide(cooldown = 42000 + Math.random() * 33000) {
     clearTimeout(appearTimer);
+    cancelAnimationFrame(enterRaf);
+    enterRaf = 0;
     clearTimeout(hideTimer);
     clearTimeout(tipTimer);
     clearTimeout(pounceTimer);
@@ -1956,6 +1972,8 @@
     writeFlag(ENABLED_KEY, enabled ? '1' : '0');
     if (!rootNode) return;
     if (!enabled) {
+      cancelAnimationFrame(enterRaf);
+      enterRaf = 0;
       clearTimeout(appearTimer);
       clearTimeout(hideTimer);
       clearTimeout(pounceTimer);
@@ -2116,7 +2134,7 @@
     });
     petNode.addEventListener('dblclick', (event) => {
       event.preventDefault();
-      if (!enabled || REDUCE_MOTION || tourStep >= 0) return;
+      if (!enabled || REDUCE_MOTION || tourStep >= 0 || tutorStep >= 0) return;
       petNode.classList.remove('chatty-spin');
       void petNode.offsetWidth;
       petNode.classList.add('chatty-spin');
@@ -2225,6 +2243,8 @@
         schedule(1200);
         scheduleBall(10000 + Math.random() * 8000);
       } else {
+        cancelAnimationFrame(enterRaf);
+        enterRaf = 0;
         clearTimeout(appearTimer);
         clearTimeout(wanderTimer);
         clearTimeout(moveTimer);
