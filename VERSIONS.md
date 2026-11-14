@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.18 | 2026-11-14 | dark option lists for every select, including the model filter and screenshot size |
 | 2.35.17 | 2026-11-14 | the Chatty tour spotlight change ships from its shared source |
 | 2.35.16 | 2026-11-14 | dark provider dropdown in the desktop and cloud pages |
 | 2.35.15 | 2026-11-14 | verify-release.sh skips awaiting its own run, fixing the 2.35.14 verification hang |
@@ -203,6 +204,15 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.18 — 2026-11-14
+
+- **Every dropdown list is dark, not just the provider's.** The model filter
+  (`#fContext`) and the screenshot-size picker (`#pvViewport`) still opened the
+  platform's white popup because their `<option>` elements had no background of
+  their own. One `select option` rule now carries the dark surface and text
+  colour on both pages, so the provider chooser, the model filter, the
+  screenshot size and any future select share it.
 
 ## 2.35.17 — 2026-11-14
 

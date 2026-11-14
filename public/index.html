@@ -1279,9 +1279,9 @@
         max-width: 190px; cursor: pointer;
       }
       select.prov:hover { border-color: var(--line-2); }
-      /* The popup list is painted by the browser from these colours, so give it
-         the same dark surfaces instead of the platform's white default. */
-      select.prov option {
+      /* Native popup lists are painted from the option colours; without this
+         the platform default is white on an otherwise dark page. */
+      select option {
         background-color: var(--surface-2); color: var(--text);
       }
       .pill.tier { color: var(--accent-strong); background: var(--accent-soft); border-color: var(--accent-line); }
