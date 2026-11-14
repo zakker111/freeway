@@ -110,7 +110,11 @@ tag's build and its verification run are awaited with the same rules and message
 It polls the Actions API for the tag's own "Release assets" run for up to
 `WAIT_TAG_SECONDS` (180 by default), then follows that run until it finishes and fails on
 anything but success — so a silent tag or a red build is caught before the release is
-announced. The completion window is `WAIT_TAG_RUN_SECONDS` (900 by default).
+announced. It reads the repository's newest runs and matches the ref itself, because the
+API's branch filter can lag a fresh tag; a run that has already started is found on the
+first poll. If the API cannot be read at all — an unauthenticated `gh`, or a rejected
+`GH_TOKEN` — the watcher says so and exits at once instead of reporting a missing run
+after the full window. The completion window is `WAIT_TAG_RUN_SECONDS` (900 by default).
 `GITHUB_REPO=owner/name` overrides the repository taken from the git remote, and
 `WAIT_TAG_RUN_ID=<id>` watches one specific run instead of discovering it.
 

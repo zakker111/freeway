@@ -43,9 +43,19 @@ if ! printf '%s' "$REPO" | grep -Eq '^[^/]+/[^/]+$'; then
   exit 1
 fi
 
-if [ -z "${GH_TOKEN:-}" ] && ! command -v gh >/dev/null 2>&1; then
-  echo "Set GH_TOKEN, or install and authenticate the gh CLI." >&2
-  exit 1
+if [ -z "${GH_TOKEN:-}" ]; then
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Set GH_TOKEN, or install and authenticate the gh CLI." >&2
+    exit 1
+  fi
+  # An unauthenticated gh answers every poll with an error, and an error used
+  # to look exactly like "no run yet": 2.35.19 was reported missing after its
+  # run had already started. Refuse up front instead of waiting out the window.
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "GH_TOKEN is not set and gh is not authenticated, so the Actions API cannot be read." >&2
+    echo "  Run 'gh auth login' or pass GH_TOKEN, then try again." >&2
+    exit 1
+  fi
 fi
 
 api() {
@@ -59,18 +69,26 @@ api() {
 }
 
 list_run() {
-  api "repos/$REPO/actions/runs?branch=$REF&per_page=20" 2>/dev/null \
-    | node -e '
+  local body
+  # Ask for the newest runs in the repository rather than filtering by
+  # branch: the API's branch filter does not reliably surface a tag's run in
+  # the first seconds after the push, so an already-started build could be
+  # skipped for the whole window. Match the ref here instead, newest first.
+  body="$(api "repos/$REPO/actions/runs?per_page=50")" || return 1
+  printf '%s' "$body" | node -e '
 let d = "";
 process.stdin.on("data", (c) => (d += c)).on("end", () => {
   try {
     const j = JSON.parse(d);
-    const name = process.argv[1];
-    const run = (j.workflow_runs || []).find((r) => r.name === name);
+    const [name, ref] = process.argv.slice(1);
+    const runs = (j.workflow_runs || [])
+      .filter((r) => r.name === name && r.head_branch === ref)
+      .sort((a, b) => b.id - a.id);
+    const run = runs[0];
     process.stdout.write(run ? [run.id, run.status, run.conclusion || "-", run.html_url].join(" ") : "");
   } catch { process.stdout.write(""); }
 });
-' "$RUN_NAME" || true
+' "$RUN_NAME" "$REF"
 }
 
 one_run() {
@@ -104,9 +122,25 @@ process.stdin.on("data", (c) => (d += c)).on("end", () => {
 else
   echo "== waiting for the $RUN_NAME run on $REF ($REPO, ${APPEAR}s to appear) =="
   waited=0
+  failures=0
   while [ -z "$RUN" ] && [ "$waited" -lt "$APPEAR" ]; do
-    RUN="$(list_run)"
-    if [ -z "$RUN" ]; then
+    if RUN="$(list_run)"; then
+      failures=0
+      if [ -z "$RUN" ]; then
+        sleep 5
+        waited=$((waited + 5))
+      fi
+    else
+      # A failed request is not an empty list. Retry twice, then say what is
+      # wrong instead of blaming a missing run.
+      failures=$((failures + 1))
+      echo "  Actions API request failed ($failures/3)" >&2
+      if [ "$failures" -ge 3 ]; then
+        echo "FAIL: cannot read the Actions API for $REPO." >&2
+        echo "  Set a valid GH_TOKEN (or authenticate gh) and run this again." >&2
+        echo "  Do not announce the release until the run is confirmed." >&2
+        exit 1
+      fi
       sleep 5
       waited=$((waited + 5))
     fi

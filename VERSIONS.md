@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.20 | 2026-11-14 | --wait-tag finds a run that already started and stops when the API cannot be read |
 | 2.35.19 | 2026-11-14 | Chatty glides between tour stops on the compositor, ring first, cat following |
 | 2.35.18 | 2026-11-14 | dark option lists for every select, including the model filter and screenshot size |
 | 2.35.17 | 2026-11-14 | the Chatty tour spotlight change ships from its shared source |
@@ -206,6 +207,19 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.20 — 2026-11-14
+
+- **A started build can no longer be reported missing.** The watcher asked the
+  Actions API for runs filtered by `branch=<tag>` and took the first name match;
+  that filter can lag a fresh tag, so a run that had already started could stay
+  invisible for the whole window — 2.35.19 was reported missing this way while
+  its run was green. It now reads the repository’s newest runs, matches the ref
+  itself, and picks the newest id, so a started run is found on the first poll.
+- **An unreadable API is no longer mistaken for an empty one.** With no
+  `GH_TOKEN` and an unauthenticated `gh`, every poll failed silently and the
+  window expired into a false “no run appeared”. The watcher checks auth up
+  front and, if a request fails anyway, reports the API failure after three
+  attempts instead of blaming a missing run.
 ## 2.35.19 — 2026-11-14
 
 - **The tour hop is a glide, not a two-frame jump.** Between stops Chatty used
