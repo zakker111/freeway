@@ -28,7 +28,7 @@ import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs'
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.35.22-cloud';
+const VERSION = '2.35.23-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -249,6 +249,23 @@ export const PROVIDERS = {
     // The key reports what is left; there is no fixed plan number to print.
     limits: { dynamic: true },
     note: 'Free models only — every id is checked against live pricing.',
+  },
+  requesty: {
+    id: 'requesty',
+    label: 'Requesty',
+    keyHint: 'sk-…',
+    base: 'https://router.requesty.ai/v1',
+    keyEnv: 'REQUESTY_API_KEY',
+    keysUrl: 'https://app.requesty.ai/api-keys',
+    policy: 'allowlist',
+    freePlan: 'daily-quota',
+    limits: { perDay: 200 },
+    allow: [
+      /^(?:novita\/ling-3\.1-flash|nvidia\/nemotron-3\.5-lightning-30b-a3b|nvidia\/muse-glimmer-30b|nvidia\/nemotron-3-nano-omni-30b-a3b-reasoning|nvidia\/nemotron-3-ultra-550b-a55b|mistral\/leanstral-1-5|google\/gemma-4-31b-it|nvidia\/nemotron-3-nano-30b-a3b)$/i,
+    ],
+    deny: [/embed/i, /rerank/i, /image/i, /audio/i, /tts/i],
+    fallback: ['novita/ling-3.1-flash', 'nvidia/nemotron-3.5-lightning-30b-a3b', 'google/gemma-4-31b-it'],
+    note: 'Free plan: 200 requests a day on free models, no card. Free ids rotate, so only the eight verified $0 chat models are offered.',
   },
   groq: {
     id: 'groq',

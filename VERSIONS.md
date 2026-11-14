@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.23 | 2026-11-14 | Requesty joins the picker: 200 free requests a day, eight verified $0 ids |
 | 2.35.22 | 2026-11-14 | a repo check fails when a script passes a secret as a command argument |
 | 2.35.21 | 2026-11-14 | the release watcher keeps GH_TOKEN out of curl’s command line |
 | 2.35.20 | 2026-11-14 | --wait-tag finds a run that already started and stops when the API cannot be read |
@@ -209,6 +210,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.23 — 2026-11-14
+
+- **Requesty is a provider in both editions.** Its free plan allows 200 requests
+  a day on free models, with no card and no trial timer, at
+  `https://router.requesty.ai/v1`. Requesty publishes a public `/v1/models`
+  catalog with per-model pricing, so the free ids were read from the source
+  rather than guessed: on 2026-11-14 exactly eight chat ids were priced
+  `$0` in and out, and those eight are the whole allowlist. The free lineup
+  rotates, so an id that starts billing can never be sent — the worst case is
+  an empty list, not a charge.
+- **Wired like every other free plan.** The desktop table, the cloud table,
+  the provider tests and the README all carry the same 200/day figure, and the
+  picker and key dialog pick it up from `/api/config` with no page edits.
+
+  Checked against the live catalog: 750 models listed, 8 at $0, all 8 pass
+  the allowlist; a paid id (`openai/gpt-6-luna`, `vertex/gemini-4-hydrogen@eu`)
+  is refused.
 ## 2.35.22 — 2026-11-14
 
 - **The 2.35.21 leak cannot come back quietly.** `scripts/check-secrets.mjs`

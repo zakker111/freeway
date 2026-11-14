@@ -1,8 +1,8 @@
 # Freeway
 
-Freeway is a local chat app for **free** models across OpenRouter, Groq, Gemini,
-Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Free.ai, Cloudflare Workers AI, OVHcloud and local
-Ollama. A tiny black cat named **Chatty** lives at the edge of the page: she offers a short
+Freeway is a local chat app for **free** models across OpenRouter, Requesty, Groq,
+Gemini, Mistral, Cohere, SambaNova, Aion Labs, Z.AI, Free.ai, Cloudflare Workers AI, OVHcloud
+and local Ollama. A tiny black cat named **Chatty** lives at the edge of the page: she offers a short
 tip, an occasional joke, a pounce, a double-click trick, an idle game of yarn ball — she bats
 it a few times, slips toward the edge and peeks back — and **Cat school**, eight playful
 lessons on prompting, Plan/Build, debugging, explaining an idea, focused tests, secrets,
@@ -312,12 +312,12 @@ Free models need no credits, but a negative balance blocks even them.
 
 ## What it does
 
-### Eleven hosted providers, straight from the picker
+### Twelve hosted providers, straight from the picker
 
 **OpenRouter** (`sk-or-…`, free model ids only), **Groq** (`gsk_…`), **Gemini** (`AIza…`),
 **Mistral AI**, **Cohere**, **SambaNova**, **Aion Labs**, **Z.AI**, **Free.ai** (`sk-free-…`),
 **Cloudflare Workers AI** and **OVHcloud** are all in the header picker from the first start —
-the desktop app and the cloud edition offer the same eleven hosted providers. The desktop app adds a
+the desktop app and the cloud edition offer the same twelve hosted providers. The desktop app adds a
 twelfth, **Ollama (local)**, which runs on your own machine and needs no key; the cloud edition
 cannot reach your computer, so it does not appear there. A provider without a key is still
 listed, marked `— add key`: select it and the key screen shows that provider's console link.
@@ -644,6 +644,7 @@ models this app will send.
 | Provider | Create the key at | Looks like | What stays free |
 |---|---|---|---|
 | **OpenRouter** | <https://openrouter.ai/settings/keys> → **Create key** | `sk-or-v1-…` | every model priced `$0` in the live catalog; paid ids are refused server-side |
+| **Requesty** | <https://app.requesty.ai/api-keys> → **Create key** | `sk-…` | 200 requests/day on free models; only the eight ids verified at `$0` are sent |
 | **Groq** | <https://console.groq.com/keys> → **Create API key** | `gsk_…` | about 30 requests/min and 1,000/day; `gpt-oss`, `qwen`, `llama`, `moonshotai` only |
 | **Gemini (AI Studio)** | <https://aistudio.google.com/apikey> → **Create API key** | `AIza…` | free tier; `flash` and `gemma` only, `pro` and media models are blocked |
 | **Mistral AI** | <https://console.mistral.ai/api-keys> → **Create new key** | opaque | free "Experiment" plan, rate-limited per key; small and ministral models only |
@@ -781,7 +782,7 @@ previews also collect script errors, failed assets and unhandled promise rejecti
 small problems card under the frame, instead of leaving a silent blank page. Remote
 http(s) previews are cross-origin, so their errors stay in the browser console.
 
-The cloud edition carries the **same eleven hosted providers** as the desktop app. A key comes
+The cloud edition carries the **same twelve hosted providers** as the desktop app. A key comes
 from a Sites secret (`OPENROUTER_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`,
 `COHERE_API_KEY`, `SAMBANOVA_API_KEY`, `AION_API_KEY`, `ZAI_API_KEY`, `CLOUDFLARE_API_TOKEN`,
 `CLOUDFLARE_ACCOUNT_ID`) or, when no secret is set, from the page — kept in that tab's
