@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.28 | 2026-11-14 | Chatty walks between Cat school steps, with browser checks for placement and real travel |
 | 2.35.27 | 2026-11-14 | Parity audit: one free picker rule, matching Groq fences, cloud Markdown and redaction |
 | 2.35.26 | 2026-11-14 | Chatty audit: a quick dismiss can no longer strand the cat on screen |
 | 2.35.25 | 2026-11-14 | Chatty's first greeting survives the desktop app's boot autofocus |
@@ -213,6 +214,31 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.28 — 2026-11-14
+
+- **Cat school steps walk, they do not teleport.** `Next paw` used to swap
+  Chatty's edge position in one frame and then play a hop in place. Each step now
+  hides the old sentence, glides her along a curved compositor path to the next
+  edge, and shows the new step only after she lands. Hiding, stopping, switching
+  lessons or starting another lesson cancels the travel; reduced motion still
+  changes position without the hop.
+- **The tour hop has more road.** The same distance-scaled glide now travels
+  through two visible waypoints and lasts 340–820 ms instead of snapping through
+  a short arc. The spotlight still leads to the target, and the arrival callback
+  follows the animation's actual duration.
+- **Placement is checked, not assumed.** The browser suite now captures the
+  running travel animation and samples the cat at four points; it asserts that
+  the old bubble is hidden while she moves, the new bubble appears after landing,
+  and every one of the 11 tour stops keeps both Chatty and her bubble on screen
+  without covering the highlighted control.
+- **Verification.** 375 unit tests, 37 CLI checks, 29/29 source simulations,
+  29/29 single-file simulations, 31/31 cloud checks and 7/7 Chatty browser
+  stages pass; the 92-file secret check is clean.
+- **Release state.** Desktop source is **2.35.28**; cloud preview and production
+  are **2.35.28-cloud**. The source ZIP and Windows ZIP accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.35.28](https://github.com/zakker111/freeway/releases/tag/v2.35.28).
 
 ## 2.35.27 — 2026-11-14
 

@@ -27,7 +27,7 @@ if (!chromeBin) {
   process.exit(0);
 }
 
-const MOVE_SETTLE_MS = 560;
+const MOVE_SETTLE_MS = 900;
 
 function findChrome() {
   const candidates = [
@@ -290,12 +290,105 @@ async function clickAndSample(cdp, action, delay = 90) {
       const root = document.querySelector('#chatty');
       const pet = root ? root.querySelector('.chatty-pet') : null;
       const rect = root ? root.getBoundingClientRect() : null;
+      const bubble = document.querySelector('.chatty-bubble');
       return {
         found: true,
         touring: Boolean(root && root.classList.contains('is-touring')),
         anim: pet ? getComputedStyle(pet).animationName : '',
         label: document.querySelector('.chatty-label')?.textContent?.trim() || '',
+        bubble: Boolean(bubble && !bubble.hidden),
         xy: rect ? [Math.round(rect.x), Math.round(rect.y)] : [],
+      };
+    })()`,
+  );
+}
+
+async function clickAndTrack(cdp, action, delays = [80, 260, 600, 900]) {
+  return evaluate(
+    cdp,
+    `(async () => {
+      const button = [...document.querySelectorAll('[data-chatty-action]')]
+        .find((node) => node.dataset.chattyAction === ${JSON.stringify(action)});
+      if (!button) return { found: false, frames: [] };
+      const read = () => {
+        const root = document.querySelector('#chatty');
+        const pet = root ? root.querySelector('.chatty-pet') : null;
+        const bubble = document.querySelector('.chatty-bubble');
+        const rect = root ? root.getBoundingClientRect() : null;
+        return {
+          touring: Boolean(root && root.classList.contains('is-touring')),
+          anim: pet ? getComputedStyle(pet).animationName : '',
+          label: document.querySelector('.chatty-label')?.textContent?.trim() || '',
+          bubble: Boolean(bubble && !bubble.hidden),
+          xy: rect ? [Math.round(rect.x), Math.round(rect.y)] : [],
+          animations: root
+            ? root.getAnimations().map((animation) => ({
+                state: animation.playState,
+                current: Math.round(Number(animation.currentTime) || 0),
+                duration: Math.round(Number(animation.effect?.getTiming?.().duration) || 0),
+              }))
+            : [],
+        };
+      };
+      const started = read();
+      const start = Date.now();
+      const frames = [];
+      button.click();
+      for (const delay of ${JSON.stringify(delays)}) {
+        const wait = delay - (Date.now() - start);
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+        frames.push(read());
+      }
+      return { found: true, started, frames };
+    })()`,
+  );
+}
+
+function assertMoving(result, label) {
+  const { started, frames } = result;
+  assert.ok(frames.length >= 3, `${label} did not produce enough movement frames`);
+  assert.equal(frames[0].touring, true, `${label} did not enter the movement state`);
+  assert.equal(frames[0].bubble, false, `${label} kept the old bubble while travelling`);
+  assert.equal(frames[0].anim, 'chatty-tour-hop', `${label} did not start the hop`);
+  const positions = new Set([started.xy.join(':'), ...frames.map((frame) => frame.xy.join(':'))]);
+  assert.ok(
+    positions.size >= 2,
+    `${label} never changed her screen position (${[...positions].join(' | ')})`,
+  );
+  const animated = frames.some((frame) =>
+    frame.animations.some(
+      (animation) =>
+        animation.state === 'running' && animation.duration > 0 && animation.current > 0,
+    ),
+  );
+  assert.ok(animated, `${label} finished without a running travel animation`);
+  const last = frames[frames.length - 1];
+  assert.equal(last.touring, false, `${label} did not finish the movement`);
+  assert.equal(last.bubble, true, `${label} did not show the new bubble after landing`);
+  assert.notDeepEqual(last.xy, started.xy, `${label} ended where it started`);
+}
+
+async function tourPlacement(cdp) {
+  return evaluate(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      const spot = [...document.querySelectorAll('.chatty-spot')].find((node) => !node.hidden);
+      const bubble = document.querySelector('.chatty-bubble');
+      if (!root || !spot) return null;
+      const rr = root.getBoundingClientRect();
+      const sr = spot.getBoundingClientRect();
+      const br = bubble && !bubble.hidden ? bubble.getBoundingClientRect() : null;
+      const overlaps = (a, b) => !(
+        a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom
+      );
+      return {
+        catInside: rr.left >= 0 && rr.top >= 0 && rr.right <= innerWidth && rr.bottom <= innerHeight,
+        bubbleInside: br
+          ? br.left >= 0 && br.top >= 0 && br.right <= innerWidth && br.bottom <= innerHeight
+          : null,
+        catOverlapsTarget: overlaps(rr, sr),
+        bubbleOverlapsTarget: br ? overlaps(br, sr) : null,
       };
     })()`,
   );
@@ -422,11 +515,9 @@ async function runTutor(cdp, origin) {
   }
   assert.equal(welcome.xy.length, 2, 'Chatty has no screen position');
 
-  const start = await clickAndSample(cdp, 'tutor');
+  const start = await clickAndTrack(cdp, 'tutor');
   assert.equal(start.found, true, 'the welcome tip has no Tutor me action');
-  assert.equal(start.touring, true, 'starting a lesson did not enter the movement state');
-  assert.equal(start.anim, 'chatty-tour-hop', 'starting a lesson did not hop');
-  await sleep(MOVE_SETTLE_MS);
+  assertMoving(start, 'starting a lesson');
   const s1 = await state(cdp);
   assert.equal(s1.label, 'Cat school 1/3', `the lesson did not start (${s1.label})`);
   assert.equal(s1.bubble, true, 'the first lesson step has no bubble');
@@ -434,22 +525,18 @@ async function runTutor(cdp, origin) {
   assert.notDeepEqual(s1.xy, welcome.xy, 'starting a lesson did not change her screen position');
   assert.notEqual(s1.text, welcome.text, 'the first lesson step kept the welcome text');
 
-  const second = await clickAndSample(cdp, 'tutor-next');
+  const second = await clickAndTrack(cdp, 'tutor-next');
   assert.equal(second.found, true, 'the first lesson step has no Next paw action');
-  assert.equal(second.touring, true, 'Next paw did not enter the movement state');
-  assert.equal(second.anim, 'chatty-tour-hop', 'Next paw did not hop');
-  await sleep(MOVE_SETTLE_MS);
+  assertMoving(second, 'Next paw');
   const s2 = await state(cdp);
   assert.equal(s2.label, 'Cat school 2/3', `the second step label is ${s2.label}`);
   assert.notEqual(s2.pos, s1.pos, 'Next paw did not move Chatty');
   assert.notDeepEqual(s2.xy, s1.xy, 'Next paw did not change her screen position');
   assert.equal(s2.bubble, true, 'the second lesson step lost its bubble');
 
-  const third = await clickAndSample(cdp, 'tutor-next');
+  const third = await clickAndTrack(cdp, 'tutor-next');
   assert.equal(third.found, true, 'the second lesson step has no Next paw action');
-  assert.equal(third.touring, true, 'the third step did not enter the movement state');
-  assert.equal(third.anim, 'chatty-tour-hop', 'the third step did not hop');
-  await sleep(MOVE_SETTLE_MS);
+  assertMoving(third, 'the third step');
   const s3 = await state(cdp);
   assert.equal(s3.label, 'Cat school 3/3', `the third step label is ${s3.label}`);
   assert.notEqual(s3.pos, s2.pos, 'the third step did not move Chatty');
@@ -463,11 +550,9 @@ async function runTutor(cdp, origin) {
   assert.ok(done.actions.includes('tutor-another'), 'the finished lesson has no Another lesson action');
   assert.notEqual(done.text, s3.text, 'the finished lesson kept the last step text');
 
-  const another = await clickAndSample(cdp, 'tutor-another');
+  const another = await clickAndTrack(cdp, 'tutor-another');
   assert.equal(another.found, true, 'the finished lesson has no Another lesson action');
-  assert.equal(another.touring, true, 'Another lesson did not move Chatty');
-  assert.equal(another.anim, 'chatty-tour-hop', 'Another lesson did not hop');
-  await sleep(MOVE_SETTLE_MS);
+  assertMoving(another, 'Another lesson');
   const restarted = await state(cdp);
   assert.equal(restarted.label, 'Cat school 1/3', `Another lesson did not start (${restarted.label})`);
   assert.notEqual(restarted.text, s1.text, 'Another lesson repeated the same lesson');
@@ -518,14 +603,27 @@ async function runTour(cdp) {
     assert.equal(stop.spot, true, `tour stop ${number} has no spotlight`);
     const target = await tourTarget(cdp, targets[index]);
     assert.ok(target, `tour stop ${number} highlights no target (${targets[index].join(', ')})`);
+    const placement = await tourPlacement(cdp);
+    assert.ok(placement, `tour stop ${number} has no placement geometry`);
+    assert.equal(placement.catInside, true, `tour stop ${number} put Chatty off screen`);
+    assert.equal(placement.bubbleInside, true, `tour stop ${number} put her bubble off screen`);
+    assert.equal(
+      placement.catOverlapsTarget,
+      false,
+      `tour stop ${number} parked Chatty over the control she is explaining`,
+    );
+    assert.equal(
+      placement.bubbleOverlapsTarget,
+      false,
+      `tour stop ${number} covered the control with her bubble`,
+    );
     matched.push(target);
     positions.push(stop.xy.join(':'));
 
     if (number < targets.length) {
-      const next = await clickAndSample(cdp, 'next');
+      const next = await clickAndTrack(cdp, 'next');
       assert.equal(next.found, true, `tour stop ${number} has no Next action`);
-      assert.equal(next.touring, true, `tour stop ${number} did not enter the movement state`);
-      assert.equal(next.anim, 'chatty-tour-hop', `tour stop ${number} did not hop`);
+      assertMoving(next, `tour stop ${number} movement`);
     }
   }
 

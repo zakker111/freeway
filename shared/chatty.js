@@ -809,6 +809,7 @@
   let winkTimer = 0;
   let wanderTimer = 0;
   let moveTimer = 0;
+  let glideAnimation = null;
   let raf = 0;
   let enterRaf = 0;
   let lastTip = -1;
@@ -1157,21 +1158,26 @@
   }
 
   /**
-   * Move to a tour target on the compositor: measure where she is, place her at
-   * the destination, then animate the difference away along a small arc. A
-   * transform keeps the hop smooth when it crosses the whole window, and the
-   * CSS left/top transition is muted for its duration so the two do not stack.
+   * Move on the compositor: measure where she is, apply the destination, then
+   * animate the visual difference away along a curved path. A transform keeps
+   * the hop smooth when it crosses the whole window, and the layout-bound
+   * left/top transition is muted for its duration so the two do not stack.
    * Returns the animation length in milliseconds, or 0 when she was already
-   * there or motion is reduced.
+   * there, motion is reduced, or the browser cannot animate.
    */
-  function glideTo(target) {
+  function glideBy(applyPlacement) {
     if (!rootNode) return 0;
+    if (glideAnimation) {
+      const previous = glideAnimation;
+      glideAnimation = null;
+      previous.cancel();
+    }
     const before = rootNode.getBoundingClientRect();
     // Mute the layout-bound left/top transition *before* moving: otherwise the
     // rect below still reports the old spot (the transition has not started)
     // and the glide would measure a zero distance.
     rootNode.style.transition = 'opacity .22s ease';
-    placeNear(target);
+    applyPlacement();
     const after = rootNode.getBoundingClientRect();
     const dx = Math.round(before.left - after.left);
     const dy = Math.round(before.top - after.top);
@@ -1180,25 +1186,45 @@
       rootNode.style.transition = '';
       return 0;
     }
-    const duration = Math.round(Math.min(560, 300 + distance * 0.22));
-    const lift = Math.min(26, 9 + distance * 0.035);
+    const duration = Math.round(Math.min(820, 340 + distance * 0.32));
+    const lift = Math.min(34, 10 + distance * 0.04);
+    const sway = Math.min(18, 5 + distance * 0.025);
     const animation = rootNode.animate(
       [
         { transform: `translate(${dx}px, ${dy}px)` },
         {
-          transform: `translate(${Math.round(dx * 0.5)}px, ${Math.round(dy * 0.5 - lift)}px)`,
-          offset: 0.5,
+          transform: `translate(${Math.round(dx * 0.7 + sway)}px, ${Math.round(dy * 0.7 - lift)}px)`,
+          offset: 0.3,
+        },
+        {
+          transform: `translate(${Math.round(dx * 0.32 - sway)}px, ${Math.round(dy * 0.32 - lift * 0.55)}px)`,
+          offset: 0.64,
         },
         { transform: 'translate(0px, 0px)' },
       ],
       { duration, easing: 'cubic-bezier(.4,0,.2,1)' },
     );
+    glideAnimation = animation;
     const release = () => {
+      if (glideAnimation !== animation) return;
+      glideAnimation = null;
       if (rootNode) rootNode.style.transition = '';
     };
     animation.addEventListener('finish', release, { once: true });
     animation.addEventListener('cancel', release, { once: true });
     return duration;
+  }
+
+  function cancelGlide() {
+    if (!glideAnimation) return;
+    const animation = glideAnimation;
+    glideAnimation = null;
+    animation.cancel();
+    if (rootNode) rootNode.style.transition = '';
+  }
+
+  function glideTo(target) {
+    return glideBy(() => placeNear(target));
   }
 
   function showSpotlight(target) {
@@ -1238,12 +1264,15 @@
   }
 
   function choosePosition() {
-    if (rootNode) rootNode.classList.remove('is-touring');
+    if (!rootNode) return;
+    rootNode.classList.remove('is-touring');
     clearTourPlacement();
-    fitToComposer();
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
+    // Set the edge before measuring the composer clearance; clearTourPlacement
+    // leaves the old "tour" marker in place for one frame otherwise.
     rootNode.dataset.pos = lastPosition;
+    fitToComposer();
   }
 
   function resetLook() {
@@ -1582,6 +1611,7 @@
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelGlide();
     cancelBall();
     tutorStep = -1;
     tutorLesson = null;
@@ -1708,41 +1738,66 @@
   }
 
   function moveTutorStep() {
-    if (!rootNode) return;
+    if (!rootNode) return 0;
     rootNode.classList.remove('is-wandering');
-    choosePosition();
-    if (REDUCE_MOTION) {
+    const options = POSITIONS.filter((position) => position !== lastPosition);
+    lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
+    const next = lastPosition;
+    const duration = glideBy(() => {
+      clearTourPlacement();
+      rootNode.dataset.pos = next;
+      fitToComposer();
+    });
+    if (!duration) {
       rootNode.classList.remove('is-touring');
-      return;
+      return 0;
     }
+    rootNode.style.setProperty('--chatty-move-ms', `${duration}ms`);
     rootNode.classList.add('is-touring');
-    rootNode.style.setProperty('--chatty-move-ms', '460ms');
-    clearTimeout(moveTimer);
-    moveTimer = setTimeout(() => {
-      moveTimer = 0;
-      if (rootNode && tutorStep >= 0) rootNode.classList.remove('is-touring');
-    }, 470);
+    return duration;
   }
 
   function showTutorStep({ move = false } = {}) {
     if (!enabled || !rootNode || !tutorLesson || tutorStep < 0 || isBlocked()) return;
+    const lesson = tutorLesson;
     const step = tutorStep;
-    if (step >= tutorLesson.steps.length) {
+    if (step >= lesson.steps.length) {
       finishTutor();
       return;
     }
-    if (move) moveTutorStep();
-    const last = step === tutorLesson.steps.length - 1;
-    showTip(
-      tutorLesson.steps[step],
-      0,
-      [
-        { action: 'tutor-next', label: last ? 'Finish lesson' : 'Next paw', primary: true },
-        { action: 'tutor-stop', label: 'Stop' },
-      ],
-      `Cat school ${step + 1}/${tutorLesson.steps.length}`,
-    );
-    armHide(180000);
+    const render = () => {
+      if (!enabled || !rootNode || tutorLesson !== lesson || tutorStep !== step || isBlocked()) return;
+      const last = step === lesson.steps.length - 1;
+      showTip(
+        lesson.steps[step],
+        0,
+        [
+          { action: 'tutor-next', label: last ? 'Finish lesson' : 'Next paw', primary: true },
+          { action: 'tutor-stop', label: 'Stop' },
+        ],
+        `Cat school ${step + 1}/${lesson.steps.length}`,
+      );
+      armHide(180000);
+    };
+    clearTimeout(moveTimer);
+    moveTimer = 0;
+    if (!move) {
+      render();
+      return;
+    }
+    // Hide the old sentence before she travels so the next step cannot appear
+    // at the old corner while the pet is still hopping to the new one.
+    hideTip();
+    const duration = moveTutorStep();
+    if (!duration) {
+      render();
+      return;
+    }
+    moveTimer = setTimeout(() => {
+      moveTimer = 0;
+      if (rootNode) rootNode.classList.remove('is-touring');
+      render();
+    }, duration + 24);
   }
 
   function startTutor(title = '') {
@@ -1751,6 +1806,7 @@
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelGlide();
     cancelBall();
     if (tourStep >= 0 || tourBusy) {
       tourStep = -1;
@@ -1904,6 +1960,7 @@
     clearTimeout(winkTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
+    cancelGlide();
     cancelBall();
     if (!rootNode) return;
     if (rootNode.contains(document.activeElement)) document.activeElement.blur();
