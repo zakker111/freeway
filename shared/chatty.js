@@ -303,7 +303,12 @@
       border-radius: 12px;
       box-shadow: 0 0 0 3px rgba(255, 255, 255, .10), 0 0 22px rgba(255, 255, 255, .22);
       opacity: 0;
-      transition: opacity .18s ease;
+      transition:
+        opacity .18s ease,
+        left .42s cubic-bezier(.2,.8,.2,1),
+        top .42s cubic-bezier(.2,.8,.2,1),
+        width .42s cubic-bezier(.2,.8,.2,1),
+        height .42s cubic-bezier(.2,.8,.2,1);
     }
     .chatty-spot.is-on { opacity: .95; }
     .chatty-spot[hidden] { display: none; }
@@ -1148,6 +1153,48 @@
     rootNode.dataset.bubbleSide = x + width / 2 < innerWidth / 2 ? 'left' : 'right';
   }
 
+  /**
+   * Move to a tour target on the compositor: measure where she is, place her at
+   * the destination, then animate the difference away along a small arc. A
+   * transform keeps the hop smooth when it crosses the whole window, and the
+   * CSS left/top transition is muted for its duration so the two do not stack.
+   * Returns the animation length in milliseconds, or 0 when she was already
+   * there or motion is reduced.
+   */
+  function glideTo(target) {
+    if (!rootNode) return 0;
+    const before = rootNode.getBoundingClientRect();
+    // Mute the layout-bound left/top transition *before* moving: otherwise the
+    // rect below still reports the old spot (the transition has not started)
+    // and the glide would measure a zero distance.
+    rootNode.style.transition = 'opacity .22s ease';
+    placeNear(target);
+    const after = rootNode.getBoundingClientRect();
+    const dx = Math.round(before.left - after.left);
+    const dy = Math.round(before.top - after.top);
+    const distance = Math.hypot(dx, dy);
+    if (REDUCE_MOTION || distance < 4 || typeof rootNode.animate !== 'function') return 0;
+    const duration = Math.round(Math.min(560, 300 + distance * 0.22));
+    const lift = Math.min(26, 9 + distance * 0.035);
+    const animation = rootNode.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px)` },
+        {
+          transform: `translate(${Math.round(dx * 0.5)}px, ${Math.round(dy * 0.5 - lift)}px)`,
+          offset: 0.5,
+        },
+        { transform: 'translate(0px, 0px)' },
+      ],
+      { duration, easing: 'cubic-bezier(.4,0,.2,1)' },
+    );
+    const release = () => {
+      if (rootNode) rootNode.style.transition = '';
+    };
+    animation.addEventListener('finish', release, { once: true });
+    animation.addEventListener('cancel', release, { once: true });
+    return duration;
+  }
+
   function showSpotlight(target) {
     if (!spotNode || !visibleTarget(target)) {
       hideSpotlight();
@@ -1272,9 +1319,9 @@
     rootNode.style.bottom = 'auto';
   }
 
-  function showTip(message, duration = 13000, actions = null, label = 'Chatty') {
+  function showTip(message, duration = 13000, actions = null, label = 'Chatty', keepSpot = false) {
     if (!bubbleNode) return;
-    hideSpotlight();
+    if (!keepSpot) hideSpotlight();
     textNode.textContent = message;
     if (labelNode) labelNode.textContent = label;
     renderActions(actions);
@@ -1285,11 +1332,11 @@
     if (duration > 0) tipTimer = setTimeout(hideTip, duration);
   }
 
-  function hideTip() {
+  function hideTip(keepSpot = false) {
     clearTimeout(tipTimer);
     if (bubbleNode) bubbleNode.hidden = true;
     renderActions(null);
-    hideSpotlight();
+    if (!keepSpot) hideSpotlight();
   }
 
   function cancelBall() {
@@ -1553,7 +1600,10 @@
     }
     tourStep = found.index;
     tourBusy = true;
-    hideTip();
+    // Keep the ring on screen between stops so it glides to the next target
+    // instead of reappearing there, then let the cat follow it.
+    hideTip(true);
+    showSpotlight(found.target);
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
@@ -1571,6 +1621,7 @@
         0,
         tourActions(found.index),
         `Tour ${found.index + 1}/${TOUR_STOPS.length}`,
+        true,
       );
       placeNear(found.target);
       showSpotlight(found.target);
@@ -1589,10 +1640,10 @@
       petNode.classList.remove('chatty-pounce');
       clearTimeout(pounceTimer);
     }
+    const moveMs = glideTo(found.target);
+    rootNode.style.setProperty('--chatty-move-ms', `${moveMs || 460}ms`);
     rootNode.classList.add('is-touring');
-    rootNode.style.setProperty('--chatty-move-ms', '460ms');
-    placeNear(found.target);
-    moveTimer = setTimeout(arrive, 470);
+    moveTimer = setTimeout(arrive, moveMs ? moveMs + 20 : 470);
   }
 
   function advanceTour() {

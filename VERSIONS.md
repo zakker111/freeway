@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.19 | 2026-11-14 | Chatty glides between tour stops on the compositor, ring first, cat following |
 | 2.35.18 | 2026-11-14 | dark option lists for every select, including the model filter and screenshot size |
 | 2.35.17 | 2026-11-14 | the Chatty tour spotlight change ships from its shared source |
 | 2.35.16 | 2026-11-14 | dark provider dropdown in the desktop and cloud pages |
@@ -205,6 +206,22 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.19 — 2026-11-14
+
+- **The tour hop is a glide, not a two-frame jump.** Between stops Chatty used
+  the CSS `left`/`top` transition, which is layout-bound: a long hop snapped on
+  slow frames and the old fade made it read as a redraw. `glideTo()` now places
+  her at the destination and animates the difference away with a compositor
+  `transform` along a small arc, sized to the distance (300–560 ms) and capped
+  so it never crawls. The layout transition is muted inline for the animation’s
+  duration so the two do not stack, then restored.
+- **The ring leads the way.** The spotlight no longer disappears between stops;
+  it glides its geometry to the next target first and the cat follows it, so the
+  pair reads as one movement. Tips keep that already-correct spotlight instead
+  of hiding and re-showing it on arrival.
+- **Reduced motion is untouched.** With `prefers-reduced-motion: reduce` the
+  hop is still instant: `glideTo()` returns 0, the caller keeps its short
+  timeout, and the stylesheet has already disabled the spotlight transition.
 ## 2.35.18 — 2026-11-14
 
 - **Every dropdown list is dark, not just the provider's.** The model filter
