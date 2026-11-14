@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.16 | 2026-11-14 | dark provider dropdown and a clearer Chatty tour spotlight |
 | 2.35.15 | 2026-11-14 | verify-release.sh skips awaiting its own run, fixing the 2.35.14 verification hang |
 | 2.35.14 | 2026-11-14 | verify-release.sh awaits the remote verification run through the shared watcher |
 | 2.35.13 | 2026-11-13 | --wait-tag follows the build to completion and fails on a red run |
@@ -201,6 +202,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.16 — 2026-11-14
+
+- **The provider chooser's list is dark.** The shared chip rule replaced the
+  select's solid colour with a gradient only, so `background-color` stayed
+  transparent and the native option list fell back to the platform white. The
+  rule now sets both, and the options carry the dark surfaces on the desktop and
+  cloud pages.
+- **Chatty points clearly.** The tour spotlight is a solid ring with a glow at
+  near-full opacity instead of a faint dashed box, and a header target no longer
+  parks her on the pickers row directly beneath it, where she hid the control she
+  was describing.
 
 ## 2.35.15 — 2026-11-14
 

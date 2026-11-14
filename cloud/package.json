@@ -1,6 +1,6 @@
 {
   "name": "freeway-cloud",
-  "version": "2.35.15",
+  "version": "2.35.16",
   "description": "Freeway cloud edition",
   "scripts": {
     "build": "node build.mjs",

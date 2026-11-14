@@ -1297,6 +1297,11 @@
         cursor: pointer;
       }
       select#provider:hover { border-color: var(--line-2); }
+      /* The popup list is painted by the browser from these colours, so give it
+         the same dark surfaces instead of the platform's white default. */
+      select#provider option {
+        background-color: var(--surface-2); color: var(--text);
+      }
       .picker { position: relative; }
       .modelBtn {
         max-width: min(52vw, 380px);
