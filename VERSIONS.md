@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.13 | 2026-11-13 | --wait-tag follows the build to completion and fails on a red run |
 | 2.35.12 | 2026-11-13 | release.sh --wait-tag fails loudly when a tag push creates no build run |
 | 2.35.11 | 2026-11-13 | Re-cut 2.35.10 after its tag push created no Release assets run |
 | 2.35.10 | 2026-11-13 | Retry the browser harness launch when headless Chrome is slow to answer |
@@ -198,6 +199,16 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.13 — 2026-11-13
+
+- **--wait-tag now waits for the outcome.** 2.35.12 only proved a run had
+  appeared, which a red build satisfies too. The flag keeps polling that run id
+  until it completes and exits non-zero on any conclusion but success, printing
+  the run URL and the conclusion it reached; a run still going after
+  `WAIT_TAG_RUN_SECONDS` (900 default) also fails, with its status. `WAIT_TAG_RUN_ID`
+  watches one run directly, which is how both branches are exercised without a
+  fake tag.
 
 ## 2.35.12 — 2026-11-13
 

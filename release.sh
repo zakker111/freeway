@@ -42,25 +42,68 @@ if [ "$MODE" = "wait-tag" ]; then
     exit 1
   fi
   TAG="v$VERSION"
-  DEADLINE="${WAIT_TAG_SECONDS:-180}"
-  echo "== waiting for the Release assets run on $TAG ($REPO, ${DEADLINE}s) =="
+  APPEAR="${WAIT_TAG_SECONDS:-180}"
+  FINISH="${WAIT_TAG_RUN_SECONDS:-900}"
+  echo "== waiting for the Release assets run on $TAG ($REPO, ${APPEAR}s to appear) =="
+
+  RUN=""
+  if [ -n "${WAIT_TAG_RUN_ID:-}" ]; then
+    # Watch one run directly; useful for a re-run or for testing this branch.
+    RUN="$(curl -fsS -H "authorization: Bearer $GH_TOKEN" \
+      -H 'accept: application/vnd.github+json' \
+      "https://api.github.com/repos/$REPO/actions/runs/$WAIT_TAG_RUN_ID" 2>/dev/null \
+      | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{try{const j=JSON.parse(d);process.stdout.write([j.id,j.status,j.conclusion||"-",j.html_url].join(" "))}catch{process.stdout.write("")}})' || true)"
+  fi
+
   waited=0
-  while [ "$waited" -lt "$DEADLINE" ]; do
-    RUN_URL="$(curl -fsS -H "authorization: Bearer $GH_TOKEN" \
+  while [ -z "$RUN" ] && [ "$waited" -lt "$APPEAR" ]; do
+    RUN="$(curl -fsS -H "authorization: Bearer $GH_TOKEN" \
       -H 'accept: application/vnd.github+json' \
       "https://api.github.com/repos/$REPO/actions/runs?branch=$TAG&per_page=20" 2>/dev/null \
-      | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const run=(j.workflow_runs||[]).find((r)=>r.name==="Release assets");process.stdout.write(run?run.html_url:"")}catch{process.stdout.write("")}})' || true)"
-    if [ -n "$RUN_URL" ]; then
-      echo "Release assets run: $RUN_URL"
-      exit 0
+      | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const run=(j.workflow_runs||[]).find((r)=>r.name==="Release assets");process.stdout.write(run?[run.id,run.status,run.conclusion||"-",run.html_url].join(" "):"")}catch{process.stdout.write("")}})' || true)"
+    if [ -z "$RUN" ]; then
+      sleep 5
+      waited=$((waited + 5))
     fi
+  done
+  if [ -z "$RUN" ]; then
+    echo "FAIL: no Release assets run appeared for $TAG within ${APPEAR}s." >&2
+    echo "  Check https://github.com/$REPO/actions and do not announce the release." >&2
+    echo "  If the tag is sound, push a fresh tag for the same tree." >&2
+    exit 1
+  fi
+
+  read -r RUN_ID RUN_STATUS RUN_CONCL RUN_URL <<< "$RUN"
+  echo "Release assets run: $RUN_URL ($RUN_STATUS)"
+
+  # Appearance is not enough: a red build publishes nothing either. Keep
+  # polling this run until it finishes, and fail on anything but success.
+  waited=0
+  while [ "$RUN_STATUS" != "completed" ] && [ "$waited" -lt "$FINISH" ]; do
     sleep 5
     waited=$((waited + 5))
+    RUN="$(curl -fsS -H "authorization: Bearer $GH_TOKEN" \
+      -H 'accept: application/vnd.github+json' \
+      "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID" 2>/dev/null \
+      | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{try{const j=JSON.parse(d);process.stdout.write([j.status,j.conclusion||"-",j.html_url].join(" "))}catch{process.stdout.write("")}})' || true)"
+    if [ -n "$RUN" ]; then
+      read -r RUN_STATUS RUN_CONCL RUN_URL <<< "$RUN"
+      echo "  $RUN_STATUS${RUN_CONCL:+ ($RUN_CONCL)}"
+    fi
   done
-  echo "FAIL: no Release assets run appeared for $TAG within ${DEADLINE}s." >&2
-  echo "  Check https://github.com/$REPO/actions and do not announce the release." >&2
-  echo "  If the tag is sound, push a fresh tag for the same tree." >&2
-  exit 1
+
+  if [ "$RUN_STATUS" != "completed" ]; then
+    echo "FAIL: Release assets is still $RUN_STATUS after ${FINISH}s: $RUN_URL" >&2
+    echo "  It may still finish; check the run before announcing anything." >&2
+    exit 1
+  fi
+  if [ "$RUN_CONCL" != "success" ]; then
+    echo "FAIL: Release assets finished $RUN_CONCL: $RUN_URL" >&2
+    echo "  Do not announce the release; fix the cause and re-cut." >&2
+    exit 1
+  fi
+  echo "Release assets succeeded: $RUN_URL"
+  exit 0
 fi
 
 echo "== bumping to $VERSION =="

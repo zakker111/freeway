@@ -105,10 +105,11 @@ GH_TOKEN=... ./release.sh --wait-tag 2.35.11
 ```
 
 It polls the Actions API for the tag's own "Release assets" run for up to
-`WAIT_TAG_SECONDS` (180 by default), prints the run URL when one appears, and exits
-non-zero with "no Release assets run appeared" when none does — so a silent tag is caught
-before the release is announced. `GITHUB_REPO=owner/name` overrides the repository taken
-from the git remote.
+`WAIT_TAG_SECONDS` (180 by default), then follows that run until it finishes and fails on
+anything but success — so a silent tag or a red build is caught before the release is
+announced. The completion window is `WAIT_TAG_RUN_SECONDS` (900 by default).
+`GITHUB_REPO=owner/name` overrides the repository taken from the git remote, and
+`WAIT_TAG_RUN_ID=<id>` watches one specific run instead of discovering it.
 
 ## Verify the published assets
 
