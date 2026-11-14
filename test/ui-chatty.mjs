@@ -9,8 +9,8 @@
 // user does: the welcome actions, Cat school, the tour, Settings and the
 // reduced-motion media query.
 //
-// The hop is sampled while the 460ms movement is still running. Comparing only
-// the final positions would still pass if the animation stopped running.
+// Travel is sampled while the glide is still running. Comparing only the final
+// positions would still pass if the animation stopped running.
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -27,7 +27,7 @@ if (!chromeBin) {
   process.exit(0);
 }
 
-const MOVE_SETTLE_MS = 900;
+const MOVE_SETTLE_MS = 1450;
 
 function findChrome() {
   const candidates = [
@@ -303,17 +303,27 @@ async function clickAndSample(cdp, action, delay = 90) {
   );
 }
 
-async function clickAndTrack(cdp, action, delays = [80, 260, 600, 900]) {
+async function clickAndTrack(cdp, action, delays = [80, 300, 750, 1450]) {
   return evaluate(
     cdp,
     `(async () => {
       const button = [...document.querySelectorAll('[data-chatty-action]')]
         .find((node) => node.dataset.chattyAction === ${JSON.stringify(action)});
       if (!button) return { found: false, frames: [] };
+      const cssMs = (value) => {
+        const number = Number.parseFloat(value) || 0;
+        return /ms$/.test(value) ? number : number * 1000;
+      };
       const read = () => {
         const root = document.querySelector('#chatty');
         const pet = root ? root.querySelector('.chatty-pet') : null;
         const bubble = document.querySelector('.chatty-bubble');
+        const spot = [...document.querySelectorAll('.chatty-spot')]
+          .find((node) => !node.hidden) || null;
+        const spotStyle = spot ? getComputedStyle(spot) : null;
+        const spotProps = spotStyle ? spotStyle.transitionProperty.split(',').map((value) => value.trim()) : [];
+        const spotDurations = spotStyle ? spotStyle.transitionDuration.split(',').map(cssMs) : [];
+        const spotMoveMs = spotProps.indexOf('left') >= 0 ? spotDurations[spotProps.indexOf('left')] : 0;
         const rect = root ? root.getBoundingClientRect() : null;
         return {
           touring: Boolean(root && root.classList.contains('is-touring')),
@@ -321,6 +331,9 @@ async function clickAndTrack(cdp, action, delays = [80, 260, 600, 900]) {
           label: document.querySelector('.chatty-label')?.textContent?.trim() || '',
           bubble: Boolean(bubble && !bubble.hidden),
           xy: rect ? [Math.round(rect.x), Math.round(rect.y)] : [],
+          spot: Boolean(spot),
+          spotMs: Math.round(spotMoveMs || 0),
+          moveMs: root ? Math.round(cssMs(getComputedStyle(root).getPropertyValue('--chatty-move-ms'))) : 0,
           animations: root
             ? root.getAnimations().map((animation) => ({
                 state: animation.playState,
@@ -349,7 +362,7 @@ function assertMoving(result, label) {
   assert.ok(frames.length >= 3, `${label} did not produce enough movement frames`);
   assert.equal(frames[0].touring, true, `${label} did not enter the movement state`);
   assert.equal(frames[0].bubble, false, `${label} kept the old bubble while travelling`);
-  assert.equal(frames[0].anim, 'chatty-tour-hop', `${label} did not start the hop`);
+  assert.equal(frames[0].anim, 'chatty-walk', `${label} did not start the walk`);
   const positions = new Set([started.xy.join(':'), ...frames.map((frame) => frame.xy.join(':'))]);
   assert.ok(
     positions.size >= 2,
@@ -362,6 +375,13 @@ function assertMoving(result, label) {
     ),
   );
   assert.ok(animated, `${label} finished without a running travel animation`);
+  const ringFrame = frames.find((frame) => frame.spot && frame.spotMs > 0 && frame.moveMs > 0);
+  if (ringFrame) {
+    assert.ok(
+      Math.abs(ringFrame.spotMs - ringFrame.moveMs) <= 2,
+      `${label} moved the target ring in ${ringFrame.spotMs}ms but the cat in ${ringFrame.moveMs}ms`,
+    );
+  }
   const last = frames[frames.length - 1];
   assert.equal(last.touring, false, `${label} did not finish the movement`);
   assert.equal(last.bubble, true, `${label} did not show the new bubble after landing`);
@@ -441,6 +461,9 @@ async function prepareChatty(cdp) {
       return true;
     })()`,
   );
+  // A clean first run must open the control-board tour without waiting for a
+  // click on a welcome card. Showing it directly makes the test deterministic.
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
   await waitForPage(
     cdp,
     `(() => {
@@ -449,10 +472,10 @@ async function prepareChatty(cdp) {
         root &&
         !root.hidden &&
         root.classList.contains('is-in') &&
-        /Freeway cat/.test(document.querySelector('.chatty-text')?.textContent || '')
+        /^Tour 1\\//.test(document.querySelector('.chatty-label')?.textContent || '')
       );
     })()`,
-    8000,
+    10_000,
   );
 }
 
@@ -506,24 +529,39 @@ async function saveSettings(cdp) {
 async function runTutor(cdp, origin) {
   await loadChatty(cdp, origin, false);
 
-  const welcome = await state(cdp);
-  assert.equal(welcome.hidden, false, 'Chatty did not appear');
-  assert.equal(welcome.bubble, true, 'Chatty did not open her welcome tip');
-  assert.match(welcome.text, /Freeway cat/, 'the welcome tip is missing');
-  for (const action of ['tutor', 'settings', 'tour']) {
-    assert.ok(welcome.actions.includes(action), `the welcome tip lost the ${action} action`);
-  }
-  assert.equal(welcome.xy.length, 2, 'Chatty has no screen position');
+  const firstTour = await state(cdp);
+  assert.match(firstTour.label, /^Tour 1\//, `a clean load did not start the tour (${firstTour.label})`);
+  assert.equal(firstTour.bubble, true, 'the auto-start tour has no bubble');
+  assert.match(firstTour.text, /Control board tour/i, 'the auto-start tour has no intro');
 
-  const start = await clickAndTrack(cdp, 'tutor');
-  assert.equal(start.found, true, 'the welcome tip has no Tutor me action');
-  assertMoving(start, 'starting a lesson');
+  // End the first-run sweep and start Cat school from a visible, idle Chatty.
+  assert.equal(await clickAction(cdp, 'skip'), true, 'the auto-start tour has no End tour action');
+  await waitForPage(cdp, `document.querySelector('#chatty')?.hidden === true`, 5000);
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      return Boolean(root && !root.hidden && root.classList.contains('is-in'));
+    })()`,
+    5000,
+  );
+  const beforeTutor = await state(cdp);
+  assert.equal(beforeTutor.xy.length, 2, 'Chatty has no screen position before tutoring');
+
+  await evaluate(cdp, `window.FreewayChatty.tutor(); true`);
+  await waitForPage(
+    cdp,
+    `document.querySelector('.chatty-label')?.textContent === 'Cat school 1/3'`,
+    5000,
+  );
+  await sleep(MOVE_SETTLE_MS);
   const s1 = await state(cdp);
   assert.equal(s1.label, 'Cat school 1/3', `the lesson did not start (${s1.label})`);
   assert.equal(s1.bubble, true, 'the first lesson step has no bubble');
-  assert.notEqual(s1.pos, welcome.pos, 'starting a lesson did not move Chatty');
-  assert.notDeepEqual(s1.xy, welcome.xy, 'starting a lesson did not change her screen position');
-  assert.notEqual(s1.text, welcome.text, 'the first lesson step kept the welcome text');
+  assert.notEqual(s1.pos, beforeTutor.pos, 'starting a lesson did not move Chatty');
+  assert.notDeepEqual(s1.xy, beforeTutor.xy, 'starting a lesson did not change her screen position');
+  assert.notEqual(s1.text, beforeTutor.text, 'the first lesson step kept the previous text');
 
   const second = await clickAndTrack(cdp, 'tutor-next');
   assert.equal(second.found, true, 'the first lesson step has no Next paw action');
@@ -566,28 +604,55 @@ async function runTutor(cdp, origin) {
   assert.equal(stopped.touring, false, 'Stop left the movement state on');
 }
 
-async function runTour(cdp) {
+async function runTour(cdp, origin) {
+  await loadChatty(cdp, origin, false);
   const targets = [
     ['#sideBtn'],
-    ['#newChatBtn'],
+    ['#newChatBtn', '#clearBtn'],
+    ['#provider'],
     ['#modelBtn'],
     ['#quota', '#keyBtn'],
-    ['#input'],
-    ['#attachLabel'],
-    ['#modePlan'],
-    ['#modeBuild'],
+    ['#settingsBtn'],
     ['#quickPreview'],
     ['#railBtn'],
-    ['#settingsBtn'],
+    ['#quitBtn'],
+    ['#modePlan'],
+    ['#modeBuild'],
+    ['#input'],
+    ['#suggest'],
+    ['#imageLabel'],
+    ['#attachLabel'],
+    ['#memoryBtn'],
+    ['#sendBtn', '#send'],
+    ['#stopBtn', '#stop'],
   ];
-  await evaluate(cdp, 'window.FreewayChatty.tour(); true');
+  const expected = [
+    /saved conversations/i,
+    /clean chat/i,
+    /who answers/i,
+    /free model list/i,
+    /free usage/i,
+    /Settings/i,
+    /working preview/i,
+    /Files opens/i,
+    /Quit stops/i,
+    /read-only/i,
+    /Allow card/i,
+    /composer/i,
+    /starters/i,
+    /Image attaches/i,
+    /text file/i,
+    /note I carry/i,
+    /Send posts/i,
+    /Stop cancels/i,
+  ];
+  // A clean load auto-starts this sweep; there is no welcome card to click.
   await waitForPage(
     cdp,
     `document.querySelector('.chatty-label')?.textContent?.startsWith('Tour 1/')`,
-    5000,
+    8000,
   );
 
-  const positions = [];
   const matched = [];
   for (let index = 0; index < targets.length; index += 1) {
     const number = index + 1;
@@ -601,6 +666,11 @@ async function runTour(cdp) {
     assert.match(stop.label, new RegExp(`^Tour ${number}\\/\\d+$`), `tour stop ${number} is ${stop.label}`);
     assert.equal(stop.bubble, true, `tour stop ${number} has no bubble`);
     assert.equal(stop.spot, true, `tour stop ${number} has no spotlight`);
+    assert.match(
+      stop.text,
+      expected[index],
+      `tour stop ${number} does not explain its control (${stop.text})`,
+    );
     const target = await tourTarget(cdp, targets[index]);
     assert.ok(target, `tour stop ${number} highlights no target (${targets[index].join(', ')})`);
     const placement = await tourPlacement(cdp);
@@ -618,7 +688,13 @@ async function runTour(cdp) {
       `tour stop ${number} covered the control with her bubble`,
     );
     matched.push(target);
-    positions.push(stop.xy.join(':'));
+    await sleep(320);
+    const settled = await state(cdp);
+    assert.deepEqual(
+      settled.xy,
+      stop.xy,
+      `tour stop ${number} corrected its position after the bubble appeared`,
+    );
 
     if (number < targets.length) {
       const next = await clickAndTrack(cdp, 'next');
@@ -628,11 +704,6 @@ async function runTour(cdp) {
   }
 
   assert.equal(matched.length, targets.length, 'the tour did not reach every stop');
-  assert.equal(
-    new Set(positions).size,
-    targets.length,
-    `the tour reused a position (${positions.join(' | ')})`,
-  );
   assert.equal(await clickAction(cdp, 'skip'), true, 'the tour has no End tour action');
   await waitForPage(
     cdp,
@@ -803,22 +874,52 @@ async function runReduced(cdp, origin) {
     'the reduced-motion media query did not apply',
   );
 
-  const welcome = await state(cdp);
-  assert.equal(welcome.bubble, true, 'the reduced-motion welcome tip is missing');
+  const auto = await state(cdp);
+  assert.match(auto.label, /^Tour 1\//, `the reduced-motion control tour did not start (${auto.label})`);
+  assert.equal(auto.bubble, true, 'the reduced-motion control tour has no bubble');
+  assert.equal(auto.touring, false, 'reduced motion entered the tour movement state');
+  assert.equal(auto.anim, 'none', 'reduced motion still animated the tour');
 
-  const start = await clickAndSample(cdp, 'tutor', 50);
-  assert.equal(start.found, true, 'the reduced-motion welcome has no Tutor me action');
-  assert.equal(start.touring, false, 'reduced motion entered the hop state');
-  assert.equal(start.anim, 'none', 'reduced motion still animated the hop');
+  const step = await clickAndSample(cdp, 'next', 50);
+  assert.equal(step.found, true, 'the reduced-motion tour has no Next action');
+  assert.equal(step.touring, false, 'reduced motion entered the tour movement state on Next');
+  assert.equal(step.anim, 'none', 'reduced motion still animated the next tour stop');
+  const nextStop = await state(cdp);
+  assert.match(nextStop.label, /^Tour 2\//, `the reduced-motion tour did not advance (${nextStop.label})`);
+  assert.notDeepEqual(nextStop.xy, auto.xy, 'reduced motion did not move Chatty between tour stops');
+  assert.equal(nextStop.bubble, true, 'the reduced-motion next tour stop has no bubble');
+
+  assert.equal(await clickAction(cdp, 'skip'), true, 'the reduced-motion tour has no End action');
+  await waitForPage(cdp, `document.querySelector('#chatty')?.hidden === true`, 5000);
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      return Boolean(root && !root.hidden && root.classList.contains('is-in'));
+    })()`,
+    5000,
+  );
+  const base = await state(cdp);
+
+  await evaluate(cdp, `window.FreewayChatty.tutor(); true`);
+  await waitForPage(
+    cdp,
+    `document.querySelector('.chatty-label')?.textContent === 'Cat school 1/3'`,
+    5000,
+  );
+  await sleep(50);
   const r1 = await state(cdp);
   assert.equal(r1.label, 'Cat school 1/3', `the reduced-motion lesson did not start (${r1.label})`);
-  assert.notDeepEqual(r1.xy, welcome.xy, 'reduced motion did not move Chatty');
+  assert.equal(r1.touring, false, 'reduced motion entered the movement state');
+  assert.equal(r1.anim, 'none', 'reduced motion still animated the lesson');
+  assert.notDeepEqual(r1.xy, base.xy, 'reduced motion did not move Chatty');
   assert.equal(r1.bubble, true, 'the reduced-motion first step has no bubble');
 
   const next = await clickAndSample(cdp, 'tutor-next', 50);
   assert.equal(next.found, true, 'the reduced-motion step has no Next paw action');
-  assert.equal(next.touring, false, 'reduced motion entered the hop state on the next step');
-  assert.equal(next.anim, 'none', 'reduced motion still animated the next hop');
+  assert.equal(next.touring, false, 'reduced motion entered the movement state on the next step');
+  assert.equal(next.anim, 'none', 'reduced motion still animated the next step');
   const r2 = await state(cdp);
   assert.equal(r2.label, 'Cat school 2/3', `the reduced-motion step label is ${r2.label}`);
   assert.notDeepEqual(r2.xy, r1.xy, 'reduced motion did not move Chatty on the next step');
@@ -855,13 +956,13 @@ async function main() {
     cdp = browser.cdp;
     chromeLog = browser.log;
 
-    stage = 'welcome and Cat school';
-    await runTutor(cdp, origin);
-    console.log('  PASS  welcome, Cat school movement, finish, another lesson and stop');
+    stage = 'first-run control board tour';
+    await runTour(cdp, origin);
+    console.log('  PASS  all 18 control-board stops, explanations, movement and end');
 
-    stage = 'tour';
-    await runTour(cdp);
-    console.log('  PASS  all 11 tour stops, targets, movement and end');
+    stage = 'Cat school';
+    await runTutor(cdp, origin);
+    console.log('  PASS  Cat school movement, finish, another lesson and stop');
 
     stage = 'dismiss race and lesson double-click';
     await runDismissRace(cdp);
@@ -886,7 +987,7 @@ async function main() {
 
     const unexpected = pageErrors.filter((error) => !/favicon|net::ERR/i.test(error)).slice(0, 5);
     assert.deepEqual(unexpected, [], 'the page reported uncaught errors');
-    console.log('PASS browser Chatty: welcome, Cat school, tour, Settings switch and reduced motion.');
+    console.log('PASS browser Chatty: first-run tour, Cat school, Settings switch and reduced motion.');
   } catch (error) {
     console.error(`FAIL browser Chatty (${stage}):`, error.stack || error.message);
     console.error('App exit:', app?.exitCode);

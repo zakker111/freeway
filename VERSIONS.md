@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.29 | 2026-11-14 | Chatty starts a full 18-control first-run tour and walks between every stop |
 | 2.35.28 | 2026-11-14 | Chatty walks between Cat school steps, with browser checks for placement and real travel |
 | 2.35.27 | 2026-11-14 | Parity audit: one free picker rule, matching Groq fences, cloud Markdown and redaction |
 | 2.35.26 | 2026-11-14 | Chatty audit: a quick dismiss can no longer strand the cat on screen |
@@ -214,6 +215,33 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.29 — 2026-11-14
+
+- **The first run is the control-board tour.** A fresh visitor now gets the
+  guided sweep automatically, before a welcome card, tip or Cat school lesson.
+  It walks the controls in reading order: Chats, New, provider, model,
+  quota/key, Settings, Preview, rail, Quit, Plan, Build, composer, starter
+  prompts, image, attach, memory, Send and Stop. Each stop names the control
+  and says what it does, including the disabled Stop button and the local
+  key/quota rules.
+- **The cat really travels.** The shared glide now runs for 620–1200 ms,
+  follows two visible waypoints and uses the same duration for the target ring,
+  so the ring cannot arrive before the cat. The old separate hop was replaced
+  by a gentle walk lean, and the cat is no longer re-measured and shifted after
+  her bubble appears. Reduced motion still changes position without the walk.
+- **The browser gate covers the whole board.** The Chatty suite now checks all
+  18 stops, their explanations, the running animation, the hidden old bubble,
+  the stable landing (including 320 ms after the bubble appears), the target
+  overlap rules and the reduced-motion path. A clean first load must start the
+  tour without a click.
+- **Verification.** 375 unit tests, 37 CLI checks, 29/29 source simulations,
+  29/29 single-file simulations, 31/31 cloud checks and 7/7 Chatty browser
+  stages pass; the secret check is clean.
+- **Release state.** Desktop source is **2.35.29**; cloud preview and production
+  are **2.35.29-cloud**. The source ZIP and Windows ZIP accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.35.29](https://github.com/zakker111/freeway/releases/tag/v2.35.29).
 
 ## 2.35.28 — 2026-11-14
 

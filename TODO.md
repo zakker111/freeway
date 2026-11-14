@@ -10,17 +10,20 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.32.0**.
+- Desktop and cloud source are **2.35.29**.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   Cat school (eight three-step lessons), a Settings action with an in-panel guide, tips,
   jokes, pounce, an occasional yarn-ball game with an edge peek, close cooldown, single soft
   completion chime and reduced-motion behavior are covered by the page suite. Her layer
   stays above the rail, drawer, preview and full-screen preview; native modal dialogs still
   pause her. Her tip also shifts to stay inside short windows, and her fixed position now clears
-  the taller cloud composer. Her guided tour now hops between eleven stops, covers Chats,
-  New, the model picker, key/quota, the composer, attachments, Plan, Build, Preview, the rail
-  and Settings, and measures the tip bubble so the phone layout keeps every target visible.
-- The latest published GitHub release is **v2.32.0**; it carries the source ZIP,
+  the taller cloud composer. Her control-board tour starts automatically on a clean first
+  visit and walks all eighteen controls in reading order, from Chats, New, provider, model,
+  quota/key, Settings, Preview, rail and Quit through Plan, Build, the composer, starter
+  prompts, image, attach, memory, Send and Stop. Each stop names the control and explains it;
+  she glides for 620–1200 ms with the target ring on the same clock, and the browser suite
+  checks every landing, explanation, overlap and reduced-motion path.
+- The latest published GitHub release is **v2.35.29**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.

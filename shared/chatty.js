@@ -218,47 +218,75 @@
   const TOUR_STOPS = [
     {
       selectors: ['#sideBtn'],
-      tip: 'Chats opens your saved conversations. Search them here, then pick up any thread where you left off.',
+      tip: 'Control board tour: I will walk every button in reading order. Chats opens your saved conversations; search them, then pick up any thread where you left off.',
     },
     {
       selectors: ['#newChatBtn', '#clearBtn'],
-      tip: 'New starts a clean chat. Your saved chats stay under Chats, so a fresh start never loses the old ones.',
+      tip: 'New starts a clean chat. Saved conversations stay under Chats; a fresh start never deletes them.',
+    },
+    {
+      selectors: ['#provider'],
+      tip: 'Provider chooses who answers. OVHcloud needs no key; the other providers use a key from Key. Free models stay free on every provider.',
     },
     {
       selectors: ['#modelBtn'],
-      tip: 'The model picker lists free models. Choose one here, or press Ctrl + M; every model inside is free.',
+      tip: 'Model opens the free model list. Each entry shows its context and strengths; Ctrl + M opens it too. Everything in this list is free.',
     },
     {
       selectors: ['#quota', '#keyBtn'],
-      tip: 'The quota pill opens your provider key and limits. Pick a provider key here, or use one of the free providers that needs none.',
-    },
-    {
-      selectors: ['#input'],
-      tip: 'This is where we chat. Type here and press Enter to send; Shift + Enter adds a line. Stop sits beside Send while I am answering.',
-    },
-    {
-      selectors: ['#attachLabel'],
-      tip: 'The paperclip attaches a text file; the picture beside it adds an image. Attach first and the model can work from what you gave it.',
-    },
-    {
-      selectors: ['#modePlan'],
-      tip: 'Plan is the read-only stop: I map the files and checks without touching them. Start here when you want a route before the pounce.',
-    },
-    {
-      selectors: ['#modeBuild'],
-      tip: 'Build is the paws-on stop. Writes and commands need an Allow card, so switch here only after the plan looks right.',
-    },
-    {
-      selectors: ['#quickPreview'],
-      tip: 'Preview opens what we made. The rail next to it holds Files, Preview and Health.',
-    },
-    {
-      selectors: ['#railBtn'],
-      tip: 'The rail lives here: Files, GitHub, Preview and Health. Secrets are in Settings.',
+      tip: 'Quota shows today’s free usage. Key opens provider keys and limits. Keys stay in this app or browser and are never put in the chat.',
     },
     {
       selectors: ['#settingsBtn'],
-      tip: 'Settings is the gear for your key, tools, files, approvals and my own switch. Open it once and I will leave a note beside the important sections.',
+      tip: 'Settings holds keys, workspace, tools, approvals and my own switch. Open it and I will leave notes beside the important sections.',
+    },
+    {
+      selectors: ['#quickPreview'],
+      tip: 'Preview opens the working preview of what we built. It only shows the result; Build is what changes files.',
+    },
+    {
+      selectors: ['#railBtn'],
+      tip: 'Files opens the workspace and GitHub, and Health shows provider status. This is where I read files and where you inspect changes.',
+    },
+    {
+      selectors: ['#quitBtn'],
+      tip: 'Quit stops this desktop app or cloud tab after saving your chats. Close it when you want the server off; reopening brings the chats back.',
+    },
+    {
+      selectors: ['#modePlan'],
+      tip: 'Plan is read-only: I inspect files and write a route, but cannot change or run anything. Start here when the work is risky.',
+    },
+    {
+      selectors: ['#modeBuild'],
+      tip: 'Build lets me edit files and run commands. Every write or command still needs an Allow card first, so nothing changes silently.',
+    },
+    {
+      selectors: ['#input'],
+      tip: 'The composer is your message. Enter sends and Shift + Enter adds a line. The conversation and my answer appear above it.',
+    },
+    {
+      selectors: ['#suggest'],
+      tip: 'These starters fill the composer with a useful request. Pick one, edit it to fit, then press Send.',
+    },
+    {
+      selectors: ['#imageLabel'],
+      tip: 'Image attaches a PNG, JPEG or WebP picture. I can inspect it with the message; it stays attached to this chat.',
+    },
+    {
+      selectors: ['#attachLabel'],
+      tip: 'Attach reads a text file into this message. For files already in the workspace, use Files in the rail instead.',
+    },
+    {
+      selectors: ['#memoryBtn'],
+      tip: 'Memory edits the note I carry into every turn of this chat: your tone, rules and facts to remember.',
+    },
+    {
+      selectors: ['#sendBtn', '#send'],
+      tip: 'Send posts the message and attachments. Enter in the composer does the same, and the answer streams above.',
+    },
+    {
+      selectors: ['#stopBtn', '#stop'],
+      tip: 'Stop cancels the answer while it is streaming. It is disabled when nothing is running, so it cannot interrupt an idle chat.',
     },
   ];
   const FUNNY_CHANCE = 0.3;
@@ -275,12 +303,13 @@
       opacity: 0;
       transform: var(--chatty-enter, translateY(9px)) scale(.96);
       transform-origin: 50% 100%;
+      /* Travel is a Web Animations glide. Position changes themselves must snap
+         under the visual transform, or a late left/top transition can replay
+         the trip after the cat has already landed. */
       transition:
         opacity .22s ease,
         transform .28s cubic-bezier(.2,.8,.2,1),
-        translate .32s ease,
-        left var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1),
-        top var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1);
+        translate .32s ease;
       pointer-events: none;
     }
     .chatty[hidden] { display: none; }
@@ -293,7 +322,7 @@
     .chatty.is-in.is-touring { opacity: 1; transform: none; }
     .chatty.is-in.is-touring .chatty-pet,
     .chatty.is-in.is-touring .chatty-pet.chatty-pounce {
-      animation: chatty-tour-hop var(--chatty-move-ms, 460ms) cubic-bezier(.2,.8,.2,1);
+      animation: chatty-walk var(--chatty-move-ms, 900ms) ease-in-out;
     }
     .chatty-spot {
       position: fixed;
@@ -305,10 +334,12 @@
       opacity: 0;
       transition:
         opacity .18s ease,
-        left .42s cubic-bezier(.2,.8,.2,1),
-        top .42s cubic-bezier(.2,.8,.2,1),
-        width .42s cubic-bezier(.2,.8,.2,1),
-        height .42s cubic-bezier(.2,.8,.2,1);
+        /* Match the cat's glide easing exactly; a faster-out ring reads as a
+           second teleport even when both tweens share a duration. */
+        left var(--chatty-spot-ms, 420ms) cubic-bezier(.4,0,.2,1),
+        top var(--chatty-spot-ms, 420ms) cubic-bezier(.4,0,.2,1),
+        width var(--chatty-spot-ms, 420ms) cubic-bezier(.4,0,.2,1),
+        height var(--chatty-spot-ms, 420ms) cubic-bezier(.4,0,.2,1);
     }
     .chatty-spot.is-on { opacity: .95; }
     .chatty-spot[hidden] { display: none; }
@@ -603,13 +634,11 @@
       76% { transform: translateY(3px) scale(1.04, .96) rotate(1deg); }
       100% { transform: translateY(0) scale(1) rotate(0); }
     }
-    @keyframes chatty-tour-hop {
-      0% { transform: translateY(0) scale(1); }
-      18% { transform: translateY(-14px) scale(.98, 1.03); }
-      38% { transform: translateY(1px) scale(1.04, .96); }
-      58% { transform: translateY(-8px) scale(.99, 1.01); }
-      78% { transform: translateY(1px) scale(1.02, .98); }
-      100% { transform: translateY(0) scale(1); }
+    @keyframes chatty-walk {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      22% { transform: translateY(-1px) rotate(-2.4deg); }
+      48% { transform: translateY(1px) rotate(1.8deg); }
+      74% { transform: translateY(-1px) rotate(-1.1deg); }
     }
     @keyframes chatty-tip-in {
       from { opacity: 0; transform: translateY(4px) scale(.97); }
@@ -1186,9 +1215,17 @@
       rootNode.style.transition = '';
       return 0;
     }
-    const duration = Math.round(Math.min(820, 340 + distance * 0.32));
+    // Long, readable travel: a control-board sweep has to look like walking,
+    // not a cut. The cap still keeps a full-width trip under 1.2s.
+    const duration = Math.round(Math.min(1200, 620 + distance * 0.55));
     const lift = Math.min(34, 10 + distance * 0.04);
     const sway = Math.min(18, 5 + distance * 0.025);
+    // The spotlight starts its move at the same time and lasts exactly as long
+    // as the cat, so the ring cannot arrive early and make the destination look
+    // like a second, separate teleport.
+    if (spotNode && !spotNode.hidden) {
+      spotNode.style.setProperty('--chatty-spot-ms', `${duration}ms`);
+    }
     const animation = rootNode.animate(
       [
         { transform: `translate(${dx}px, ${dy}px)` },
@@ -1227,12 +1264,13 @@
     return glideBy(() => placeNear(target));
   }
 
-  function showSpotlight(target) {
+  function showSpotlight(target, moveMs = 420) {
     if (!spotNode || !visibleTarget(target)) {
       hideSpotlight();
       return;
     }
     const rect = target.getBoundingClientRect();
+    spotNode.style.setProperty('--chatty-spot-ms', `${Math.max(0, moveMs)}ms`);
     tourTarget = target;
     spotNode.style.left = `${Math.max(4, Math.round(rect.left - 4))}px`;
     spotNode.style.top = `${Math.max(4, Math.round(rect.top - 4))}px`;
@@ -1637,9 +1675,9 @@
     tourStep = found.index;
     tourBusy = true;
     // Keep the ring on screen between stops so it glides to the next target
-    // instead of reappearing there, then let the cat follow it.
+    // instead of reappearing there, then let the cat follow it in the same
+    // window. The ring's own tween is set below from the cat's real duration.
     hideTip(true);
-    showSpotlight(found.target);
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
@@ -1659,13 +1697,17 @@
         `Tour ${found.index + 1}/${TOUR_STOPS.length}`,
         true,
       );
-      placeNear(found.target);
-      showSpotlight(found.target);
+      // Do not re-place the cat after the bubble becomes visible. The travel
+      // placement deliberately reserves a bubble; re-measuring here made the
+      // cat correct itself after landing, which read as a second teleport.
+      showSpotlight(found.target, 0);
       pouncePet();
       tourBusy = false;
       armHide(180000);
     };
     if (REDUCE_MOTION) {
+      // No glide runs in reduced motion, so apply the destination directly.
+      placeNear(found.target);
       arrive();
       return;
     }
@@ -1677,7 +1719,8 @@
       clearTimeout(pounceTimer);
     }
     const moveMs = glideTo(found.target);
-    rootNode.style.setProperty('--chatty-move-ms', `${moveMs || 460}ms`);
+    rootNode.style.setProperty('--chatty-move-ms', `${moveMs || 520}ms`);
+    showSpotlight(found.target, moveMs || 520);
     rootNode.classList.add('is-touring');
     moveTimer = setTimeout(arrive, moveMs ? moveMs + 20 : 470);
   }
@@ -1911,14 +1954,11 @@
     if (isEditable(document.activeElement) && hasUserActed) {
       hideTip();
     } else if (!tourDone) {
-      if (readFlag(SEEN_KEY, '') !== '1') {
-        writeFlag(SEEN_KEY, '1');
-        showTip(WELCOME, 24000, WELCOME_ACTIONS);
-        armHide(36000);
-      } else {
-        showTip(TOUR_INVITE, 20000, WELCOME_ACTIONS);
-        armHide(28000);
-      }
+      // The control board comes before tips, lessons, or the welcome card:
+      // a first-time visitor gets the whole map in one guided pass.
+      writeFlag(SEEN_KEY, '1');
+      startTour();
+      return;
     } else if (Math.random() < 0.72) {
       if (!showPromptCoach()) showTip(pickMessage(), 13000, TUTOR_ACTIONS);
     }
@@ -1965,6 +2005,10 @@
     if (!rootNode) return;
     if (rootNode.contains(document.activeElement)) document.activeElement.blur();
     if (tourStep >= 0 || tourBusy) {
+      // Closing the first-run sweep counts as deciding not to take it now;
+      // otherwise it would restart on every idle appearance.
+      writeFlag(TOUR_KEY, '1');
+      writeFlag(SEEN_KEY, '1');
       tourStep = -1;
       tourBusy = false;
     }
@@ -1995,7 +2039,10 @@
     appearTimer = setTimeout(() => {
       if (!enabled) return;
       const idleFor = Date.now() - lastActivity;
-      if (!force && idleFor < IDLE_MIN_MS) {
+      // A first-time visitor gets the control-board tour on the first launch
+      // window, not after the returning-user idle threshold. show() itself
+      // still backs off if the composer has focus or a panel is open.
+      if (!force && idleFor < IDLE_MIN_MS && readFlag(TOUR_KEY, '') === '1') {
         schedule(IDLE_MIN_MS - idleFor + 350);
         return;
       }

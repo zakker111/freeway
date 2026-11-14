@@ -241,7 +241,7 @@ Everything needed to start is in place. Run it without --doctor.
 | 10 | Settings → allow commands, allowlist `node`, then ask it to run `node -v` | Allow card, then output streamed into the answer |
 | 11 | Open the **Status** tab after a few messages | Attempts, latencies and any cooling-down model are listed |
 | 12 | Header → quit | The page says the app stopped and the console window ends |
-| 13 | Find Chatty at the edge of the page; choose **Tutor me** for Cat school or **Show me around** for the tour | A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. The spotlight tour points out Chats, New, the model picker, key/quota, the composer and attachments, Plan/Build, Preview, the rail and Settings; **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off; choosing **Settings** in her bubble opens that panel with her notes and **Show me** tips. |
+| 13 | On a clean first visit, Chatty starts the control-board tour automatically; choose **Tutor me** for Cat school or **Show me around** to repeat the tour | The first-run tour walks all eighteen controls in reading order — Chats, New, provider, model, quota/key, Settings, Preview, rail, Quit, Plan, Build, composer, starter prompts, image, attach, memory, Send and Stop — and explains each one while the cat glides between them. A three-step Cat school lesson advances with **Next paw**, finishes with **Another lesson** or **Done**, and **Stop** returns to normal Chatty. **Next stop** advances and **End tour** opts out. A soft single note after a finished answer means the composer is ready. Settings can switch Chatty off; choosing **Settings** in her bubble opens that panel with her notes and **Show me** tips. |
 
 ### If something goes wrong
 
@@ -586,7 +586,7 @@ not part of the system prompt: with it off, the model cannot tell these tools ex
 | `test/cli.mjs` | tests the flags and the single-file build |
 | `test/ui-preview.mjs` | real Chromium check for preview cards and frame visibility |
 | `test/ui-cooldown.mjs` | real Chromium check for cooldown countdowns and one-resend behavior on both editions |
-| `test/ui-chatty.mjs` | real Chromium check for Chatty's Cat school, tour, Settings switch and reduced motion |
+| `test/ui-chatty.mjs` | real Chromium check for Chatty's first-run control-board tour, Cat school, Settings switch and reduced motion |
 
 ## Commands
 
@@ -597,7 +597,7 @@ npm test             # unit tests for selection and tools
 npm run simulate     # mock upstream + real app: retries, tools, errors
 npm run test:cli     # flags, flag precedence, the single-file build
 npm run test:ui      # real browser check; set CHROME_BIN
-npm run test:chatty  # Chatty tutor, tour, switch and reduced motion; set CHROME_BIN
+npm run test:chatty  # Chatty first-run tour, tutor, switch and reduced motion; set CHROME_BIN
 node cloud/build.mjs && node cloud/test.mjs  # cloud Worker suite
 npm run build:single # regenerate freeway.mjs
 ```
