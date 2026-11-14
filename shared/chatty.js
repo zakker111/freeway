@@ -299,12 +299,13 @@
       position: fixed;
       z-index: 2147482999;
       pointer-events: none;
-      border: 1.5px dashed var(--accent, #f0f0f0);
-      border-radius: 10px;
+      border: 2px solid var(--accent, #f0f0f0);
+      border-radius: 12px;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .10), 0 0 22px rgba(255, 255, 255, .22);
       opacity: 0;
       transition: opacity .18s ease;
     }
-    .chatty-spot.is-on { opacity: .68; }
+    .chatty-spot.is-on { opacity: .95; }
     .chatty-spot[hidden] { display: none; }
     .chatty[data-pos="br"], .chatty[data-pos="rm"] { --chatty-enter: translate(14px, 8px); --chatty-shy-x: 18px; }
     .chatty[data-pos="bl"], .chatty[data-pos="lm"] { --chatty-enter: translate(-14px, 8px); --chatty-shy-x: -18px; }
@@ -1131,7 +1132,12 @@
     const above = rect.top - height - gap;
     const belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
     const aboveFits = above - bubbleHeight - bubbleGap >= 8;
-    const y = belowFits ? below : aboveFits ? above : Math.max(8, above);
+    let y = belowFits ? below : aboveFits ? above : Math.max(8, above);
+    // A target in the header would otherwise park the cat on the pickers row
+    // right beneath it, hiding the very control she is describing.
+    const header = document.querySelector('header');
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    if (rect.top < headerBottom - 1 && y < headerBottom + gap) y = headerBottom + gap;
     const x = Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;

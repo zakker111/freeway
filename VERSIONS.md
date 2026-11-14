@@ -5,7 +5,8 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
-| 2.35.16 | 2026-11-14 | dark provider dropdown and a clearer Chatty tour spotlight |
+| 2.35.17 | 2026-11-14 | the Chatty tour spotlight change ships from its shared source |
+| 2.35.16 | 2026-11-14 | dark provider dropdown in the desktop and cloud pages |
 | 2.35.15 | 2026-11-14 | verify-release.sh skips awaiting its own run, fixing the 2.35.14 verification hang |
 | 2.35.14 | 2026-11-14 | verify-release.sh awaits the remote verification run through the shared watcher |
 | 2.35.13 | 2026-11-13 | --wait-tag follows the build to completion and fails on a red run |
@@ -203,6 +204,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.17 — 2026-11-14
+
+- **Chatty changed at her source.** Her tour spotlight and placement live in
+  `shared/chatty.js`, which `build/sync-preview.mjs` re-injects into both pages on
+  every release, so the page-level edit in 2.35.16 was overwritten by its own
+  build. The change now sits in the shared file: the spotlight is a solid ring
+  with a glow at near-full opacity, and a header target no longer parks her on the
+  pickers row beneath it, hiding the control she describes.
+- **The cloud chooser is solid too.** Its chip rule had the same gradient-only
+  background, which left the native option list to the platform white; it now
+  sets the colour as well.
+
 ## 2.35.16 — 2026-11-14
 
 - **The provider chooser's list is dark.** The shared chip rule replaced the
@@ -210,10 +223,6 @@ change. The running app reports its version in the header badge and at `GET /api
   transparent and the native option list fell back to the platform white. The
   rule now sets both, and the options carry the dark surfaces on the desktop and
   cloud pages.
-- **Chatty points clearly.** The tour spotlight is a solid ring with a glow at
-  near-full opacity instead of a faint dashed box, and a header target no longer
-  parks her on the pickers row directly beneath it, where she hid the control she
-  was describing.
 
 ## 2.35.15 — 2026-11-14
 
