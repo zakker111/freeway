@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.15 | 2026-11-14 | verify-release.sh skips awaiting its own run, fixing the 2.35.14 verification hang |
 | 2.35.14 | 2026-11-14 | verify-release.sh awaits the remote verification run through the shared watcher |
 | 2.35.13 | 2026-11-13 | --wait-tag follows the build to completion and fails on a red run |
 | 2.35.12 | 2026-11-13 | release.sh --wait-tag fails loudly when a tag push creates no build run |
@@ -200,6 +201,15 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.15 — 2026-11-14
+
+- **The verifier no longer awaits itself.** 2.35.14 made `verify-release.sh`
+  await its own tag's "Verify release" run — which is the very run that calls the
+  script — so v2.35.14's verification sat in that step until the job timeout and
+  went red. The wait is now skipped when the script runs inside that workflow, and
+  the workflow passes the new `--no-wait` flag explicitly. Every other invocation
+  still awaits the run exactly as before.
 
 ## 2.35.14 — 2026-11-14
 

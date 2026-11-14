@@ -131,7 +131,9 @@ or checksum mismatch. It uses the authenticated `gh` CLI, so no token is stored 
 script. After the checksums it awaits that tag's remote `Verify release` run through
 `scripts/watch-run.sh` — the same watcher `./release.sh --wait-tag` uses — and fails if
 that run is red. A tag with no verification run is reported as a note, not an error, so
-older releases still verify. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
+older releases still verify. Because that workflow itself runs the script, it passes
+`--no-wait` (and the script also skips the wait when it detects it is inside that
+run), so the verifier never awaits itself. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
 fork. `sha256sum` is used where available, with `shasum -a 256` as the macOS fallback.
 
 ### Re-running a failed verification

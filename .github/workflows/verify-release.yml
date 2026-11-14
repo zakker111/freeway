@@ -82,4 +82,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-        run: ./verify-release.sh "${TAG#v}" --repo "$REPO"
+        run: ./verify-release.sh "${TAG#v}" --repo "$REPO" --no-wait

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download a published release's assets and verify them against its SHA256SUMS.
 #
-# Usage: ./verify-release.sh <version> [--repo owner/name] [--keep]
+# Usage: ./verify-release.sh <version> [--repo owner/name] [--keep] [--no-wait]
 #
 # The repository is private, so this uses the authenticated gh CLI. No token is
 # read, printed, or written by this script.
@@ -11,18 +11,21 @@ DEFAULT_REPO="zakker111/freeway"
 
 usage() {
   cat <<'EOF'
-Usage: ./verify-release.sh <version> [--repo owner/name] [--keep]
+Usage: ./verify-release.sh <version> [--repo owner/name] [--keep] [--no-wait]
 
 Downloads every asset on the v<version> GitHub release into a temporary
 directory, runs sha256sum -c SHA256SUMS, then awaits that tag's remote
 "Verify release" run the same way ./release.sh --wait-tag awaits its build.
 Exits non-zero if the download, the manifest, a checksum or that run fails.
 A tag with no verification run -- one that never published, or that predates the
-workflow -- is reported as a note rather than an error.
+workflow -- is reported as a note rather than an error. Inside the "Verify
+release" workflow itself the wait is skipped, because that run is the one that
+would be awaited.
 
   <version>          release version, with or without the leading v (2.23.0)
   --repo owner/name  GitHub repository (default: zakker111/freeway)
   --keep             keep the downloaded files and print their directory
+  --no-wait          skip awaiting the remote "Verify release" run
   -h, --help         show this help
 
 Requires gh (authenticated for private repositories) and sha256sum, or shasum
@@ -34,6 +37,7 @@ EOF
 VERSION=""
 REPO="${GH_REPO:-$DEFAULT_REPO}"
 KEEP=0
+NO_WAIT=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -51,6 +55,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --keep)
       KEEP=1
+      shift
+      ;;
+    --no-wait)
+      NO_WAIT=1
       shift
       ;;
     -*)
@@ -149,7 +157,12 @@ printf '== verifying published checksums ==\n'
 # with no such run (never published, or before the workflow) is a note, not a
 # failure, so this check never turns a valid older release red.
 WATCH="$(cd "$(dirname "$0")" && pwd)/scripts/watch-run.sh"
-if [ -x "$WATCH" ]; then
+if [ "$NO_WAIT" -eq 1 ]; then
+  printf '\n== skipping the remote verification run (--no-wait) ==\n'
+elif [ "${GITHUB_ACTIONS:-}" = "true" ] && [ "${GITHUB_WORKFLOW:-}" = "Verify release" ]; then
+  # This script runs inside that workflow; awaiting the run would await itself.
+  printf '\n== skipping the remote run: this is that run ==\n'
+elif [ -x "$WATCH" ]; then
   printf '\n== awaiting the remote verification run ==\n'
   GITHUB_REPO="$REPO" bash "$WATCH" "Verify release" "$TAG" --optional
 fi
