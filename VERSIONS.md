@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.21 | 2026-11-14 | the release watcher keeps GH_TOKEN out of curl’s command line |
 | 2.35.20 | 2026-11-14 | --wait-tag finds a run that already started and stops when the API cannot be read |
 | 2.35.19 | 2026-11-14 | Chatty glides between tour stops on the compositor, ring first, cat following |
 | 2.35.18 | 2026-11-14 | dark option lists for every select, including the model filter and screenshot size |
@@ -207,6 +208,17 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.21 — 2026-11-14
+
+- **The release token is no longer readable from `ps`.** `scripts/watch-run.sh`
+  passed `GH_TOKEN` to curl as `-H "authorization: Bearer …"`, so the secret sat
+  in the command line of every poll — visible to any process owned by the same
+  user for the life of the request. The header now goes through curl’s config on
+  stdin (`-K -`), which keeps it out of argv without writing it to disk.
+
+  Checked with a 30 s poll for an absent ref: 263 sampled `curl` invocations,
+  none carrying the token, and the token appeared in no output. The watcher still
+  finds an existing run and follows it to success.
 ## 2.35.20 — 2026-11-14
 
 - **A started build can no longer be reported missing.** The watcher asked the

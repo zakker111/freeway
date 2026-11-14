@@ -60,9 +60,10 @@ fi
 
 api() {
   if [ -n "${GH_TOKEN:-}" ]; then
-    curl -fsS -H "authorization: Bearer $GH_TOKEN" \
-      -H 'accept: application/vnd.github+json' \
-      "https://api.github.com/$1"
+    # The token travels in curl's config on stdin, never in its argv: a command
+    # line is readable from ps by every process this user runs.
+    printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/vnd.github+json"\n' "$GH_TOKEN" \
+      | curl -fsS -K - "https://api.github.com/$1"
   else
     gh api "$1"
   fi

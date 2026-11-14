@@ -105,7 +105,9 @@ GH_TOKEN=... ./release.sh --wait-tag 2.35.11
 ```
 
 The polling lives in `scripts/watch-run.sh`, shared with `./verify-release.sh`, so a
-tag's build and its verification run are awaited with the same rules and messages.
+tag's build and its verification run are awaited with the same rules and messages. The
+token is passed to `curl` through its config on stdin, so it never shows up in a process
+listing (`ps`) while the watcher runs.
 
 It polls the Actions API for the tag's own "Release assets" run for up to
 `WAIT_TAG_SECONDS` (180 by default), then follows that run until it finishes and fails on
