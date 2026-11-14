@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.14 | 2026-11-14 | verify-release.sh awaits the remote verification run through the shared watcher |
 | 2.35.13 | 2026-11-13 | --wait-tag follows the build to completion and fails on a red run |
 | 2.35.12 | 2026-11-13 | release.sh --wait-tag fails loudly when a tag push creates no build run |
 | 2.35.11 | 2026-11-13 | Re-cut 2.35.10 after its tag push created no Release assets run |
@@ -199,6 +200,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.14 — 2026-11-14
+
+- **One watcher for both runs.** The run polling moved out of `release.sh` into
+  `scripts/watch-run.sh` (`<run-name> <ref> [--optional]`), which `--wait-tag`
+  calls for "Release assets" and `verify-release.sh` calls for "Verify
+  release". Both therefore wait for appearance, follow the run to completion and
+  fail on a red one with the same messages.
+- **verify-release.sh no longer stops at the checksums.** After `sha256sum -c`
+  it prints the remote run URL, its status changes and its result. A tag with no
+  verification run — never published, or predating the workflow — is a note, not
+  a failure, so older releases keep verifying.
 
 ## 2.35.13 — 2026-11-13
 

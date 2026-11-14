@@ -14,8 +14,11 @@ usage() {
 Usage: ./verify-release.sh <version> [--repo owner/name] [--keep]
 
 Downloads every asset on the v<version> GitHub release into a temporary
-directory, then runs sha256sum -c SHA256SUMS. Exits non-zero if the download,
-the manifest, or any listed checksum fails.
+directory, runs sha256sum -c SHA256SUMS, then awaits that tag's remote
+"Verify release" run the same way ./release.sh --wait-tag awaits its build.
+Exits non-zero if the download, the manifest, a checksum or that run fails.
+A tag with no verification run -- one that never published, or that predates the
+workflow -- is reported as a note rather than an error.
 
   <version>          release version, with or without the leading v (2.23.0)
   --repo owner/name  GitHub repository (default: zakker111/freeway)
@@ -141,5 +144,14 @@ printf '== verifying published checksums ==\n'
     shasum -a 256 -c SHA256SUMS
   fi
 )
+
+# The publish job dispatches Verify release for every tag from 2.35.3 on. A tag
+# with no such run (never published, or before the workflow) is a note, not a
+# failure, so this check never turns a valid older release red.
+WATCH="$(cd "$(dirname "$0")" && pwd)/scripts/watch-run.sh"
+if [ -x "$WATCH" ]; then
+  printf '\n== awaiting the remote verification run ==\n'
+  GITHUB_REPO="$REPO" bash "$WATCH" "Verify release" "$TAG" --optional
+fi
 
 printf '== published assets verified: %s ==\n' "$TAG"

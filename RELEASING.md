@@ -104,6 +104,9 @@ trusting the push:
 GH_TOKEN=... ./release.sh --wait-tag 2.35.11
 ```
 
+The polling lives in `scripts/watch-run.sh`, shared with `./verify-release.sh`, so a
+tag's build and its verification run are awaited with the same rules and messages.
+
 It polls the Actions API for the tag's own "Release assets" run for up to
 `WAIT_TAG_SECONDS` (180 by default), then follows that run until it finishes and fails on
 anything but success — so a silent tag or a red build is caught before the release is
@@ -125,7 +128,10 @@ The script downloads every asset from `v2.24.0` into a temporary directory, chec
 both `Freeway-2.24.0.zip` and `Freeway-2.24.0-windows.zip` are present and listed in
 `SHA256SUMS`, runs `sha256sum -c`, and exits non-zero on a missing asset, download failure
 or checksum mismatch. It uses the authenticated `gh` CLI, so no token is stored in the
-script. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
+script. After the checksums it awaits that tag's remote `Verify release` run through
+`scripts/watch-run.sh` — the same watcher `./release.sh --wait-tag` uses — and fails if
+that run is red. A tag with no verification run is reported as a note, not an error, so
+older releases still verify. `--keep` preserves the downloads for inspection; `--repo owner/name` points at a
 fork. `sha256sum` is used where available, with `shasum -a 256` as the macOS fallback.
 
 ### Re-running a failed verification
