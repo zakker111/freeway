@@ -7191,6 +7191,8 @@
   let audioContext = null;
   let lastReadyChime = 0;
   let lastActivity = Date.now();
+  // Real input, not the app focusing the composer while it boots.
+  let hasUserActed = false;
   let spotNode = null;
   let tourCursor = 0;
   let tourTarget = null;
@@ -8207,7 +8209,7 @@
     armHide(26000);
     if (!playTimer && !ballPlaying) scheduleBall(10000 + Math.random() * 8000);
     const tourDone = readFlag(TOUR_KEY, '') === '1';
-    if (isEditable(document.activeElement)) {
+    if (isEditable(document.activeElement) && hasUserActed) {
       hideTip();
     } else if (!tourDone) {
       if (readFlag(SEEN_KEY, '') !== '1') {
@@ -8502,6 +8504,15 @@
     }
     document.addEventListener('scroll', noteActivity, { passive: true, capture: true });
     document.addEventListener('focusin', noteActivity);
+    // The desktop focuses the composer on boot. That autofocus is not the user
+    // typing, so Chatty's one-time welcome must still be allowed over it.
+    for (const eventName of ['pointerdown', 'keydown', 'touchstart']) {
+      document.addEventListener(eventName, () => { hasUserActed = true; }, {
+        once: true,
+        capture: true,
+        passive: true,
+      });
+    }
 
     document.addEventListener(
       'pointermove',

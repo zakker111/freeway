@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.25 | 2026-11-14 | Chatty's first greeting survives the desktop app's boot autofocus |
 | 2.35.24 | 2026-11-14 | a script refreshes Requesty's free-model allowlist from its public catalog |
 | 2.35.23 | 2026-11-14 | Requesty joins the picker: 200 free requests a day, eight verified $0 ids |
 | 2.35.22 | 2026-11-14 | a repo check fails when a script passes a secret as a command argument |
@@ -211,6 +212,19 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.25 — 2026-11-14
+
+- **Chatty's first greeting now survives the desktop's autofocus.** The
+  desktop focuses the composer while it boots, and Chatty treats a focused
+  editor as "the user is typing" and drops her bubble, so a fresh desktop
+  profile only ever saw a silent cat while the cloud edition showed the
+  welcome. Chatty now ignores that boot-only focus for the one-time welcome;
+  the first real pointer, key or touch event restores the old rule, so tips
+  still never cover someone typing.
+- **Checked in the browser.** With storage cleared and no interaction, the
+  desktop showed the welcome bubble at about 15 seconds and recorded `seen`;
+  focusing the composer then hid the tip as before. 372 unit tests pass; the
+  Chatty UI suite skipped because CHROME_BIN is not set in this environment.
 ## 2.35.24 — 2026-11-14
 
 - **Requesty's free allowlist can be refreshed without hand-editing.**
