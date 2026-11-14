@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.24 | 2026-11-14 | a script refreshes Requesty's free-model allowlist from its public catalog |
 | 2.35.23 | 2026-11-14 | Requesty joins the picker: 200 free requests a day, eight verified $0 ids |
 | 2.35.22 | 2026-11-14 | a repo check fails when a script passes a secret as a command argument |
 | 2.35.21 | 2026-11-14 | the release watcher keeps GH_TOKEN out of curl’s command line |
@@ -210,6 +211,18 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.24 — 2026-11-14
+
+- **Requesty's free allowlist can be refreshed without hand-editing.**
+  `npm run refresh:requesty` reads Requesty's public `/v1/models`, keeps only
+  `chat` entries priced `$0` in and out, and rebuilds the anchored allowlist
+  in `lib/providers.mjs` and `cloud/worker.mjs` from the same list. It prints
+  the ids it kept and drops fallback models that have started billing.
+- **A bad catalog cannot empty the provider or add a billed id.** The script
+  exits without writing when the request fails, the response has no models, or
+  no chat model is free. It writes only the exact ids it saw, and a second run
+  is a no-op. The notes and the README no longer hard-code how many ids are
+  free, so a rotation leaves no stale number behind.
 ## 2.35.23 — 2026-11-14
 
 - **Requesty is a provider in both editions.** Its free plan allows 200 requests

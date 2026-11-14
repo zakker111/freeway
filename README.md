@@ -644,7 +644,7 @@ models this app will send.
 | Provider | Create the key at | Looks like | What stays free |
 |---|---|---|---|
 | **OpenRouter** | <https://openrouter.ai/settings/keys> → **Create key** | `sk-or-v1-…` | every model priced `$0` in the live catalog; paid ids are refused server-side |
-| **Requesty** | <https://app.requesty.ai/api-keys> → **Create key** | `sk-…` | 200 requests/day on free models; only the eight ids verified at `$0` are sent |
+| **Requesty** | <https://app.requesty.ai/api-keys> → **Create key** | `sk-…` | 200 requests/day on free models; only ids verified at `$0` are sent |
 | **Groq** | <https://console.groq.com/keys> → **Create API key** | `gsk_…` | about 30 requests/min and 1,000/day; `gpt-oss`, `qwen`, `llama`, `moonshotai` only |
 | **Gemini (AI Studio)** | <https://aistudio.google.com/apikey> → **Create API key** | `AIza…` | free tier; `flash` and `gemma` only, `pro` and media models are blocked |
 | **Mistral AI** | <https://console.mistral.ai/api-keys> → **Create new key** | opaque | free "Experiment" plan, rate-limited per key; small and ministral models only |
@@ -654,6 +654,10 @@ models this app will send.
 | **Z.AI** | <https://z.ai/model-api> → API key | opaque | `glm-4.7-flash` only; paid GLM models are refused |
 | **Cloudflare Workers AI** | <https://dash.cloudflare.com/profile/api-tokens> → Create token; Account ID from the dashboard | opaque + 32-character Account ID | 10,000 Neurons/day; the listed Workers AI chat models only |
 | **OVHcloud** | none — keyless | — | public demo endpoint: 2 requests/min per model, no sign-up |
+
+Requesty rotates which models are free, so its allowlist is generated from the live
+catalog with `npm run refresh:requesty`. The script rewrites both editions and only ever
+adds ids it saw priced `$0`.
 
 1. Open the link for the provider you want, sign in, and create a key.
 2. Copy it immediately — most consoles show it only once.
