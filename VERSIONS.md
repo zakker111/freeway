@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.27 | 2026-11-14 | Parity audit: one free picker rule, matching Groq fences, cloud Markdown and redaction |
 | 2.35.26 | 2026-11-14 | Chatty audit: a quick dismiss can no longer strand the cat on screen |
 | 2.35.25 | 2026-11-14 | Chatty's first greeting survives the desktop app's boot autofocus |
 | 2.35.24 | 2026-11-14 | a script refreshes Requesty's free-model allowlist from its public catalog |
@@ -212,6 +213,33 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.27 — 2026-11-14
+
+- **Free pickers no longer offer models that cannot answer.** OpenRouter lists
+  zero-priced Lyria ids whose output is audio, so the desktop picker and fallback
+  chain could send a chat turn to a model that never replies with text. Both
+  editions now share one chat-capability check; the desktop endpoint and chain
+  apply it too, and a regression test keeps an audio id from outranking a text
+  model even when it has the largest context.
+- **The cloud transcript scrubber masks every key shape the desktop one does.**
+  Reading another saved chat is already opt-in and page-local, but the cloud copy
+  of the scrubber was missing GitLab, npm, PyPI and private-key patterns. A saved
+  chat could therefore hand one of those keys to the model. Both lists now cover
+  the same shapes, and the page test checks every one.
+- **Cloud chat renders the same Markdown as desktop.** Italics, blockquotes,
+  horizontal rules, fourth-level headings and the code-block Copy button were
+  desktop-only; the cloud page rendered them as plain text or without a button.
+  The renderer and its styles are now the same, with a test over both sources.
+- **The Worker's Groq fence matches the desktop one.** The cloud denylist had
+  lost `/vision-preview/i`, so it could offer a model the desktop deliberately
+  refused. Provider allow/deny patterns are now compared source-for-source in
+  the cloud suite, not just by sampling a few ids.
+- **Zero pricing is read consistently.** A catalog that sends numeric 0 is now
+  free in both editions, exactly like the string "0" OpenRouter normally sends.
+
+  The unit, CLI, both simulation and cloud suites pass; the Chatty browser suite
+  still needs CI's Chrome.
 
 ## 2.35.26 — 2026-11-14
 

@@ -50,6 +50,14 @@ const models = [
     supported_parameters: ['max_tokens'],
     architecture: { input_modalities: ['text', 'image'] },
   },
+  {
+    id: 'mock/free-audio',
+    name: 'Mock Free Audio',
+    pricing: { prompt: '0', completion: '0' },
+    context_length: 1000,
+    supported_parameters: ['max_tokens'],
+    architecture: { input_modalities: ['text'], output_modalities: ['text', 'audio'] },
+  },
 ];
 
 let lastChatBody = null;
@@ -283,6 +291,19 @@ async function main() {
       'the cloud desktop link is not a stable release URL',
     );
     assert.equal(JSON.stringify(config).includes(KEY), false, 'the key leaked into /api/config');
+  });
+
+  await check('an audio-only free model is not offered in the chat picker', async () => {
+    const response = await request(envWith(), {
+      path: '/api/models?provider=openrouter',
+      method: 'GET',
+      origin: null,
+      ip: null,
+    });
+    assert.equal(response.status, 200);
+    const offered = (await response.json()).models.map((model) => model.id);
+    assert.ok(offered.includes('mock/free-one'), 'the free picker lost its chat models');
+    assert.equal(offered.includes('mock/free-audio'), false, 'an audio-only free model reached the chat picker');
   });
 
   await check('healthz is a read-only check', async () => {
@@ -650,6 +671,18 @@ async function main() {
       assert.ok(plans.includes(provider.freePlan), `${provider.id} has no free plan`);
       const twin = DESKTOP_PROVIDERS.find((each) => each.id === provider.id);
       assert.equal(provider.freePlan, twin.freePlan, `${provider.id} disagrees on its free plan`);
+      // The patterns are the free-only fence. Source strings, not samples: a
+      // missing vision-preview deny is exactly how the editions drifted before.
+      assert.deepEqual(
+        (provider.allow ?? []).map(String),
+        (twin.allow ?? []).map(String),
+        `${provider.id} allowlist drifted from the desktop table`,
+      );
+      assert.deepEqual(
+        (provider.deny ?? []).map(String),
+        (twin.deny ?? []).map(String),
+        `${provider.id} denylist drifted from the desktop table`,
+      );
     }
     // The wording lives on the public list, not the raw table: check what a
     // visitor actually receives against the desktop label for the same plan.

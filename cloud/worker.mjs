@@ -24,11 +24,11 @@
 // request. Either way it is never stored, logged or echoed back.
 
 import { compactMessages } from '../lib/memory.mjs';
-import { cleanImages, recentImages, toUpstreamMessage } from '../lib/models.mjs';
+import { cleanImages, isChatModel, isFreeModel, recentImages, toUpstreamMessage } from '../lib/models.mjs';
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.35.26-cloud';
+const VERSION = '2.35.27-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -107,22 +107,15 @@ function msUntilUtcMidnight() {
 
 /** OpenRouter writes prices as strings of dollars per token; free means "0". */
 function isFree(model) {
-  const pricing = model?.pricing ?? {};
-  return String(pricing.prompt) === '0' && String(pricing.completion) === '0';
+  return isFreeModel(model);
 }
 
 /**
- * Free *and* able to hold a conversation. Lyria and friends cost nothing per
- * text token because they bill for audio, so a price check alone would offer a
- * model that can never reply in this page. Require text output and no audio.
+ * Free *and* able to hold a conversation. The chat-output rule lives in the
+ * shared model helpers, so the desktop picker and this page answer alike.
  */
 function isFreeChatModel(model) {
-  if (!isFree(model)) return false;
-  const arch = model?.architecture ?? {};
-  const outputs = Array.isArray(arch.output_modalities) ? arch.output_modalities : [];
-  if (outputs.length) return outputs.includes('text') && !outputs.includes('audio');
-  const modality = String(arch.modality ?? '');
-  return modality ? modality.endsWith('->text') : true;
+  return isFree(model) && isChatModel(model);
 }
 
 function isExpired(model, now = Date.now()) {
@@ -278,7 +271,7 @@ export const PROVIDERS = {
     freePlan: 'daily-quota',
     limits: { perMinute: 30, perDay: 1000 },
     allow: [/^openai\/gpt-oss-/i, /^qwen\//i, /^llama-3\.[13]/i, /^moonshotai\//i],
-    deny: [/whisper/i, /tts/i, /guard/i, /embed/i],
+    deny: [/whisper/i, /tts/i, /guard/i, /embed/i, /vision-preview/i],
     note: 'Free plan: about 30 requests/min, 1,000/day, no card. Groq (gsk_) is not xAI’s Grok.',
   },
   gemini: {

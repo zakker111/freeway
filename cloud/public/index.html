@@ -1407,14 +1407,16 @@
          headings, inline code and fenced blocks instead of one plain blob. */
       .bubble p { margin: 0 0 10px; }
       .bubble p:last-child { margin-bottom: 0; }
-      .bubble h1, .bubble h2, .bubble h3 { margin: 12px 0 6px; line-height: 1.3; color: var(--text); }
-      .bubble h1 { font-size: 1.2em; }
-      .bubble h2 { font-size: 1.12em; }
-      .bubble h3 { font-size: 1.04em; }
+      .bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 14px 0 6px; line-height: 1.3; color: var(--text); }
+      .bubble h1 { font-size: 1.25em; }
+      .bubble h2 { font-size: 1.15em; }
+      .bubble h3, .bubble h4 { font-size: 1.05em; }
       .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 22px; }
       .bubble li { margin: 4px 0; }
       .bubble blockquote { margin: 8px 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--accent-line); color: var(--muted); }
+      .bubble hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
       .bubble a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--accent-line); }
+      .bubble a:hover { text-decoration-color: var(--accent); }
       .bubble strong { color: var(--text); }
       .bubble code {
         font-family: var(--mono); font-size: 12.5px;
@@ -1424,10 +1426,10 @@
       .msg.user .bubble strong { color: var(--text); }
       .code { margin: 8px 0 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
       .code-bar {
-        padding: 4px 10px; border-bottom: 1px solid var(--line); background: var(--surface-3);
-        font-size: 10.5px; color: var(--dim);
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 5px 10px; border-bottom: 1px solid var(--line);
+        font-size: 11px; color: var(--dim); background: var(--surface-3);
         font-family: var(--mono);
-        display: flex; justify-content: space-between; gap: 8px;
       }
       .code pre { margin: 0; padding: 11px 12px; overflow-x: auto; line-height: 1.55; }
       .code code { background: transparent; border: 0; padding: 0; }
@@ -2707,45 +2709,57 @@
           .replaceAll('"', '&quot;');
       }
 
-      // Everything is escaped before a tag is added, so model output cannot
-      // inject markup. Mirrors the desktop renderer, minus the copy button.
       function inline(text) {
-        return String(text)
-          .split('`')
-          .map((part, index) =>
-            index % 2 === 1
-              ? `<code>${part}</code>`
-              : part
-                  .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-                  .replace(
-                    /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
-                    '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>',
-                  ),
-          )
-          .join('');
+        const parts = text.split("`");
+        return parts
+          .map((part, index) => {
+            if (index % 2 === 1) return `<code>${part}</code>`;
+            return part
+              .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+              .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>")
+              .replace(
+                /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+                '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>',
+              );
+          })
+          .join("");
       }
 
+      function codeBlock(lang, code) {
+        const shown = escapeHtml(code);
+        const payload = encodeURIComponent(code);
+        return (
+          '<div class="code"><div class="code-bar">' +
+          `<span>${escapeHtml(lang || "text")}</span>` +
+          `<button class="mini" data-copy="${payload}">Copy</button>` +
+          `</div><pre><code>${shown}</code></pre></div>`
+        );
+      }
+
+      // A small, safe markdown renderer: everything is escaped before any tags
+      // are added, so model output can never inject markup.
       function renderMarkdown(source) {
-        const lines = String(source ?? '').split('\n');
+        const lines = String(source ?? "").split("\n");
         const out = [];
         let paragraph = [];
         let list = null;
-        let listType = 'ul';
+        let listType = "ul";
+        let index = 0;
 
         const flushParagraph = () => {
           if (paragraph.length) {
-            out.push(`<p>${paragraph.map(inline).join('<br />')}</p>`);
+            out.push(`<p>${paragraph.map(inline).join("<br />")}</p>`);
             paragraph = [];
           }
         };
         const flushList = () => {
           if (list) {
-            out.push(`<${listType}>${list.map((item) => `<li>${inline(item)}</li>`).join('')}</${listType}>`);
+            out.push(`<${listType}>${list.map((item) => `<li>${inline(item)}</li>`).join("")}</${listType}>`);
             list = null;
           }
         };
 
-        for (let index = 0; index < lines.length; index += 1) {
+        while (index < lines.length) {
           const raw = lines[index];
 
           if (/^```/.test(raw.trim())) {
@@ -2758,10 +2772,8 @@
               code.push(lines[index]);
               index += 1;
             }
-            out.push(
-              `<div class="code"><div class="code-bar">${escapeHtml(lang || 'text')}</div>` +
-                `<pre><code>${escapeHtml(code.join('\n'))}</code></pre></div>`,
-            );
+            index += 1;
+            out.push(codeBlock(lang, code.join("\n")));
             continue;
           }
 
@@ -2769,8 +2781,29 @@
           if (heading) {
             flushParagraph();
             flushList();
-            const level = Math.min(heading[1].length, 3);
+            const level = Math.min(heading[1].length, 4);
             out.push(`<h${level}>${inline(escapeHtml(heading[2]))}</h${level}>`);
+            index += 1;
+            continue;
+          }
+
+          if (/^(-{3,}|\*{3,}|_{3,})$/.test(raw.trim())) {
+            flushParagraph();
+            flushList();
+            out.push("<hr />");
+            index += 1;
+            continue;
+          }
+
+          if (/^>\s?/.test(raw)) {
+            flushParagraph();
+            flushList();
+            const quote = [];
+            while (index < lines.length && /^>\s?/.test(lines[index])) {
+              quote.push(escapeHtml(lines[index].replace(/^>\s?/, "")));
+              index += 1;
+            }
+            out.push(`<blockquote>${quote.map(inline).join("<br />")}</blockquote>`);
             continue;
           }
 
@@ -2778,26 +2811,29 @@
           const ordered = /^\s*\d+\.\s+(.*)$/.exec(raw);
           if (unordered || ordered) {
             flushParagraph();
-            const type = unordered ? 'ul' : 'ol';
+            const type = unordered ? "ul" : "ol";
             if (list && listType !== type) flushList();
             list = list || [];
             listType = type;
             list.push(escapeHtml((unordered || ordered)[1]));
+            index += 1;
             continue;
           }
 
           if (!raw.trim()) {
             flushParagraph();
             flushList();
+            index += 1;
             continue;
           }
 
           paragraph.push(escapeHtml(raw));
+          index += 1;
         }
 
         flushParagraph();
         flushList();
-        return out.join('');
+        return out.join("");
       }
 
       function fmtContext(n) {
@@ -3179,12 +3215,16 @@
       /** Mask the shapes a pasted key usually takes before a chat leaves this page. */
       function scrubChatText(value) {
         return String(value ?? '')
+          .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[private key redacted]')
           .replace(/\bsk-or-[A-Za-z0-9_-]{8,}/g, 'sk-or-[redacted]')
           .replace(/\bsk-[A-Za-z0-9_-]{20,}/g, 'sk-[redacted]')
           .replace(/\bgsk_[A-Za-z0-9]{16,}/g, 'gsk_[redacted]')
           .replace(/\bAIza[0-9A-Za-z_-]{20,}/g, 'AIza[redacted]')
           .replace(/\bgh[pousr]_[A-Za-z0-9]{20,}/g, 'gh*_[redacted]')
           .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}/g, 'github_pat_[redacted]')
+          .replace(/\bglpat-[A-Za-z0-9_-]{20,}/g, 'glpat-[redacted]')
+          .replace(/\bnpm_[A-Za-z0-9]{20,}/g, 'npm_[redacted]')
+          .replace(/\bpypi-[A-Za-z0-9_-]{20,}/g, 'pypi-[redacted]')
           .replace(/\bhf_[A-Za-z0-9]{20,}/g, 'hf_[redacted]')
           .replace(/\bxai-[A-Za-z0-9]{16,}/g, 'xai-[redacted]')
           .replace(/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, 'AWS[redacted]')
@@ -3539,6 +3579,17 @@
       }
 
       async function actOnMessage(event) {
+        const codeCopy = event.target.closest('[data-copy]');
+        if (codeCopy) {
+          try {
+            await navigator.clipboard.writeText(decodeURIComponent(codeCopy.dataset.copy));
+            codeCopy.textContent = 'Copied';
+            setTimeout(() => (codeCopy.textContent = 'Copy'), 1200);
+          } catch {
+            codeCopy.textContent = 'Select it';
+          }
+          return;
+        }
         const button = event.target.closest('[data-act]');
         if (!button || state.busy) return;
         const index = Number(button.dataset.index);
