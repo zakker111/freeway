@@ -33,6 +33,11 @@ jobs:
         # app it belongs to, which is what 2.33.0 did.
         run: node scripts/check-versions.mjs
 
+      - name: Check no secret is passed as an argument
+        # Arguments are readable from ps; 2.35.21 moved the release token off
+        # curl's command line. This keeps it from creeping back.
+        run: node scripts/check-secrets.mjs
+
       - name: Install cloud dependencies
         working-directory: cloud
         run: npm ci

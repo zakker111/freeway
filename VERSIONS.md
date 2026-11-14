@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.22 | 2026-11-14 | a repo check fails when a script passes a secret as a command argument |
 | 2.35.21 | 2026-11-14 | the release watcher keeps GH_TOKEN out of curl’s command line |
 | 2.35.20 | 2026-11-14 | --wait-tag finds a run that already started and stops when the API cannot be read |
 | 2.35.19 | 2026-11-14 | Chatty glides between tour stops on the compositor, ring first, cat following |
@@ -208,6 +209,26 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.35.22 — 2026-11-14
+
+- **The 2.35.21 leak cannot come back quietly.** `scripts/check-secrets.mjs`
+  scans the repository’s shell scripts, JS scripts and workflows for secrets in
+  command arguments: `-H "authorization: Bearer $TOKEN"`, credential headers,
+  `--token`/`--password`-style flags, basic-auth `-u user:$PASSWORD`,
+  credentials in a URL, and `${{ secrets.* }}` used the same way. It reports
+  `file:line`, prints the offending line, and exits non-zero.
+- **It is wired into the places that gate a release.** `npm run check:secrets`
+  runs in `release.sh` before the test suites and as its own Tests workflow step,
+  so a red check stops a tag from being cut or merged.
+- **The detector tests itself first.** Its fixtures must flag six bad shapes and
+  leave four safe ones alone before it scans anything; a broken pattern fails
+  loudly instead of reporting every file safe. That self-test caught a real bug
+  in the first draft, where a greedy name pattern never matched a bare
+  `$PASSWORD`.
+
+  Checked against the repo: 91 files clean. A planted
+  `curl -H "authorization: Bearer $GH_TOKEN"` line failed the check with its
+  path and line number; the same token supplied through the environment passed.
 ## 2.35.21 — 2026-11-14
 
 - **The release token is no longer readable from `ps`.** `scripts/watch-run.sh`

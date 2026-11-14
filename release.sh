@@ -81,6 +81,7 @@ else
 fi
 
 echo "== tests =="
+node scripts/check-secrets.mjs
 node --test lib/*.test.mjs 2>&1 | tail -6
 node test/cli.mjs
 node test/simulate.mjs
