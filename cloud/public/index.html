@@ -6811,6 +6811,26 @@
       tip: 'Stop cancels the answer while it is streaming. It is disabled when nothing is running, so it cannot interrupt an idle chat.',
     },
   ];
+  // A tip that names a control should point at it. The patterns are narrow on
+  // purpose: "Build still asks before it writes" must move the cat to the Build
+  // button, but a passing mention of a file should not drag her across the page.
+  const MESSAGE_TARGETS = [
+    { pattern: /\bswitch to build\b|\bbuild mode\b|\bbuild button\b|\bpress build\b|\bclick build\b/i, selectors: ['#modeBuild'] },
+    { pattern: /\bplan mode\b|\bplan\b[^.\n]{0,24}read-only|\bswitch to plan\b/i, selectors: ['#modePlan'] },
+    { pattern: /\bsettings\b/i, selectors: ['#settingsBtn'] },
+    { pattern: /\bmodel (picker|chip|menu|list)\b|ctrl \+ m/i, selectors: ['#modelBtn', '#modelPicker'] },
+    { pattern: /\bnew chat\b|\bclean slate\b|alt \+ n/i, selectors: ['#clearBtn', '#newChatBtn', '#newBtn'] },
+    { pattern: /\bcommand palette\b|ctrl \+ k/i, selectors: ['#paletteBtn'] },
+    { pattern: /\bsaved chats?\b|alt \+ h/i, selectors: ['#historyBtn'] },
+    { pattern: /\bcomposer\b/i, selectors: ['#input'] },
+    { pattern: /\bimage\b|\.png\b|\bjpeg\b/i, selectors: ['#imageLabel'] },
+    { pattern: /\battach\b|\battachment\b/i, selectors: ['#attachLabel'] },
+    { pattern: /\bmemory\b/i, selectors: ['#memoryBtn'] },
+    { pattern: /\bpress send\b|\bsend button\b|\bhit send\b/i, selectors: ['#sendBtn', '#send'] },
+    { pattern: /\bpreview\b/i, selectors: ['#quickPreview'] },
+    { pattern: /\bfiles rail\b|\bthe files\b|\bhealth\b/i, selectors: ['#railBtn'] },
+    { pattern: /\b429\b|retry-after|next send/i, selectors: ['#nextSend'] },
+  ];
   const FUNNY_CHANCE = 0.3;
 
   const REDUCE_MOTION =
@@ -7656,6 +7676,20 @@
     return rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
   }
 
+  // The first selector in the list that exists and is on screen wins; the two
+  // editions name some controls differently, so a miss falls through.
+  function targetForMessage(message) {
+    const text = String(message || '');
+    for (const entry of MESSAGE_TARGETS) {
+      if (!entry.pattern.test(text)) continue;
+      for (const selector of entry.selectors) {
+        const node = document.querySelector(selector);
+        if (node && visibleTarget(node)) return node;
+      }
+    }
+    return null;
+  }
+
   function visibleTarget(target) {
     return renderedTarget(target) && onScreen(target);
   }
@@ -8065,6 +8099,15 @@
     textNode.textContent = message;
     if (labelNode) labelNode.textContent = label;
     renderActions(actions);
+    // Travel before the bubble becomes visible, so its size is measured where
+    // the cat actually lands. The tour passes keepSpot and keeps its own route.
+    if (!keepSpot && !REDUCE_MOTION) {
+      const target = targetForMessage(message);
+      if (target) {
+        placeNear(target);
+        showSpotlight(target);
+      }
+    }
     bubbleNode.hidden = false;
     requestAnimationFrame(fitBubble);
     setTimeout(fitBubble, 260);

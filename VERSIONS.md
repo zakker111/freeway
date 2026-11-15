@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.34 | 2026-11-15 | Chatty walks to the control a tip names, so "switch to Build" lands next to the Build button |
 | 2.35.33 | 2026-11-15 | Chatty's first-run tour resumes after an automatic hide and the cat always offers it again |
 | 2.35.32 | 2026-11-15 | Desktop edition gets the same rate-limit countdown and queued send as the cloud page |
 | 2.35.31 | 2026-11-15 | Cloud composer shows a live next-send countdown after a rate limit and sends the held message when the wait ends |
