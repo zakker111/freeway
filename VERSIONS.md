@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.31 | 2026-11-15 | Cloud composer shows a live next-send countdown after a rate limit and sends the held message when the wait ends |
 | 2.35.30 | 2026-11-15 | Chatty's control-board tour fits phones and landscape windows and scrolls to off-screen controls |
 | 2.35.29 | 2026-11-14 | Chatty starts a full 18-control first-run tour and walks between every stop |
 | 2.35.28 | 2026-11-14 | Chatty walks between Cat school steps, with browser checks for placement and real travel |

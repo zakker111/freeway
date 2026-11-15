@@ -2461,6 +2461,7 @@
         <button class="ghost" id="stop" disabled>Stop</button>
       </div>
       <div class="hint">
+        <span id="nextSend" class="budget" role="status" aria-live="polite" hidden></span>
         <span id="hintText">Free models only.</span>
         <span>·</span>
         <span id="counter">0 messages</span>
@@ -2653,6 +2654,9 @@
         perModel: {},
         cooling: {},
         attachment: null,
+        sendGateUntil: 0,
+        queuedSend: null,
+        gateTimer: 0,
         previewLink: '',
         previewFull: false,
         previewPageUrl: '',
@@ -3536,6 +3540,9 @@
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
           if (['upstream_rate', 'rate_limited'].includes(error.code)) {
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
+            // Say when the next send is allowed instead of leaving the user to
+            // guess, and hold the next message until then.
+            startSendGate(error.retryAfterMs || 60_000);
           }
           pending.bubble.classList.remove('cursor');
           if (error.name === 'AbortError') {
@@ -3554,8 +3561,7 @@
           }
         } finally {
           state.busy = false;
-          $('send').disabled = false;
-          $('send').textContent = 'Send';
+          renderSendGate();
           $('stop').disabled = true;
           state.abort = null;
           setHints();
@@ -3706,6 +3712,86 @@
         const ms = raw > 0 ? raw : 60_000;
         return ms <= AUTO_RETRY_MAX_MS ? ms + 750 : 0;
       }
+
+      // ------------------------------------------------------- send gate
+      // A rate-limited provider says when it will accept work again. Keep that
+      // wait visible in the composer, hold the typed message, and send it once
+      // the wait ends, so the next attempt is not another instant 429.
+      const SEND_GATE_MAX_ATTEMPTS = 4;
+
+      function gateLeft() {
+        return Math.max(0, (Number(state.sendGateUntil) || 0) - Date.now());
+      }
+
+      function gateText(left) {
+        const total = Math.ceil(left / 1000);
+        const minutes = Math.floor(total / 60);
+        const seconds = total % 60;
+        return (
+          'next send in ' +
+          (minutes ? minutes + 'm ' : '') +
+          String(seconds).padStart(minutes ? 2 : 1, '0') +
+          's'
+        );
+      }
+
+      function renderSendGate() {
+        const chip = $('nextSend');
+        const send = $('send');
+        const left = gateLeft();
+        if (!left) {
+          if (chip) {
+            chip.hidden = true;
+            chip.textContent = '';
+          }
+          if (send && !state.busy) {
+            send.disabled = false;
+            send.textContent = 'Send';
+          }
+          return;
+        }
+        if (chip) {
+          chip.hidden = false;
+          chip.textContent = gateText(left) + (state.queuedSend ? ' · queued' : '');
+        }
+        if (send && !state.busy) {
+          send.disabled = true;
+          send.textContent = 'Queued';
+        }
+      }
+
+      function stopSendGate() {
+        if (state.gateTimer) clearInterval(state.gateTimer);
+        state.gateTimer = 0;
+        state.sendGateUntil = 0;
+      }
+
+      function startSendGate(ms) {
+        const wait = Math.min(Math.max(Number(ms) || 60_000, 1_000), AUTO_RETRY_MAX_MS);
+        if (state.gateTimer) clearInterval(state.gateTimer);
+        state.sendGateUntil = Date.now() + wait;
+        renderSendGate();
+        announce(gateText(wait) + '.');
+        state.gateTimer = setInterval(() => {
+          if (gateLeft() > 0) {
+            renderSendGate();
+            return;
+          }
+          stopSendGate();
+          renderSendGate();
+          const queued = state.queuedSend;
+          state.queuedSend = null;
+          if (queued && !state.busy) {
+            $('input').value = queued.text || '';
+            autoGrow();
+            announce('The wait is over. Sending the queued message.');
+            streamSend(queued.images || []);
+          } else {
+            announce('The wait is over. You can send again.');
+          }
+        }, 1000);
+      }
+
       function sleepAbortable(ms, signal) {
         return new Promise((resolve, reject) => {
           if (signal?.aborted) return reject(new DOMException('stopped', 'AbortError'));
@@ -3751,6 +3837,19 @@
         const box = $('input');
         const text = box.value.trim();
         if ((!text && !images.length) || state.busy) return;
+        if (gateLeft()) {
+          // Keep the message instead of throwing it at a provider that just said
+          // no; the gate sends it the moment the wait ends.
+          state.queuedSend = { text, images };
+          renderSendGate();
+          banner(
+            'Rate limited — queued. Sending in ' + Math.ceil(gateLeft() / 1000) + 's.',
+            'close',
+            () => {},
+          );
+          announce('Message queued until the wait ends.');
+          return;
+        }
         if (!state.model) {
           banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
           return;
@@ -3866,7 +3965,7 @@
           break;
             } catch (error) {
               const wait = autoRetryDelay(error);
-              if (error.name === 'AbortError' || attempt >= 1 || !wait || answer) throw error;
+              if (error.name === 'AbortError' || attempt >= SEND_GATE_MAX_ATTEMPTS - 1 || !wait || answer) throw error;
               await waitForCooldown(pending, meta, error, wait, state.abort?.signal);
               answer = '';
               info = null;
