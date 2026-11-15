@@ -2523,6 +2523,7 @@
         <span id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></span>
         <span id="buildBudget" class="budget build-budget" hidden></span>
         <span id="devServers" class="budget dev-servers" hidden></span>
+        <span id="nextSend" class="budget" role="status" aria-live="polite" hidden></span>
         <span id="budget" class="budget"></span>
         <span>Enter to send · Shift+Enter newline · Ctrl+K commands · Ctrl+M models · Alt+N new chat</span>
       </div>
@@ -2926,6 +2927,8 @@
         streaming: false,
         controller: null,
         queue: [],
+        sendGateUntil: 0,
+        gateTimer: 0,
         paused: false,
         qid: 0,
         requests: 0,
@@ -6254,6 +6257,80 @@
         const ms = raw > 0 ? raw : 60_000;
         return ms <= AUTO_RETRY_MAX_MS ? ms + 750 : 0;
       }
+
+      // ------------------------------------------------------- send gate
+      // A rate-limited provider says when it will accept work again. Keep that
+      // wait visible in the composer, hold the next message in the queue and
+      // let it go the moment the wait ends, so the retry is not another 429.
+      const SEND_GATE_MAX_ATTEMPTS = 4;
+
+      function gateLeft() {
+        return Math.max(0, (Number(state.sendGateUntil) || 0) - Date.now());
+      }
+
+      function gateText(left) {
+        const total = Math.ceil(left / 1000);
+        const minutes = Math.floor(total / 60);
+        const seconds = total % 60;
+        return (
+          "next send in " +
+          (minutes ? minutes + "m " : "") +
+          String(seconds).padStart(minutes ? 2 : 1, "0") +
+          "s"
+        );
+      }
+
+      function renderSendGate() {
+        const chip = $("nextSend");
+        const button = $("sendBtn");
+        const left = gateLeft();
+        if (!left) {
+          if (chip) {
+            chip.hidden = true;
+            chip.textContent = "";
+          }
+          if (button && !state.streaming) {
+            button.disabled = false;
+            button.textContent = "Send";
+            button.title = "";
+          }
+          return;
+        }
+        if (chip) {
+          chip.hidden = false;
+          chip.textContent = gateText(left) + (state.queue.length ? " · queued" : "");
+        }
+        if (button && !state.streaming) {
+          button.disabled = true;
+          button.textContent = "Queued";
+          button.title = "Held until the provider's rate limit clears";
+        }
+      }
+
+      function stopSendGate() {
+        if (state.gateTimer) clearInterval(state.gateTimer);
+        state.gateTimer = 0;
+        state.sendGateUntil = 0;
+      }
+
+      function startSendGate(ms) {
+        const wait = Math.min(Math.max(Number(ms) || 60_000, 1_000), AUTO_RETRY_MAX_MS);
+        if (state.gateTimer) clearInterval(state.gateTimer);
+        state.sendGateUntil = Date.now() + wait;
+        renderSendGate();
+        setStatus(gateText(wait) + " · the next message is queued");
+        state.gateTimer = setInterval(() => {
+          if (gateLeft() > 0) {
+            renderSendGate();
+            return;
+          }
+          stopSendGate();
+          renderSendGate();
+          setStatus("the wait is over");
+          if (state.queue.length && !state.streaming) drainQueue();
+        }, 1000);
+      }
+
       function sleepAbortable(ms, signal) {
         return new Promise((resolve, reject) => {
           if (signal?.aborted) return reject(new DOMException("stopped", "AbortError"));
@@ -6622,7 +6699,7 @@
               const wait = autoRetryDelay(error);
               if (
                 error.name === "AbortError" ||
-                attempt >= 1 ||
+                attempt >= SEND_GATE_MAX_ATTEMPTS - 1 ||
                 !wait ||
                 answer.trim() ||
                 toolsUsed.length
@@ -6655,12 +6732,15 @@
             node.classList.add("error");
             bubble.textContent = error.message;
             addMeta(node, "request failed", true);
+            if (["rate-limit", "upstream_rate", "rate_limited"].includes(String(error.code || ""))) {
+              // Say when the next send is allowed and hold the queue until then.
+              startSendGate(error.retryAfterMs || 60_000);
+            }
           }
         } finally {
           state.streaming = false;
           state.controller = null;
-          $("sendBtn").textContent = "Send";
-          $("sendBtn").title = "";
+          renderSendGate();
           $("stopBtn").disabled = true;
           node.classList.remove("cooling");
           bubble.classList.remove("streaming");
@@ -6767,6 +6847,8 @@
       }
 
       function drainQueue() {
+        // The gate owns the next try until its countdown reaches zero.
+        if (gateLeft()) return;
         if (state.streaming || state.paused || state.queue.length === 0) return;
         const next = state.queue.shift();
         next.node?.remove();
@@ -6778,6 +6860,15 @@
         const box = $("input");
         const text = box.value.trim();
         if (!text && !state.attachment) return;
+        if (gateLeft()) {
+          // Keep the message instead of firing it at a provider that just said
+          // no; the gate drains the queue the moment the wait ends.
+          enqueue(text);
+          state.paused = false;
+          renderSendGate();
+          setStatus("rate limited — queued, " + gateText(gateLeft()));
+          return;
+        }
         if (state.attachment && (state.streaming || state.queue.length > 0)) {
           return setStatus("wait for the current answer before attaching an image");
         }

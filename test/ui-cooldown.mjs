@@ -33,6 +33,9 @@ const RETRY_AFTER_MS = 1200;
 // The tool-mode 429 also sends `retry-after: 2`, so settle past the longest
 // mocked cooldown (2s + the page's 0.75s cushion) before counting requests.
 const RETRY_SETTLE_MS = Math.ceil(RETRY_AFTER_MS / 1000) * 1000 + 750 + 250;
+// Both editions stop after this many attempts at one turn; the page constant
+// `SEND_GATE_MAX_ATTEMPTS` must match it or a permanent 429 loops or gives up early.
+const RETRY_ATTEMPTS = 4;
 const CLOUD_PUBLIC = path.join(root, 'cloud', 'public');
 
 const PAGE_TYPES = {
@@ -573,21 +576,42 @@ async function runRetryStops(browser, edition) {
     6000,
   );
   const sendSelector = edition === 'desktop' ? '#sendBtn' : '#send';
+  // A permanent 429 must stop at the bounded attempt budget instead of looping.
+  // Each attempt first shows its own countdown, so the wait scales with it.
   await waitForPage(
     browser.cdp,
-    `window.__cooldownHarness.calls.length === 2 && !document.querySelector(${JSON.stringify(sendSelector)}).disabled`,
-    10_000,
+    `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS}`,
+    25_000,
   );
   await waitForPage(
     browser.cdp,
     `document.querySelector('#thread').innerText.includes('Mock rate limit')`,
     6000,
   );
-  // A second automatic resend would be scheduled after this cooldown. Wait it
-  // out so this assertion covers the full retry window, not just the first turn.
+  const chip = await evaluate(
+    browser.cdp,
+    `(() => {
+      const node = document.querySelector('#nextSend');
+      return { hidden: !node || node.hidden, text: node ? node.textContent : '' };
+    })()`,
+  );
+  assert.equal(chip.hidden, false, 'the composer did not show when the next send is allowed');
+  assert.match(chip.text, /next send in \d+/i, 'the next-send chip did not count down');
+  const heldButton = await evaluate(
+    browser.cdp,
+    `document.querySelector(${JSON.stringify(sendSelector)}).disabled`,
+  );
+  assert.equal(heldButton, true, 'Send stayed available under an active rate limit');
+  // The gate must release the composer by itself once the wait is over.
+  await waitForPage(
+    browser.cdp,
+    `!document.querySelector(${JSON.stringify(sendSelector)}).disabled && document.querySelector('#nextSend').hidden === true`,
+    6000,
+  );
+  // Nothing schedules another attempt: the count stays at the budget.
   await sleep(RETRY_SETTLE_MS);
   const requests = await calls(browser);
-  assert.equal(requests.length, 2, 'a repeated 429 triggered more than one automatic resend');
+  assert.equal(requests.length, RETRY_ATTEMPTS, 'a repeated 429 ran past the bounded attempts');
   assert.equal(await evaluate(browser.cdp, 'document.querySelectorAll(".cooling").length'), 0);
   assert.match(
     await evaluate(browser.cdp, 'document.querySelector("#thread").innerText'),
