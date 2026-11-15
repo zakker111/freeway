@@ -8,7 +8,7 @@
   'use strict';
 
   const ENABLED_KEY = 'freeway.chatty.enabled';
-  const TOUR_KEY = 'freeway.chatty.tour.v1';
+  const TOUR_KEY = 'freeway.chatty.tour.v2';
   const POSITIONS = ['br', 'bl', 'rm', 'lm'];
   const DISMISS_MIN_MS = 2 * 60 * 1000;
   const DISMISS_MAX_MS = 3.5 * 60 * 1000;
@@ -21,7 +21,11 @@
   const WELCOME =
     "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
   const SETTINGS_ACTION = { action: 'settings', label: 'Settings' };
-  const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }, SETTINGS_ACTION];
+  const TUTOR_ACTIONS = [
+    { action: 'tutor', label: 'Tutor me' },
+    { action: 'tour', label: 'Tour' },
+    SETTINGS_ACTION,
+  ];
   const WELCOME_ACTIONS = [
     { action: 'tutor', label: 'Tutor me', primary: true },
     SETTINGS_ACTION,
@@ -2181,9 +2185,10 @@
     if (!rootNode) return;
     if (rootNode.contains(document.activeElement)) document.activeElement.blur();
     if (tourStep >= 0 || tourBusy) {
-      // Closing the first-run sweep counts as deciding not to take it now;
-      // otherwise it would restart on every idle appearance.
-      writeFlag(TOUR_KEY, '1');
+      // An automatic hide is not a decision. Leave the flag alone so the next
+      // appearance resumes the tour where it stopped instead of silently
+      // turning every later visit into a wandering cat with no lesson.
+      if (tourTarget) tourCursor = Math.max(0, tourCursor - 1);
       tourStep = -1;
       tourBusy = false;
     }
@@ -2205,6 +2210,7 @@
 
   function dismiss() {
     if (!enabled) return;
+    if (tourStep >= 0 || tourBusy) writeFlag(TOUR_KEY, '1');
     hide(DISMISS_MIN_MS + Math.random() * (DISMISS_MAX_MS - DISMISS_MIN_MS));
   }
 
