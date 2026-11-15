@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.30 | 2026-11-15 | Chatty's control-board tour fits phones and landscape windows and scrolls to off-screen controls |
 | 2.35.29 | 2026-11-14 | Chatty starts a full 18-control first-run tour and walks between every stop |
 | 2.35.28 | 2026-11-14 | Chatty walks between Cat school steps, with browser checks for placement and real travel |
 | 2.35.27 | 2026-11-14 | Parity audit: one free picker rule, matching Groq fences, cloud Markdown and redaction |
@@ -215,6 +216,37 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.35.30 — 2026-11-15
+
+- **The tour fits the window it is in.** Each stop measures the real tip before
+  moving, reserves that height, scrolls a rendered off-screen control into view,
+  and waits for the page to settle. The bubble prefers below, falls back above,
+  moves beside the target when neither fits, and clamps itself inside the
+  viewport. In a short window its text scrolls inside a capped bubble instead
+  of running off screen or covering the control it explains.
+- **Travel and placement agree.** The cat glides only after the next tip has its
+  final height, and the target ring uses the same animated rectangle. The
+  first-run sequence no longer offers **Next stop** when every later rendered
+  control is missing; it finishes instead.
+- **Switching Chatty off cleans up a tour.** Settings or a cross-tab disable now
+  clears the spotlight, cancels the glide and removes movement classes along
+  with the bubble and pet. This closes the stale ring that could remain after
+  the pet was hidden.
+- **Dead state removed.** The write-only `freeway.chatty.seen.v3` flag and the
+  unused `TOUR_INVITE` copy are gone. The first-run memory is the single
+  `freeway.chatty.tour.v1` completion flag.
+- **Verification.** 375 unit tests (including 86 page checks), 37 CLI checks,
+  29/29 source simulations, 29/29 single-file simulations, 31/31 cloud checks
+  and 11/11 Chatty browser stages pass; the secret check is clean. The browser
+  gate runs all 18 stops at 1366×768, then 390×844, 844×390 and 320×480,
+  including a switch-off-during-tour check. The cloud page was checked at
+  320×480, 432×822 and 844×390: every rendered stop stayed inside the viewport,
+  and no bubble covered its target.
+- **Release state.** Desktop source is **2.35.30**; cloud preview and production
+  are **2.35.30-cloud**. The source ZIP and Windows ZIP accompany the release.
+- **Links.** [Repository](https://github.com/zakker111/freeway) ·
+  [release v2.35.30](https://github.com/zakker111/freeway/releases/tag/v2.35.30).
 
 ## 2.35.29 — 2026-11-14
 

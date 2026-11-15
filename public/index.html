@@ -7772,7 +7772,6 @@
   'use strict';
 
   const ENABLED_KEY = 'freeway.chatty.enabled';
-  const SEEN_KEY = 'freeway.chatty.seen.v3';
   const TOUR_KEY = 'freeway.chatty.tour.v1';
   const POSITIONS = ['br', 'bl', 'rm', 'lm'];
   const DISMISS_MIN_MS = 2 * 60 * 1000;
@@ -7785,8 +7784,6 @@
   const IDLE_MIN_MS = 12 * 1000;
   const WELCOME =
     "Psst! I'm Chatty, the Freeway cat. Click me to see me pounce, let me tutor you in Cat school, or open Settings and I'll leave a note. Short lessons, bad puns, no hairballs.";
-  const TOUR_INVITE =
-    'The quick tour is ready when you are. Watch me bounce to New, the model picker, the composer, Plan and Build, Preview, the rail and Settings.';
   const SETTINGS_ACTION = { action: 'settings', label: 'Settings' };
   const TUTOR_ACTIONS = [{ action: 'tutor', label: 'Tutor me' }, SETTINGS_ACTION];
   const WELCOME_ACTIONS = [
@@ -8193,6 +8190,13 @@
       position: absolute;
       right: 0;
       bottom: calc(100% + 10px);
+      /* Set by fitBubble when a phone is narrower than the cat's anchor. */
+      translate: var(--chatty-bubble-shift, 0px) 0;
+      /* A very short phone has no room for a full tip above or below the
+         composer. Keep the bubble on screen and let its text scroll. */
+      max-height: var(--chatty-bubble-max, none);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       width: max-content;
       max-width: 238px;
       min-width: 174px;
@@ -8877,13 +8881,22 @@
     delete rootNode.dataset.bubbleSide;
   }
 
-  function visibleTarget(target) {
+  function renderedTarget(target) {
     if (!target) return false;
     const rect = target.getBoundingClientRect();
     if (!rect.width || !rect.height) return false;
-    if (rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) return false;
     const style = getComputedStyle(target);
     return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  }
+
+  function onScreen(target) {
+    if (!renderedTarget(target)) return false;
+    const rect = target.getBoundingClientRect();
+    return rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
+  }
+
+  function visibleTarget(target) {
+    return renderedTarget(target) && onScreen(target);
   }
 
   function nextTourStop() {
@@ -8898,26 +8911,52 @@
     return null;
   }
 
-  function findTourTarget(start = 0) {
+  function findTourTarget(start = 0, includeOffscreen = false) {
     for (let i = Math.max(0, start); i < TOUR_STOPS.length; i += 1) {
       const stop = TOUR_STOPS[i];
       for (const selector of stop.selectors) {
         const target = document.querySelector(selector);
-        if (visibleTarget(target)) return { stop, target, index: i };
+        if (!renderedTarget(target)) continue;
+        if (!includeOffscreen && !onScreen(target)) continue;
+        return { stop, target, index: i };
       }
     }
     return null;
   }
 
   function tourActions(index) {
-    const last = index >= TOUR_STOPS.length - 1;
+    // On a phone the last visible control can be Send: Stop and Quit are
+    // hidden by their pages. Do not promise another stop when the next
+    // selector does not exist on this viewport.
+    const last = !findTourTarget(index + 1, true);
     return [
       { action: 'next', label: last ? 'Finish tour' : 'Next stop', primary: true },
       { action: 'skip', label: 'End tour' },
     ];
   }
 
-  function placeNear(target) {
+  // Measure the real tip before she moves. The old fixed 220px reservation
+  // was both too small for a phone composer and too large for the header on a
+  // short landscape screen, so the bubble could overlap the target or be
+  // shoved back on screen after landing.
+  function measureBubble(message, actions, label) {
+    if (!bubbleNode || !textNode) return 0;
+    const wasHidden = bubbleNode.hidden;
+    const visibility = bubbleNode.style.visibility;
+    bubbleNode.style.setProperty('--chatty-bubble-shift', '0px');
+    bubbleNode.style.removeProperty('--chatty-bubble-max');
+    textNode.textContent = message;
+    if (labelNode) labelNode.textContent = label;
+    renderActions(actions);
+    bubbleNode.style.visibility = 'hidden';
+    bubbleNode.hidden = false;
+    const height = bubbleNode.offsetHeight;
+    bubbleNode.hidden = wasHidden;
+    bubbleNode.style.visibility = visibility;
+    return height;
+  }
+
+  function placeNear(target, measuredBubbleHeight = 0) {
     const rect = target.getBoundingClientRect();
     const box = petNode.getBoundingClientRect();
     const width = box.width || 84;
@@ -8925,36 +8964,124 @@
     const gap = 10;
     // The tip is part of the cat's footprint. If it is already visible, keep
     // the whole bubble clear of the target instead of letting fitBubble slide
-    // the cat back over the control on a short phone screen.
-    // While a tour tip is hidden for travel, reserve a typical tip height so
-    // the cat starts on the side she will finish on instead of correcting late.
-    const bubbleHeight = bubbleNode && !bubbleNode.hidden ? bubbleNode.offsetHeight : 220;
+    // the cat back over the control on a short phone screen. The tour measures
+    // its next tip before travelling so it can reserve the real height.
+    if (bubbleNode) bubbleNode.style.removeProperty('--chatty-bubble-max');
+    let bubbleHeight =
+      measuredBubbleHeight > 0
+        ? measuredBubbleHeight
+        : bubbleNode && !bubbleNode.hidden
+          ? bubbleNode.offsetHeight
+          : 220;
     const bubbleGap = bubbleHeight ? gap : 0;
-    const below = rect.bottom + gap;
+    let below = rect.bottom + gap;
     const above = rect.top - height - gap;
-    const belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
-    const aboveFits = above - bubbleHeight - bubbleGap >= 8;
-    let y = belowFits ? below : aboveFits ? above : Math.max(8, above);
     // A target in the header would otherwise park the cat on the pickers row
-    // right beneath it, hiding the very control she is describing.
+    // right beneath it, hiding the very control she is describing. Do this
+    // before checking the fit: a below fit measured above the header is not a
+    // fit once the cat is pushed down below it.
     const header = document.querySelector('header');
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
-    if (rect.top < headerBottom - 1 && y < headerBottom + gap) y = headerBottom + gap;
-    const x = Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
+    if (rect.top < headerBottom - 1) below = Math.max(below, headerBottom + gap);
+    let belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
+    let aboveFits = above - bubbleHeight - bubbleGap >= 8;
+    let bubblePosition;
+    let forcedBubbleSide = '';
+    let y;
+    let x = Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
+    // The bubble is anchored to the cat's near edge. Only use a side when the
+    // tip can extend away from the target, otherwise it spans back over it.
+    const bubbleWidth =
+      bubbleNode && !bubbleNode.hidden
+        ? bubbleNode.offsetWidth
+        : innerWidth <= 760
+          ? 208
+          : 238;
+    const sideRight = rect.right + gap + width + bubbleWidth <= innerWidth - 8;
+    const sideLeft = rect.left - gap - width - bubbleWidth >= 8;
+    const maxY = innerHeight - height - 8;
+    let sideY = 0;
+    let sideAbove = false;
+    let sideBelow = false;
+    if (sideRight || sideLeft) {
+      // Put the cat beside the target at the lowest point where the bubble can
+      // sit above it, or the highest point where it can sit below. Aligning
+      // blindly with the target top made the bubble cover a footer control.
+      const aboveY = Math.max(rect.top, bubbleHeight + bubbleGap + 8);
+      if (aboveY <= maxY) {
+        sideY = Math.max(8, aboveY);
+        sideAbove = true;
+      } else {
+        const belowY = Math.min(
+          rect.top,
+          innerHeight - 8 - bubbleGap - bubbleHeight - height,
+        );
+        if (belowY >= 8) {
+          sideY = Math.min(maxY, belowY);
+          sideBelow = true;
+        }
+      }
+      if (sideAbove || sideBelow) forcedBubbleSide = sideRight ? 'left' : 'right';
+    }
+    if (!belowFits && !aboveFits && !sideAbove && !sideBelow) {
+      // A full tip can be a little taller than a very short phone allows. Cap
+      // it to the room above (or below) and let the bubble scroll its text
+      // instead of letting fitBubble shove the cat onto the target.
+      const aboveAvailable = Math.max(0, above - 8 - bubbleGap);
+      const belowAvailable = Math.max(0, innerHeight - 8 - (below + height + bubbleGap));
+      const compactHeight = Math.max(aboveAvailable, belowAvailable);
+      // Enough for a readable line and the scroll affordance. A 390px-high
+      // landscape phone can leave only ~59px beside a full-width starter row;
+      // keeping the bubble there is still better than covering the control.
+      if (compactHeight >= 44 && bubbleHeight > compactHeight) {
+        bubbleHeight = Math.floor(compactHeight);
+        if (bubbleNode) {
+          bubbleNode.style.setProperty('--chatty-bubble-max', `${bubbleHeight}px`);
+        }
+        belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
+        aboveFits = above - bubbleHeight - bubbleGap >= 8;
+      }
+    }
+    if (belowFits) {
+      y = below;
+      bubblePosition = 'below';
+    } else if (aboveFits) {
+      y = above;
+      bubblePosition = 'above';
+    } else if (sideAbove || sideBelow) {
+      x = sideRight ? rect.right + gap : rect.left - gap - width;
+      y = sideY;
+      bubblePosition = sideAbove ? 'above' : 'below';
+    } else {
+      // Last resort: pick the side with more room and let fitBubble make the
+      // final vertical adjustment; horizontal clamping still keeps the
+      // complete bubble inside a narrow phone window.
+      const belowRoom = innerHeight - 8 - below;
+      const aboveRoom = above - 8;
+      if (belowRoom >= aboveRoom) {
+        y = Math.max(8, Math.min(below, maxY));
+        bubblePosition = 'below';
+      } else {
+        y = Math.max(8, above);
+        bubblePosition = 'above';
+      }
+    }
+    y = Math.max(8, Math.min(maxY, y));
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;
     rootNode.style.top = `${Math.round(y)}px`;
     rootNode.style.right = 'auto';
     rootNode.style.bottom = 'auto';
-    rootNode.dataset.bubble = belowFits ? 'below' : 'above';
-    rootNode.dataset.bubbleSide = x + width / 2 < innerWidth / 2 ? 'left' : 'right';
+    rootNode.dataset.bubble = bubblePosition;
+    rootNode.dataset.bubbleSide =
+      forcedBubbleSide || (x + width / 2 < innerWidth / 2 ? 'left' : 'right');
   }
 
   /**
    * Move on the compositor: measure where she is, apply the destination, then
-   * animate the visual difference away along a curved path. A transform keeps
-   * the hop smooth when it crosses the whole window, and the layout-bound
-   * left/top transition is muted for its duration so the two do not stack.
+   * animate the visual difference away along a curved path. The destination
+   * snaps into place under an inline opacity-only transition; the visible trip
+   * is a Web Animation, so an enter or translate transition cannot replay it.
    * Returns the animation length in milliseconds, or 0 when she was already
    * there, motion is reduced, or the browser cannot animate.
    */
@@ -8966,9 +9093,8 @@
       previous.cancel();
     }
     const before = rootNode.getBoundingClientRect();
-    // Mute the layout-bound left/top transition *before* moving: otherwise the
-    // rect below still reports the old spot (the transition has not started)
-    // and the glide would measure a zero distance.
+    // Mute any position/transform transition *before* moving so the rect below
+    // reports the destination rather than a frame of a stale transition.
     rootNode.style.transition = 'opacity .22s ease';
     applyPlacement();
     const after = rootNode.getBoundingClientRect();
@@ -9024,8 +9150,8 @@
     if (rootNode) rootNode.style.transition = '';
   }
 
-  function glideTo(target) {
-    return glideBy(() => placeNear(target));
+  function glideTo(target, bubbleHeight = 0) {
+    return glideBy(() => placeNear(target, bubbleHeight));
   }
 
   function showSpotlight(target, moveMs = 420) {
@@ -9141,8 +9267,22 @@
   function fitBubble() {
     if (!rootNode || !bubbleNode || bubbleNode.hidden) return;
     const margin = 8;
+    bubbleNode.style.setProperty('--chatty-bubble-shift', '0px');
     const bubble = bubbleNode.getBoundingClientRect();
     const root = rootNode.getBoundingClientRect();
+    // A right-aligned bubble can hang off the left edge when the cat is near
+    // the middle of a 320px window. Clamp the bubble itself rather than moving
+    // the cat under the control; moving the cat here was the late correction
+    // that made the tour look like a second teleport.
+    const horizontal =
+      bubble.left < margin
+        ? margin - bubble.left
+        : bubble.right > innerWidth - margin
+          ? innerWidth - margin - bubble.right
+          : 0;
+    if (horizontal) {
+      bubbleNode.style.setProperty('--chatty-bubble-shift', `${Math.round(horizontal)}px`);
+    }
     const shift =
       bubble.top < margin
         ? margin - bubble.top
@@ -9159,6 +9299,8 @@
   function showTip(message, duration = 13000, actions = null, label = 'Chatty', keepSpot = false) {
     if (!bubbleNode) return;
     if (!keepSpot) hideSpotlight();
+    bubbleNode.style.setProperty('--chatty-bubble-shift', '0px');
+    if (!keepSpot) bubbleNode.style.removeProperty('--chatty-bubble-max');
     textNode.textContent = message;
     if (labelNode) labelNode.textContent = label;
     renderActions(actions);
@@ -9417,7 +9559,6 @@
     cancelBall();
     tutorStep = -1;
     tutorLesson = null;
-    writeFlag(SEEN_KEY, '1');
     wanderCount = TOUR_LIMIT;
     tourStep = -1;
     tourBusy = false;
@@ -9431,62 +9572,100 @@
 
   function showTourStep(start) {
     if (!enabled || !rootNode || rootNode.hidden) return;
-    const found = findTourTarget(start);
+    // A phone in landscape can put starter prompts below the fold. They are
+    // still part of the control board, so include rendered controls and bring
+    // the next one into view before the cat travels to it.
+    const found = findTourTarget(start, true);
     if (!found) {
       finishTour();
       return;
     }
     tourStep = found.index;
     tourBusy = true;
-    // Keep the ring on screen between stops so it glides to the next target
-    // instead of reappearing there, then let the cat follow it in the same
-    // window. The ring's own tween is set below from the cat's real duration.
+    const actions = tourActions(found.index);
+    const label = `Tour ${found.index + 1}/${TOUR_STOPS.length}`;
     hideTip(true);
+    hideSpotlight();
     clearTimeout(hideTimer);
     clearTimeout(wanderTimer);
     clearTimeout(moveTimer);
-    const arrive = () => {
-      moveTimer = 0;
+
+    const begin = () => {
       if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
-      rootNode.classList.remove('is-touring');
-      if (!visibleTarget(found.target)) {
+      if (!onScreen(found.target)) {
         tourBusy = false;
         showTourStep(found.index + 1);
         return;
       }
-      showTip(
-        found.stop.tip,
-        0,
-        tourActions(found.index),
-        `Tour ${found.index + 1}/${TOUR_STOPS.length}`,
-        true,
-      );
-      // Do not re-place the cat after the bubble becomes visible. The travel
-      // placement deliberately reserves a bubble; re-measuring here made the
-      // cat correct itself after landing, which read as a second teleport.
-      showSpotlight(found.target, 0);
-      pouncePet();
-      tourBusy = false;
-      armHide(180000);
+      // Lay out the real sentence before moving. A fixed reserved height cannot
+      // cover both a narrow phone and a short landscape window, and correcting
+      // after the bubble appears is visible as a hop.
+      const bubbleHeight = measureBubble(found.stop.tip, actions, label);
+      const arrive = () => {
+        moveTimer = 0;
+        if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+        rootNode.classList.remove('is-touring');
+        if (!visibleTarget(found.target)) {
+          tourBusy = false;
+          showTourStep(found.index + 1);
+          return;
+        }
+        showTip(found.stop.tip, 0, actions, label, true);
+        // Do not re-place the cat after the bubble becomes visible. The travel
+        // placement deliberately reserves a bubble; re-measuring here made the
+        // cat correct itself after landing, which read as a second teleport.
+        showSpotlight(found.target, 0);
+        pouncePet();
+        tourBusy = false;
+        armHide(180000);
+      };
+      if (REDUCE_MOTION) {
+        // No glide runs in reduced motion, so apply the destination directly.
+        placeNear(found.target, bubbleHeight);
+        arrive();
+        return;
+      }
+      // Keep the cat visible while she travels so the user can follow the hop,
+      // then land with a pounce. The old fade made the movement look like a redraw.
+      rootNode.classList.remove('is-wandering');
+      if (petNode) {
+        petNode.classList.remove('chatty-pounce');
+        clearTimeout(pounceTimer);
+      }
+      const moveMs = glideTo(found.target, bubbleHeight);
+      rootNode.style.setProperty('--chatty-move-ms', `${moveMs || 520}ms`);
+      showSpotlight(found.target, moveMs || 520);
+      rootNode.classList.add('is-touring');
+      moveTimer = setTimeout(arrive, moveMs ? moveMs + 20 : 470);
     };
-    if (REDUCE_MOTION) {
-      // No glide runs in reduced motion, so apply the destination directly.
-      placeNear(found.target);
-      arrive();
+
+    if (onScreen(found.target)) {
+      begin();
       return;
     }
-    // Keep the cat visible while she travels so the user can follow the hop,
-    // then land with a pounce. The old fade made the movement look like a redraw.
-    rootNode.classList.remove('is-wandering');
-    if (petNode) {
-      petNode.classList.remove('chatty-pounce');
-      clearTimeout(pounceTimer);
-    }
-    const moveMs = glideTo(found.target);
-    rootNode.style.setProperty('--chatty-move-ms', `${moveMs || 520}ms`);
-    showSpotlight(found.target, moveMs || 520);
-    rootNode.classList.add('is-touring');
-    moveTimer = setTimeout(arrive, moveMs ? moveMs + 20 : 470);
+    found.target.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+      behavior: REDUCE_MOTION ? 'auto' : 'smooth',
+    });
+    // Wait for smooth scrolling to settle. Measuring or placing before it does
+    // would send the cat to where the control used to be.
+    const started = Date.now();
+    let lastTop = null;
+    let stable = 0;
+    const poll = () => {
+      if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+      const top = found.target.getBoundingClientRect().top;
+      if (lastTop !== null && Math.abs(top - lastTop) < 1 && onScreen(found.target)) stable += 1;
+      else stable = 0;
+      lastTop = top;
+      if (stable >= 2 || Date.now() - started > 1100) {
+        begin();
+        return;
+      }
+      requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
   }
 
   function advanceTour() {
@@ -9503,7 +9682,6 @@
     tourStep = -1;
     tourBusy = false;
     writeFlag(TOUR_KEY, '1');
-    writeFlag(SEEN_KEY, '1');
     wanderCount = TOUR_LIMIT;
     hideSpotlight();
     showTip(
@@ -9521,7 +9699,6 @@
     tourStep = -1;
     tourBusy = false;
     writeFlag(TOUR_KEY, '1');
-    writeFlag(SEEN_KEY, '1');
     if (labelNode) labelNode.textContent = 'Chatty';
     renderActions(null);
     hide(60000);
@@ -9720,7 +9897,6 @@
     } else if (!tourDone) {
       // The control board comes before tips, lessons, or the welcome card:
       // a first-time visitor gets the whole map in one guided pass.
-      writeFlag(SEEN_KEY, '1');
       startTour();
       return;
     } else if (Math.random() < 0.72) {
@@ -9772,7 +9948,6 @@
       // Closing the first-run sweep counts as deciding not to take it now;
       // otherwise it would restart on every idle appearance.
       writeFlag(TOUR_KEY, '1');
-      writeFlag(SEEN_KEY, '1');
       tourStep = -1;
       tourBusy = false;
     }
@@ -9854,13 +10029,14 @@
       tutorStep = -1;
       tutorLesson = null;
       cancelBall();
+      cancelGlide();
       renderActions(null);
       hideTip();
+      hideSpotlight();
       document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
       petNode.classList.remove('chatty-spin', 'chatty-pounce');
-      rootNode.classList.remove('is-winking', 'is-wandering', 'is-touring');
+      rootNode.classList.remove('is-in', 'is-winking', 'is-wandering', 'is-touring');
       rootNode.querySelectorAll('.chatty-heart').forEach((heart) => heart.remove());
-      rootNode.classList.remove('is-in');
       rootNode.hidden = true;
       resetLook();
       return;
@@ -10114,18 +10290,22 @@
         cancelAnimationFrame(enterRaf);
         enterRaf = 0;
         clearTimeout(appearTimer);
+        clearTimeout(hideTimer);
         clearTimeout(wanderTimer);
         clearTimeout(moveTimer);
         cancelBall();
+        cancelGlide();
         tourStep = -1;
         tourBusy = false;
         tutorStep = -1;
         tutorLesson = null;
         renderActions(null);
         hideTip();
+        hideSpotlight();
         document.querySelectorAll('.chatty-settings-note').forEach((node) => node.remove());
-        rootNode.classList.remove('is-in', 'is-wandering');
+        rootNode.classList.remove('is-in', 'is-winking', 'is-wandering', 'is-touring');
         rootNode.hidden = true;
+        resetLook();
       }
     });
 

@@ -10,7 +10,7 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.35.29**.
+- Desktop and cloud source are **2.35.30**.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   Cat school (eight three-step lessons), a Settings action with an in-panel guide, tips,
   jokes, pounce, an occasional yarn-ball game with an edge peek, close cooldown, single soft
@@ -22,8 +22,11 @@ releases and commit log; this file tracks what is still open.
   quota/key, Settings, Preview, rail and Quit through Plan, Build, the composer, starter
   prompts, image, attach, memory, Send and Stop. Each stop names the control and explains it;
   she glides for 620–1200 ms with the target ring on the same clock, and the browser suite
-  checks every landing, explanation, overlap and reduced-motion path.
-- The latest published GitHub release is **v2.35.29**; it carries the source ZIP,
+  checks every landing, explanation, overlap and reduced-motion path. The tour measures each
+  tip before moving, scrolls rendered off-screen stops into view, places the bubble above,
+  below or beside the control, clamps it to the viewport and caps it with internal scrolling
+  in short windows. The browser gate also runs the tour at 390×844, 844×390 and 320×480.
+- The latest published GitHub release is **v2.35.30**; it carries the source ZIP,
   Windows ZIP and `SHA256SUMS`.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.
@@ -35,6 +38,14 @@ releases and commit log; this file tracks what is still open.
 
 ## Release work
 
+- [x] Cut the **2.35.30** patch: Chatty's control-board tour fits phones and short landscape
+      windows and scrolls to off-screen controls.
+- [x] Verify 375 node tests (86 page checks), 37 CLI, 29 + 29 simulations, 31 cloud checks
+      and 11 browser Chatty stages; the cloud page stays inside the viewport at
+      320×480, 432×822 and 844×390.
+- [x] Deploy cloud preview and production at **2.35.30-cloud**.
+- [x] Verify both pages report **2.35.30-cloud**; the production tour passes at 320×480
+      and 844×390 with no clipped bubble or covered target.
 - [x] Cut the **2.32.0** minor: every Cat school step moves Chatty to a new edge with her tour hop.
 - [x] Add a real-browser regression for tutor movement, tour, the Settings switch and reduced motion.
 - [x] Deploy cloud preview and production at **2.32.0-cloud**.

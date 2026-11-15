@@ -28,6 +28,21 @@ if (!chromeBin) {
 }
 
 const MOVE_SETTLE_MS = 1450;
+const VIEWPORT = (() => {
+  const [width, height] = String(process.env.CHATTY_VIEWPORT || '1366x768')
+    .split('x')
+    .map(Number);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 240 || height < 240) {
+    throw new Error('CHATTY_VIEWPORT must be WIDTHxHEIGHT, for example 390x844');
+  }
+  return { width: Math.round(width), height: Math.round(height) };
+})();
+const ONLY = process.env.CHATTY_ONLY || '';
+const RESPONSIVE_VIEWPORTS = [
+  [390, 844],
+  [844, 390],
+  [320, 480],
+];
 
 function findChrome() {
   const candidates = [
@@ -223,8 +238,8 @@ async function startChrome(temp, onEvent) {
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: 1366,
-      height: 768,
+      width: VIEWPORT.width,
+      height: VIEWPORT.height,
       deviceScaleFactor: 1,
       mobile: false,
     });
@@ -357,12 +372,16 @@ async function clickAndTrack(cdp, action, delays = [80, 300, 750, 1450]) {
   );
 }
 
-function assertMoving(result, label) {
+function assertMoving(result, label, allowPrep = false) {
   const { started, frames } = result;
   assert.ok(frames.length >= 3, `${label} did not produce enough movement frames`);
-  assert.equal(frames[0].touring, true, `${label} did not enter the movement state`);
-  assert.equal(frames[0].bubble, false, `${label} kept the old bubble while travelling`);
-  assert.equal(frames[0].anim, 'chatty-walk', `${label} did not start the walk`);
+  // A tour target below the fold scrolls into view first. That is a prep
+  // phase, not the cat's travel, so find the first actual walking frame
+  // instead of assuming it is the first sample.
+  const movingIndex = frames.findIndex((frame) => frame.touring && frame.anim === 'chatty-walk');
+  assert.ok(movingIndex >= 0, `${label} never entered the movement state`);
+  if (!allowPrep) assert.equal(movingIndex, 0, `${label} did not start moving on the first sample`);
+  assert.equal(frames[movingIndex].bubble, false, `${label} kept the old bubble while travelling`);
   const positions = new Set([started.xy.join(':'), ...frames.map((frame) => frame.xy.join(':'))]);
   assert.ok(
     positions.size >= 2,
@@ -402,6 +421,8 @@ async function tourPlacement(cdp) {
       const overlaps = (a, b) => !(
         a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom
       );
+      const round = (r) => ({ x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) });
+      const header = document.querySelector('header');
       return {
         catInside: rr.left >= 0 && rr.top >= 0 && rr.right <= innerWidth && rr.bottom <= innerHeight,
         bubbleInside: br
@@ -409,6 +430,13 @@ async function tourPlacement(cdp) {
           : null,
         catOverlapsTarget: overlaps(rr, sr),
         bubbleOverlapsTarget: br ? overlaps(br, sr) : null,
+        viewport: { w: innerWidth, h: innerHeight },
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        bubbleSide: root.dataset.bubble || '',
+        catBubbleSide: root.dataset.bubbleSide || '',
+        cat: round(rr),
+        bubble: br ? round(br) : null,
+        target: round(sr),
       };
     })()`,
   );
@@ -472,7 +500,8 @@ async function prepareChatty(cdp) {
         root &&
         !root.hidden &&
         root.classList.contains('is-in') &&
-        /^Tour 1\\//.test(document.querySelector('.chatty-label')?.textContent || '')
+        /^Tour 1\\//.test(document.querySelector('.chatty-label')?.textContent || '') &&
+        document.querySelector('.chatty-bubble')?.hidden === false
       );
     })()`,
     10_000,
@@ -658,10 +687,14 @@ async function runTour(cdp, origin) {
     const number = index + 1;
     await waitForPage(
       cdp,
-      `document.querySelector('.chatty-label')?.textContent?.startsWith('Tour ${number}/')`,
+      `document.querySelector('.chatty-label')?.textContent?.startsWith('Tour ${number}/') &&
+       document.querySelector('.chatty-bubble')?.hidden === false`,
       5000,
     );
-    await sleep(MOVE_SETTLE_MS);
+    // Sample the landed frame before fitBubble's delayed correction (if any),
+    // then require the position to stay put. Sleeping first would hide exactly
+    // the late hop this test is meant to catch.
+    await sleep(30);
     const stop = await state(cdp);
     assert.match(stop.label, new RegExp(`^Tour ${number}\\/\\d+$`), `tour stop ${number} is ${stop.label}`);
     assert.equal(stop.bubble, true, `tour stop ${number} has no bubble`);
@@ -675,31 +708,47 @@ async function runTour(cdp, origin) {
     assert.ok(target, `tour stop ${number} highlights no target (${targets[index].join(', ')})`);
     const placement = await tourPlacement(cdp);
     assert.ok(placement, `tour stop ${number} has no placement geometry`);
-    assert.equal(placement.catInside, true, `tour stop ${number} put Chatty off screen`);
-    assert.equal(placement.bubbleInside, true, `tour stop ${number} put her bubble off screen`);
+    assert.equal(placement.catInside, true, `tour stop ${number} put Chatty off screen ${JSON.stringify(placement)}`);
+    assert.equal(placement.bubbleInside, true, `tour stop ${number} put her bubble off screen ${JSON.stringify(placement)}`);
     assert.equal(
       placement.catOverlapsTarget,
       false,
-      `tour stop ${number} parked Chatty over the control she is explaining`,
+      `tour stop ${number} parked Chatty over the control she is explaining ${JSON.stringify(placement)}`,
     );
     assert.equal(
       placement.bubbleOverlapsTarget,
       false,
-      `tour stop ${number} covered the control with her bubble`,
+      `tour stop ${number} covered the control with her bubble ${JSON.stringify(placement)}`,
     );
     matched.push(target);
-    await sleep(320);
+    await sleep(340);
     const settled = await state(cdp);
     assert.deepEqual(
       settled.xy,
       stop.xy,
       `tour stop ${number} corrected its position after the bubble appeared`,
     );
+    await sleep(MOVE_SETTLE_MS - 370);
 
     if (number < targets.length) {
-      const next = await clickAndTrack(cdp, 'next');
+      const nextOffscreen = await evaluate(
+        cdp,
+        `(() => ${JSON.stringify(targets[index + 1])}.some((selector) => {
+          const node = document.querySelector(selector);
+          if (!node) return false;
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return (
+            rect.width > 0 && rect.height > 0 &&
+            style.display !== 'none' && style.visibility !== 'hidden' &&
+            (rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth)
+          );
+        }))()`,
+      );
+      const delays = nextOffscreen ? [80, 300, 750, 1600, 2400] : [80, 300, 750, 1450];
+      const next = await clickAndTrack(cdp, 'next', delays);
       assert.equal(next.found, true, `tour stop ${number} has no Next action`);
-      assertMoving(next, `tour stop ${number} movement`);
+      assertMoving(next, `tour stop ${number} movement`, nextOffscreen);
     }
   }
 
@@ -866,6 +915,32 @@ async function runSwitch(cdp) {
   assert.equal(on.visible, true, 'switching Chatty back on did not show her');
 }
 
+async function runDisableDuringTour(cdp) {
+  await evaluate(cdp, `window.FreewayChatty.show(); window.FreewayChatty.tour(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      const spot = [...document.querySelectorAll('.chatty-spot')].find((node) => !node.hidden);
+      return Boolean(root && !root.hidden && spot && String(document.querySelector('.chatty-label')?.textContent || '').startsWith('Tour 1/'));
+    })()`,
+    6000,
+  );
+  assert.equal((await state(cdp)).spot, true, 'the tour did not show a spotlight before the switch');
+
+  await evaluate(cdp, `window.FreewayChatty.setEnabled(false); true`);
+  await sleep(80);
+  const off = await state(cdp);
+  assert.equal(off.hidden, true, 'switching Chatty off during a tour left her on screen');
+  assert.equal(off.spot, false, 'switching Chatty off during a tour left the spotlight behind');
+  assert.equal(off.bubble, false, 'switching Chatty off during a tour left the bubble behind');
+  assert.equal(off.storage, '0', 'switching Chatty off during a tour did not persist');
+
+  // Leave the next stage a clean, enabled Chatty. The fresh load in runTutor
+  // also proves the off/on handoff did not leave a movement class behind.
+  await evaluate(cdp, `window.FreewayChatty.setEnabled(true); true`);
+}
+
 async function runReduced(cdp, origin) {
   await loadChatty(cdp, origin, true);
   assert.equal(
@@ -956,34 +1031,56 @@ async function main() {
     cdp = browser.cdp;
     chromeLog = browser.log;
 
+    console.log(`  VIEW  ${VIEWPORT.width}x${VIEWPORT.height}`);
     stage = 'first-run control board tour';
     await runTour(cdp, origin);
     console.log('  PASS  all 18 control-board stops, explanations, movement and end');
 
-    stage = 'Cat school';
-    await runTutor(cdp, origin);
-    console.log('  PASS  Cat school movement, finish, another lesson and stop');
+    if (!ONLY) {
+      stage = 'Cat school';
+      await runTutor(cdp, origin);
+      console.log('  PASS  Cat school movement, finish, another lesson and stop');
 
-    stage = 'dismiss race and lesson double-click';
-    await runDismissRace(cdp);
-    await runTutorDoubleClick(cdp);
-    console.log('  PASS  quick dismiss wins the entry frame; double-click keeps lesson controls');
+      stage = 'dismiss race and lesson double-click';
+      await runDismissRace(cdp);
+      await runTutorDoubleClick(cdp);
+      console.log('  PASS  quick dismiss wins the entry frame; double-click keeps lesson controls');
 
-    stage = 'prompt coach';
-    await runPromptCoach(cdp);
-    console.log('  PASS  prompt coach flags weak drafts and provider key shapes');
+      stage = 'prompt coach';
+      await runPromptCoach(cdp);
+      console.log('  PASS  prompt coach flags weak drafts and provider key shapes');
 
-    stage = 'plan-ready notice';
-    await runPlanReady(cdp);
-    console.log('  PASS  plan-ready notice and Build shortcut');
+      stage = 'plan-ready notice';
+      await runPlanReady(cdp);
+      console.log('  PASS  plan-ready notice and Build shortcut');
 
-    stage = 'settings switch';
-    await runSwitch(cdp);
-    console.log('  PASS  Chatty Settings switch off and on');
+      stage = 'switch off during tour';
+      await runDisableDuringTour(cdp);
+      console.log('  PASS  switching off during a tour clears the pet, bubble and ring');
 
-    stage = 'reduced motion';
-    await runReduced(cdp, origin);
-    console.log('  PASS  reduced-motion lesson moves without the hop');
+      stage = 'settings switch';
+      await runSwitch(cdp);
+      console.log('  PASS  Chatty Settings switch off and on');
+
+      stage = 'reduced motion';
+      await runReduced(cdp, origin);
+      console.log('  PASS  reduced-motion lesson moves without the hop');
+
+      // The same tour runs on a phone portrait, a short landscape window and a
+      // 320px-wide phone. These are the layouts where a fixed bubble reservation
+      // used to clip the tip or cover the control it was explaining.
+      for (const [width, height] of RESPONSIVE_VIEWPORTS) {
+        stage = `responsive tour ${width}x${height}`;
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+          width,
+          height,
+          deviceScaleFactor: 1,
+          mobile: false,
+        });
+        await runTour(cdp, origin);
+        console.log(`  PASS  responsive ${width}x${height} control-board tour`);
+      }
+    }
 
     const unexpected = pageErrors.filter((error) => !/favicon|net::ERR/i.test(error)).slice(0, 5);
     assert.deepEqual(unexpected, [], 'the page reported uncaught errors');
