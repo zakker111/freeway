@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.48 | 2026-11-16 | The chat-cap warning re-arms for each slot used and the health line stays on one phone line |
 | 2.35.47 | 2026-11-16 | The chat-cap notice waits for New Chat’s own banner, so it is not wiped by the same click |
 | 2.35.46 | 2026-11-16 | The spotlight ring always borrows the cat’s current walk duration, so a tip cannot out-slide her |
 | 2.35.45 | 2026-11-16 | The cloud tab asks for persistent storage, reports storage health in Settings, and names the chat a full browser drops |

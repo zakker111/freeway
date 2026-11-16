@@ -5697,8 +5697,10 @@
             'Export',
             () => $('exportChatsBtn').click(),
           ), 0);
-        } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && !capWarned) {
-          capWarned = true;
+        } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && next.length !== lastCapWarnAt) {
+          // Warn once per slot used, not once per session: the first warning can
+          // land on a background save and be replaced before anyone reads it.
+          lastCapWarnAt = next.length;
           setTimeout(() => banner(
             'Only ' +
               (CHAT_CAP - next.length) +
@@ -5717,7 +5719,7 @@
       // that worked. A refusal is normal, not an error.
       const CHAT_CAP = 200;
       const CHAT_CAP_WARN = 5;
-      let capWarned = false;
+      let lastCapWarnAt = -1;
 
       function bytesText(bytes) {
         const size = Number(bytes) || 0;
@@ -5762,7 +5764,7 @@
           /* an estimate is a nicety, not a requirement */
         }
         const persisted = await storagePersisted();
-        const parts = [bytesText(used) + ' used', saved + ' of ' + CHAT_CAP + ' chats'];
+        const parts = [bytesText(used) + ' used', saved + '/' + CHAT_CAP + ' chats'];
         if (persisted === null) parts.push('this browser cannot protect site data');
         else if (persisted) parts.push('eviction protection on');
         else parts.push('eviction protection off');
