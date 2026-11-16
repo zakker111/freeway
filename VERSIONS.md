@@ -253,6 +253,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.38.3 — 2026-11-16
+
+This release collects everything since v2.35.30: the queue, the Why? panel, chat
+archiving, and honest storage warnings in the cloud edition.
+
+- **Why? names the block.** Every refusal now says which gate held the turn — the daily
+  limit, a provider cooldown, a held queue, a model down, or the send-gate countdown — with
+  the wait it implies, instead of a bare "limit reached".
+- **Held messages are a real queue.** A message typed while an answer streams is held, not
+  dropped: it is listed with the words it will send, editable, cancelable, and released by
+  **Send now** once the gate opens. Countdowns read `15m 00s`, Stop leaves the queue parked
+  instead of discarding it, a landed answer releases it, and a reload restores it.
+- **The chat cap archives instead of deleting.** At 200 chats the oldest is moved into a
+  200-entry archive, and restoring one swaps it back in; the last restored chat is no longer
+  re-archived the moment it is opened.
+- **A full store says what will be lost.** A held message that cannot be saved warns once,
+  in its own row, and the stale saved copy is cleared; when only the image does not fit, the
+  text is kept.
+- **Verified at 390 px.** The queue, the Why? panel, the archive dialog and every warning
+  row are checked in a phone-sized browser, in both editions.
+
 ## 2.35.30 — 2026-11-15
 
 - **The tour fits the window it is in.** Each stop measures the real tip before
