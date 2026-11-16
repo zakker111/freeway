@@ -1,3 +1,7 @@
+# Source text stays LF everywhere, so a Windows checkout runs the same
+# guards as Linux. Windows launchers keep their CRLF below.
+* text=auto eol=lf
+
 *.cmd text eol=crlf
 *.bat text eol=crlf
 *.sh text eol=lf
