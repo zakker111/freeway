@@ -1897,6 +1897,12 @@
         header { gap: 6px; padding: 9px 12px; }
         .brand { font-size: 14px; }
         .ver, .tag.free, #quitBtn, #modeHint, .hint { display: none; }
+        /* A blocked or held send is actionable, so the chip and Why? come back on
+           a phone even though the rest of the keyboard hint stays hidden. */
+        .hint.is-live { display: flex; align-items: center; gap: 8px; }
+        .hint.is-live #hintText,
+        .hint.is-live #counter,
+        .hint.is-live > span:not(#nextSend) { display: none; }
         #provider { width: auto; max-width: 140px; min-width: 0; flex: 1 1 110px; }
         .picker { min-width: 0; flex: 1 1 140px; }
         .modelBtn { width: 100%; max-width: none; }
@@ -3913,6 +3919,14 @@
       function renderSendGate() {
         renderGateChip();
         renderWhy();
+        // The hint row is hidden under 560px; it comes back only when it carries
+        // the countdown, the held count or the Why? button.
+        const hint = document.querySelector('.hint');
+        if (hint) {
+          const chip = $('nextSend');
+          const why = $('whyBtn');
+          hint.classList.toggle('is-live', Boolean((chip && !chip.hidden) || (why && !why.hidden)));
+        }
       }
 
       function stopSendGate() {
