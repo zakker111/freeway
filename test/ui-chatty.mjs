@@ -38,6 +38,69 @@ const VIEWPORT = (() => {
   return { width: Math.round(width), height: Math.round(height) };
 })();
 const ONLY = process.env.CHATTY_ONLY || '';
+// The control board, in reading order. The tour and the tests that walk it to
+// the end share this list so a new stop cannot be added to one and not the other.
+const TOUR_TARGETS = [
+  [
+    "#sideBtn"
+  ],
+  [
+    "#newChatBtn",
+    "#clearBtn"
+  ],
+  [
+    "#provider"
+  ],
+  [
+    "#modelBtn"
+  ],
+  [
+    "#quota",
+    "#keyBtn"
+  ],
+  [
+    "#settingsBtn"
+  ],
+  [
+    "#quickPreview"
+  ],
+  [
+    "#railBtn"
+  ],
+  [
+    "#quitBtn"
+  ],
+  [
+    "#modePlan"
+  ],
+  [
+    "#modeBuild"
+  ],
+  [
+    "#input"
+  ],
+  [
+    "#suggest"
+  ],
+  [
+    "#imageLabel"
+  ],
+  [
+    "#attachLabel"
+  ],
+  [
+    "#memoryBtn"
+  ],
+  [
+    "#sendBtn",
+    "#send"
+  ],
+  [
+    "#stopBtn",
+    "#stop"
+  ]
+];
+
 const RESPONSIVE_VIEWPORTS = [
   [390, 844],
   [844, 390],
@@ -458,26 +521,7 @@ async function runTutor(cdp, origin) {
 
 async function runTour(cdp, origin) {
   await loadChatty(cdp, origin, false);
-  const targets = [
-    ['#sideBtn'],
-    ['#newChatBtn', '#clearBtn'],
-    ['#provider'],
-    ['#modelBtn'],
-    ['#quota', '#keyBtn'],
-    ['#settingsBtn'],
-    ['#quickPreview'],
-    ['#railBtn'],
-    ['#quitBtn'],
-    ['#modePlan'],
-    ['#modeBuild'],
-    ['#input'],
-    ['#suggest'],
-    ['#imageLabel'],
-    ['#attachLabel'],
-    ['#memoryBtn'],
-    ['#sendBtn', '#send'],
-    ['#stopBtn', '#stop'],
-  ];
+  const targets = TOUR_TARGETS;
   const expected = [
     /saved conversations/i,
     /clean chat/i,
@@ -582,6 +626,86 @@ async function runTour(cdp, origin) {
     `document.querySelector('#chatty')?.hidden === true`,
     5000,
   );
+}
+
+/**
+ * Walk the tour with the primary action until it ends on its own.
+ *
+ * The earlier tour test describes the last stop and then presses End tour, so
+ * the Finish path - what a user takes when they follow the tour to the end -
+ * was never exercised. Every stop is also checked for the thing its tip is
+ * talking about: the ring has to be on screen and sit around one of that
+ * stop's own controls.
+ */
+async function runTourFinish(cdp, origin) {
+  await loadChatty(cdp, origin, false);
+
+  const pageStep = "(() => {\n  const spot = [...document.querySelectorAll('.chatty-spot')].find((node) => !node.hidden) || null;\n  const bubble = document.querySelector('.chatty-bubble');\n  const primary = [...document.querySelectorAll('[data-chatty-action=\"next\"]')][0] || null;\n  const label = document.querySelector('.chatty-label')?.textContent?.trim() || '';\n  const number = Number((label.match(/^Tour ([0-9]+)\\//) || [])[1] || 0);\n  const selectors = [[\"#sideBtn\"],[\"#newChatBtn\",\"#clearBtn\"],[\"#provider\"],[\"#modelBtn\"],[\"#quota\",\"#keyBtn\"],[\"#settingsBtn\"],[\"#quickPreview\"],[\"#railBtn\"],[\"#quitBtn\"],[\"#modePlan\"],[\"#modeBuild\"],[\"#input\"],[\"#suggest\"],[\"#imageLabel\"],[\"#attachLabel\"],[\"#memoryBtn\"],[\"#sendBtn\",\"#send\"],[\"#stopBtn\",\"#stop\"]][number - 1] || [];\n  let target = null;\n  for (const selector of selectors) {\n    const node = document.querySelector(selector);\n    if (!node) continue;\n    const rect = node.getBoundingClientRect();\n    const style = getComputedStyle(node);\n    if (rect.width < 2 || rect.height < 2 || style.display === 'none' || style.visibility === 'hidden') continue;\n    target = { selector, rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } };\n    break;\n  }\n  const sr = spot ? spot.getBoundingClientRect() : null;\n  return {\n    label, number,\n    text: document.querySelector('.chatty-text')?.textContent || '',\n    primary: primary ? primary.textContent.trim() : '',\n    bubble: Boolean(bubble && !bubble.hidden),\n    ring: sr ? { left: sr.left, top: sr.top, right: sr.right, bottom: sr.bottom } : null,\n    ringInView: sr ? sr.left >= -1 && sr.top >= -1 && sr.right <= innerWidth + 1 && sr.bottom <= innerHeight + 1 : false,\n    target,\n    flag: localStorage.getItem('freeway.chatty.tour.v2'),\n  };\n})()";
+  const step = () => evaluate(cdp, pageStep);
+  const clickNext = () =>
+    evaluate(
+      cdp,
+      "(() => { const button = [...document.querySelectorAll('[data-chatty-action=\"next\"]')][0]; if (!button) return false; button.click(); return true; })()",
+    );
+
+  const seen = [];
+  let last = null;
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    await waitForPage(
+      cdp,
+      "document.querySelector('.chatty-bubble')?.hidden === false",
+      6000,
+    );
+    await sleep(700);
+    const now = await step();
+    if (/That's the tour/i.test(now.text)) {
+      last = now;
+      break;
+    }
+    assert.ok(now.number > 0, `the tour lost its stop number (label "${now.label}")`);
+    assert.equal(now.bubble, true, `tour stop ${now.number} has no bubble`);
+    assert.ok(now.ring, `tour stop ${now.number} shows no ring`);
+    assert.equal(now.ringInView, true, `tour stop ${now.number} drew its ring off screen ${JSON.stringify(now.ring)}`);
+    assert.ok(now.target, `tour stop ${now.number} (${now.label}) names no control that is on the page`);
+    const cx = (now.ring.left + now.ring.right) / 2;
+    const cy = (now.ring.top + now.ring.bottom) / 2;
+    const inside =
+      cx >= now.target.rect.left - 6 &&
+      cx <= now.target.rect.right + 6 &&
+      cy >= now.target.rect.top - 6 &&
+      cy <= now.target.rect.bottom + 6;
+    assert.equal(
+      inside,
+      true,
+      `tour stop ${now.number} points at nothing: ring ${JSON.stringify(now.ring)} vs ${now.target.selector} ${JSON.stringify(now.target.rect)}`,
+    );
+    const lastStop = now.number === TOUR_TARGETS.length;
+    assert.equal(
+      now.primary,
+      lastStop ? 'Finish tour' : 'Next stop',
+      `tour stop ${now.number} offers "${now.primary}" instead of ${lastStop ? 'Finish tour' : 'Next stop'}`,
+    );
+    seen.push(now.number);
+    assert.equal(await clickNext(), true, `tour stop ${now.number} has no primary action`);
+  }
+
+  assert.deepEqual(seen, TOUR_TARGETS.map((_, index) => index + 1), 'the tour did not walk every stop in order');
+  assert.ok(last, 'the tour never reached its completion bubble');
+  assert.match(last.text, /That's the tour/i, 'the tour did not finish');
+  assert.equal(last.flag, '1', 'finishing the tour did not record it');
+
+  // A finished tour stays finished: a reload is a returning visit, not another
+  // first run.
+  await cdp.send('Page.navigate', { url: `${origin}/` });
+  await waitForPage(cdp, 'document.readyState === "complete"', 15_000);
+  await sleep(9000);
+  const after = await evaluate(
+    cdp,
+    "(() => ({ label: document.querySelector('.chatty-label')?.textContent?.trim() || '', text: document.querySelector('.chatty-text')?.textContent || '', flag: localStorage.getItem('freeway.chatty.tour.v2') }))()",
+  );
+  assert.equal(after.flag, '1', 'the finished tour flag did not survive a reload');
+  assert.doesNotMatch(after.label, /^Tour /, `a finished tour restarted itself as "${after.label}" after a reload`);
+  assert.doesNotMatch(after.text, /Control board tour/, 'the finished tour opened again after a reload');
 }
 
 async function runDismissRace(cdp) {
@@ -863,6 +987,10 @@ async function main() {
     stage = 'first-run control board tour';
     await runTour(cdp, origin);
     console.log('  PASS  all 18 control-board stops, explanations, movement and end');
+
+    stage = 'tour finish';
+    await runTourFinish(cdp, origin);
+    console.log('  PASS  following the tour to Finish ends it, points at every control and stays done after a reload');
 
     if (!ONLY) {
       stage = 'Cat school';

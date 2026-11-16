@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.7 | 2026-11-16 | The control-board tour counts the stops the page really has, so it finishes on "N/N" and the ring points at the control each tip names |
 | 2.38.6 | 2026-11-16 | A refused screenshot address and a mistyped workspace folder answer 400 with a safe message, not a 500 that leaked the path |
 | 2.38.5 | 2026-11-16 | The four browser UI tests share one Chrome, DevTools and wait helper instead of four drifting copies |
 | 2.38.4 | 2026-11-16 | CI renders the packaged desktop page at 390px, streams a turn and cancels it with Stop |
@@ -255,6 +256,25 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.7 — 2026-11-16
+
+Chatty's first-run tour, checked stop by stop on both editions.
+
+- **The tour finishes on its own page.** The label and the last step were counted from all
+  18 stops, but the cloud page has no starter row or Quit button at phone width and a phone
+  hides rail controls. The tour skipped those numbers (`8` then `10`, `12` then `14`) and
+  ended on **"Tour 17/18"**, which reads as unfinished and never offers a real finish. The
+  tour now plans the stops the page can actually show, numbers them `1..N`, and the last one
+  says **Finish tour** and writes the completion flag.
+- **A control the cat cannot reach is dropped, not skipped silently.** A stop whose button is
+  rendered but can never be scrolled on screen (a rail button inside a closed drawer) is
+  removed from the plan and the rest renumber, so the count never has a hole.
+- **Each stop still points at its own control.** The ring is measured around the named
+  control, and `test/ui-chatty.mjs` now walks the tour with the primary action, checking per
+  stop that the ring is on screen and centred on that stop's control, that the last button
+  says "Finish tour", that finishing shows the completion bubble and records the flag, and
+  that a reload does not start the tour again.
 
 ## 2.38.6 — 2026-11-16
 

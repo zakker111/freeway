@@ -886,6 +886,14 @@
   let tourTarget = null;
   let tourStep = -1;
   let tourBusy = false;
+  // The stops this page can actually show, in order. The cloud page has no
+  // starter row or Quit button and a phone hides rail buttons, so numbering
+  // from TOUR_STOPS.length left the tour ending on "17/18" and looking
+  // unfinished, and silently skipped the tips for the controls that are gone.
+  let tourPlan = [];
+  // Stops this viewport cannot reach: rendered, but scrolling never brings
+  // them on screen. They are dropped from the plan so the count stays honest.
+  const unreachableStops = new Set();
   let tutorLesson = null;
   let tutorStep = -1;
   let lastLesson = -1;
@@ -1185,24 +1193,38 @@
     return null;
   }
 
-  function findTourTarget(start = 0, includeOffscreen = false) {
-    for (let i = Math.max(0, start); i < TOUR_STOPS.length; i += 1) {
+  function tourPlanStops() {
+    const plan = [];
+    for (let i = 0; i < TOUR_STOPS.length; i += 1) {
       const stop = TOUR_STOPS[i];
       for (const selector of stop.selectors) {
         const target = document.querySelector(selector);
-        if (!renderedTarget(target)) continue;
-        if (!includeOffscreen && !onScreen(target)) continue;
-        return { stop, target, index: i };
+        if (renderedTarget(target) && !unreachableStops.has(target)) {
+          plan.push({ stop, target, index: i });
+          break;
+        }
       }
     }
-    return null;
+    return plan;
   }
 
-  function tourActions(index) {
+  // The cat could not be brought to this control, so it is not a stop on this
+  // page after all: drop it and renumber the rest instead of skipping a number.
+  function dropTourStop(position, found) {
+    unreachableStops.add(found.target);
+    if (tourPlan[position] === found) {
+      tourPlan = [...tourPlan.slice(0, position), ...tourPlan.slice(position + 1)];
+    }
+    tourBusy = false;
+    showTourStep(position);
+  }
+
+  function tourActions(position) {
     // On a phone the last visible control can be Send: Stop and Quit are
-    // hidden by their pages. Do not promise another stop when the next
-    // selector does not exist on this viewport.
-    const last = !findTourTarget(index + 1, true);
+    // hidden by their pages. The plan already leaves those out, so the last
+    // stop is the last one this page can actually show.
+    const plan = tourPlan.length ? tourPlan : tourPlanStops();
+    const last = position >= plan.length - 1;
     return [
       { action: 'next', label: last ? 'Finish tour' : 'Next stop', primary: true },
       { action: 'skip', label: 'End tour' },
@@ -1862,6 +1884,8 @@
     tutorStep = -1;
     tutorLesson = null;
     wanderCount = TOUR_LIMIT;
+    unreachableStops.clear();
+    tourPlan = tourPlanStops();
     tourStep = -1;
     tourBusy = false;
     if (rootNode.hidden) {
@@ -1872,20 +1896,25 @@
     showTourStep(0);
   }
 
-  function showTourStep(start) {
+  function showTourStep(position) {
     if (!enabled || !rootNode || rootNode.hidden) return;
     // A phone in landscape can put starter prompts below the fold. They are
-    // still part of the control board, so include rendered controls and bring
-    // the next one into view before the cat travels to it.
-    const found = findTourTarget(start, true);
-    if (!found) {
+    // still part of the control board, so the plan keeps rendered controls and
+    // the target is brought into view before the cat travels to it.
+    const plan = tourPlan.length ? tourPlan : tourPlanStops();
+    let at = Math.max(0, position);
+    // A panel that closes mid-tour can take a control away; skip past it
+    // rather than pointing the cat at a node that is no longer on the page.
+    while (at < plan.length && !renderedTarget(plan[at].target)) at += 1;
+    if (at >= plan.length) {
       finishTour();
       return;
     }
-    tourStep = found.index;
+    const found = plan[at];
+    tourStep = at;
     tourBusy = true;
-    const actions = tourActions(found.index);
-    const label = `Tour ${found.index + 1}/${TOUR_STOPS.length}`;
+    const actions = tourActions(at);
+    const label = `Tour ${at + 1}/${plan.length}`;
     hideTip(true);
     hideSpotlight();
     clearTimeout(hideTimer);
@@ -1893,10 +1922,9 @@
     clearTimeout(moveTimer);
 
     const begin = () => {
-      if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+      if (!enabled || !rootNode || rootNode.hidden || tourStep !== at) return;
       if (!onScreen(found.target)) {
-        tourBusy = false;
-        showTourStep(found.index + 1);
+        dropTourStop(at, found);
         return;
       }
       // Lay out the real sentence before moving. A fixed reserved height cannot
@@ -1905,11 +1933,10 @@
       const bubbleHeight = measureBubble(found.stop.tip, actions, label);
       const arrive = () => {
         moveTimer = 0;
-        if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+        if (!enabled || !rootNode || rootNode.hidden || tourStep !== at) return;
         rootNode.classList.remove('is-touring');
         if (!visibleTarget(found.target)) {
-          tourBusy = false;
-          showTourStep(found.index + 1);
+          dropTourStop(at, found);
           return;
         }
         showTip(found.stop.tip, 0, actions, label, true);
@@ -1956,7 +1983,7 @@
     let lastTop = null;
     let stable = 0;
     const poll = () => {
-      if (!enabled || !rootNode || rootNode.hidden || tourStep !== found.index) return;
+      if (!enabled || !rootNode || rootNode.hidden || tourStep !== at) return;
       const top = found.target.getBoundingClientRect().top;
       if (lastTop !== null && Math.abs(top - lastTop) < 1 && onScreen(found.target)) stable += 1;
       else stable = 0;
@@ -1972,7 +1999,8 @@
 
   function advanceTour() {
     if (!enabled || tourStep < 0 || tourBusy) return;
-    if (tourStep >= TOUR_STOPS.length - 1) {
+    const plan = tourPlan.length ? tourPlan : tourPlanStops();
+    if (tourStep >= plan.length - 1) {
       finishTour();
       return;
     }
