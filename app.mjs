@@ -237,7 +237,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.38.5';
+const VERSION = '2.38.6';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -2623,7 +2623,17 @@ async function route(req, res) {
       if (body?.chat && !chatId) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
       const requested = Object.prototype.hasOwnProperty.call(body ?? {}, 'workspace') ? body.workspace : undefined;
       const sandbox = workspaceFor(chatId, requested);
-      const archive = createWorkspaceArchive(sandbox);
+      // A folder that was deleted or mistyped is the request's problem, and the
+      // reply must not echo the raw ENOENT with its absolute path.
+      let archive;
+      try {
+        archive = createWorkspaceArchive(sandbox);
+      } catch (error) {
+        if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+          throw Object.assign(new Error('That workspace folder does not exist.'), { status: 400 });
+        }
+        throw error;
+      }
       res.writeHead(200, {
         'content-type': 'application/zip',
         'content-disposition': `attachment; filename="${archive.name}"`,

@@ -421,6 +421,41 @@ async function main() {
     }
   });
 
+  // A folder the user mistyped is a bad request, and the reply must not carry
+  // the absolute path from the ENOENT. Both used to be a 500.
+  await check('a missing workspace is a 400 that does not leak the path', async () => {
+    const app = await startApp();
+    try {
+      const missing = path.join(app.dir, 'not-a-folder');
+      const response = await fetch(`${app.base}/api/workspace/archive`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': app.token },
+        body: JSON.stringify({ workspace: missing }),
+      });
+      assert.equal(response.status, 400);
+      const body = await response.json();
+      assert.match(body.error, /does not exist/);
+      assert.ok(!body.error.includes(missing), 'the reply must not echo the path');
+    } finally {
+      await stopApp(app);
+    }
+  });
+
+  await check('a non-local screenshot URL is a 400, not a server error', async () => {
+    const app = await startApp();
+    try {
+      const response = await fetch(`${app.base}/api/preview/screenshot`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': app.token },
+        body: JSON.stringify({ workspace: app.dir, url: 'https://example.com/' }),
+      });
+      assert.equal(response.status, 400);
+      assert.match((await response.json()).error, /limited to the local preview server/);
+    } finally {
+      await stopApp(app);
+    }
+  });
+
   await check('the GitHub API needs the app token and a saved secret', async () => {
     const app = await startApp();
     try {
@@ -759,10 +794,12 @@ async function main() {
         assert.equal(shot.width, 1);
         assert.equal(shot.height, 1);
 
+        // A refused address is the request's problem: 400, not a server fault.
         const rejected = await fetch(`${app.base}/api/preview/screenshot`, {
           method: 'POST', headers, body: JSON.stringify({ url: 'https://example.com/' }),
         });
-        assert.equal(rejected.status, 500);
+        assert.equal(rejected.status, 400);
+        assert.match((await rejected.json()).error, /limited to the local preview server/);
       } finally {
         await stopApp(app);
         fs.rmSync(dir, { recursive: true, force: true });

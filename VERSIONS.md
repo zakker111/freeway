@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.6 | 2026-11-16 | A refused screenshot address and a mistyped workspace folder answer 400 with a safe message, not a 500 that leaked the path |
 | 2.38.5 | 2026-11-16 | The four browser UI tests share one Chrome, DevTools and wait helper instead of four drifting copies |
 | 2.38.4 | 2026-11-16 | CI renders the packaged desktop page at 390px, streams a turn and cancels it with Stop |
 | 2.38.3 | 2026-11-16 | A full store says which held messages will not survive a reload, and keeps the text when only the image will not fit |
@@ -254,6 +255,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.6 — 2026-11-16
+
+An audit release: two request refusals that reached the browser as server errors now answer
+like refusals, and one of them no longer prints an absolute path.
+
+- **A refused screenshot address is a 400.** A non-local URL, an unparseable URL and a URL with
+  credentials in it were reported as `500 Internal Server Error` with a message explaining the
+  refusal. They now carry `status: 400`; a machine with no Edge or Chrome reports `503` instead
+  of a fault. The route, the messages and the shared client refusal path are otherwise unchanged.
+- **A mistyped or deleted workspace folder is a 400.** `POST /api/workspace/archive` let the
+  raw `ENOENT` escape, so the page showed `ENOENT: no such file or directory, lstat '/home/...'`
+  with a 500 and the absolute path. The folder is now refused with "That workspace folder does not
+  exist." and no path.
+- **Both are pinned by tests.** The screenshot unit tests assert the status on each refusal, and
+  `test/cli.mjs` checks the archive reply is a 400 that does not echo the path. The CLI check that
+  used to assert the old `500` for a foreign screenshot URL now asserts the 400 and its message.
 
 ## 2.38.5 — 2026-11-16
 
