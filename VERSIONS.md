@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.41 | 2026-11-16 | The cloud stream keeps the next-send gate after a permanent rate-limit 429 instead of re-enabling Send |
 | 2.35.40 | 2026-11-16 | The cloud composer opens its send gate for a permanent rate-limit 429 instead of leaving Send live |
 | 2.35.39 | 2026-11-16 | The provider pill keeps a matching title after a switch and chat subtitles cap at two lines |
 | 2.35.38 | 2026-11-16 | Chatty keeps clear of the cloud announcement; the provider pill and chat subtitle stop clipping |

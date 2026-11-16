@@ -4047,6 +4047,9 @@
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
           if (['rate-limit', 'upstream_rate', 'rate_limited'].includes(error.code)) {
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
+            // A spent retry budget still owes the provider its delay: hold the
+            // composer instead of leaving Send live for another instant 429.
+            startSendGate(error.retryAfterMs || 60_000);
           }
           pending.bubble.classList.remove('cursor');
           if (error.name === 'AbortError') {
@@ -4068,8 +4071,7 @@
           }
         } finally {
           state.busy = false;
-          $('send').disabled = false;
-          $('send').textContent = 'Send';
+          renderSendGate();
           $('stop').disabled = true;
           state.abort = null;
           setHints();
