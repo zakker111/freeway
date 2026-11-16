@@ -43,9 +43,10 @@ releases and commit log; this file tracks what is still open.
 Ranked by value, in the order they were chosen. Numbers are kept from that list, so
 item 8 is intentionally absent. Ticked items already shipped.
 
-- [ ] **1. Protect the data before anything else: persistent storage + an export nudge.**
-      `navigator.storage.persist()`, a storage-health line in Settings, and a warning
-      before the 200-chat cap prunes.
+- [x] **1. Protect the data before anything else: persistent storage + an export nudge.**
+      Shipped in **2.35.45**: a tab with saved chats asks for persistent storage, Settings
+      reports usage, chats and eviction protection (with a Keep button), and the cap warns
+      at five left, then names the chat it removed.
 - [ ] **2. Cross-tab write safety in the cloud edition.** The desktop store refuses a
       stale `rev` with a 409; the cloud `saveThread` is last-write-wins on the whole array.
 - [x] **3. The blank-canvas reload state.** Shipped in **2.35.36**: a restored thread with

@@ -2621,6 +2621,17 @@
       </div>
 
       <h3 class="settings-group">Your data</h3>
+      <div class="setting" id="settingsStorage">
+        <div class="settings-head">
+          <label>Browser storage</label>
+          <button class="qmark" type="button" aria-label="More about browser storage" aria-describedby="tipCloudStorage">?</button>
+          <span class="qtip" id="tipCloudStorage" role="tooltip">Chats live in this browser only. A browser under disk pressure may clear site data unless it grants persistent storage. Keep chats asks for that protection; Export chats (.json) is the copy that survives an eviction.</span>
+        </div>
+        <div class="setting-note" id="storageHealth" aria-live="polite">Checking this browser…</div>
+        <div class="row" style="justify-content:flex-start;margin-top:8px">
+          <button class="ghost mini" id="storageKeepBtn" type="button" hidden>Keep chats in this browser</button>
+        </div>
+      </div>
       <div class="setting" id="settingsSecrets">
         <div class="settings-head">
           <label>Secrets</label>
@@ -5283,6 +5294,7 @@
           ? window.FreewayChatty.isEnabled()
           : localStorage.getItem('freeway.chatty.enabled') !== '0';
         renderSecrets();
+        refreshStorageHealth();
         $('settingsDialog').showModal();
       };
       $('settingsCancel').onclick = () => $('settingsDialog').close();
@@ -5662,16 +5674,118 @@
         const firstUser = state.messages.find((message) => message.role === 'user');
         const derived = (firstUser?.content || 'New chat').replace(/\s+/g, ' ').trim().slice(0, 60);
         const title = titleOverride.id === id && titleOverride.title ? titleOverride.title : derived;
-        const next = [
+        const merged = [
           { id, title, provider: state.provider, model: state.model, mode: state.mode, messages: state.messages, updatedAt: now },
           ...threads.filter((thread) => thread.id !== id),
-        ]
-          .sort((a, b) => b.updatedAt - a.updatedAt)
-          // Keep the newest 200 chats in this browser.
-          .slice(0, 200);
+        ].sort((a, b) => b.updatedAt - a.updatedAt);
+        // Keep the newest CHAT_CAP chats in this browser, but never drop one
+        // quietly: the banner names what went and offers the export.
+        const next = merged.slice(0, CHAT_CAP);
+        const dropped = merged.slice(CHAT_CAP);
         writeThreads(next, key);
         setActiveThread(id);
         renderHistory();
+        if (dropped.length) {
+          const removed = dropped.map((chat) => '"' + chat.title + '"');
+          banner(
+            'Chat limit: this browser keeps ' +
+              CHAT_CAP +
+              '. Removed ' +
+              (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
+              '.',
+            'Export',
+            () => $('exportChatsBtn').click(),
+          );
+        } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && !capWarned) {
+          capWarned = true;
+          banner(
+            'Only ' +
+              (CHAT_CAP - next.length) +
+              ' chats left before the oldest ("' +
+              next[next.length - 1].title +
+              '") is removed.',
+            'Export',
+            () => $('exportChatsBtn').click(),
+          );
+        }
+      }
+
+      // ------------------------------------------------------- storage health
+      // Chats are the only irreplaceable thing in this tab, so the page asks
+      // the browser to mark its storage persistent and says plainly whether
+      // that worked. A refusal is normal, not an error.
+      const CHAT_CAP = 200;
+      const CHAT_CAP_WARN = 5;
+      let capWarned = false;
+
+      function bytesText(bytes) {
+        const size = Number(bytes) || 0;
+        if (size < 1024) return Math.round(size) + ' B';
+        if (size < 1024 * 1024) return Math.max(1, Math.round(size / 1024)) + ' KB';
+        return (size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0) + ' MB';
+      }
+
+      function storageSupported() {
+        return Boolean(navigator.storage && typeof navigator.storage.persist === 'function');
+      }
+
+      async function storagePersisted() {
+        if (!storageSupported() || typeof navigator.storage.persisted !== 'function') return null;
+        try {
+          return await navigator.storage.persisted();
+        } catch {
+          return null;
+        }
+      }
+
+      async function requestPersistence() {
+        if (!storageSupported()) return null;
+        try {
+          return await navigator.storage.persist();
+        } catch {
+          return null;
+        }
+      }
+
+      async function refreshStorageHealth() {
+        const line = $('storageHealth');
+        const keep = $('storageKeepBtn');
+        if (!line) return;
+        const saved = readThreads().length;
+        let used = 0;
+        try {
+          const estimate =
+            navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
+          used = Number(estimate && estimate.usage) || 0;
+        } catch {
+          /* an estimate is a nicety, not a requirement */
+        }
+        const persisted = await storagePersisted();
+        const parts = [bytesText(used) + ' used', saved + ' of ' + CHAT_CAP + ' chats'];
+        if (persisted === null) parts.push('this browser cannot protect site data');
+        else if (persisted) parts.push('eviction protection on');
+        else parts.push('eviction protection off');
+        line.textContent = parts.join(' · ');
+        if (keep) keep.hidden = !storageSupported() || persisted === true;
+      }
+
+      async function keepChats() {
+        const granted = await requestPersistence();
+        await refreshStorageHealth();
+        banner(
+          granted
+            ? 'This browser will keep your chats when space runs low.'
+            : 'This browser did not grant eviction protection. Export chats (.json) to keep a copy.',
+          'Close',
+          () => {},
+        );
+        return granted;
+      }
+
+      $('storageKeepBtn').onclick = () => keepChats();
+      // Ask once per visit, and only when there is something to lose.
+      if (readThreads().length && storageSupported()) {
+        requestPersistence().then(refreshStorageHealth);
       }
 
       // Save the chat record the first time a draft gets files. Later writes
