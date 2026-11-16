@@ -1687,6 +1687,15 @@
         padding: 3px 0;
       }
       .queue-item input:focus { outline: none; border-bottom-color: var(--accent); }
+      .queue-warn {
+        border: 1px dashed var(--warn-line);
+        background: var(--warn-soft);
+        border-radius: 10px;
+        padding: 6px 8px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: var(--text);
+      }
       .why-row {
         display: flex;
         flex-wrap: wrap;
@@ -2801,6 +2810,9 @@
         lastBlock: null,
         // Stop must not spend what the user typed: the queue waits for Send now.
         holdQueue: false,
+        // How much of the queue the last write kept: 'full', 'text' or 'none'.
+        queueSaved: 'full',
+        queueWarned: '',
         gateTimer: 0,
         previewLink: '',
         previewFull: false,
@@ -4134,14 +4146,57 @@
       }
 
       // A held message is text the user already typed, so a reload must not eat
-      // it. The queues are small; a full store still cannot break sending.
+      // it. A full store still cannot break sending, but it must not hide either:
+      // the last write reports how much it kept.
       function saveQueue() {
-        try {
-          if (!state.queue.length) localStorage.removeItem(QUEUE_KEY);
-          else localStorage.setItem(QUEUE_KEY, JSON.stringify(state.queue));
-        } catch {
-          /* a full store keeps the in-memory queue usable */
+        if (!state.queue.length) {
+          try {
+            localStorage.removeItem(QUEUE_KEY);
+          } catch {
+            /* nothing to clean up */
+          }
+          state.queueSaved = 'full';
+          state.queueWarned = '';
+          return 'full';
         }
+        // The text is what matters most, so a message whose image does not fit is
+        // still worth keeping rather than dropping the whole queue.
+        const attempts = [
+          ['full', state.queue],
+          ['text', state.queue.map((item) => ({ text: item.text, images: [] }))],
+        ];
+        for (const [level, items] of attempts) {
+          try {
+            localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+            state.queueSaved = level;
+            if (level === 'full') state.queueWarned = '';
+            return level;
+          } catch {
+            /* try the next, smaller payload */
+          }
+        }
+        // A stale copy would come back as a duplicate after a reload.
+        try {
+          localStorage.removeItem(QUEUE_KEY);
+        } catch {
+          /* a store that cannot write cannot clean up either */
+        }
+        state.queueSaved = 'none';
+        return 'none';
+      }
+
+      // Say it once per change of state, not on every keystroke.
+      function warnQueueUnsaved() {
+        const level = state.queueSaved;
+        if (level === 'full' || state.queueWarned === level) return;
+        state.queueWarned = level;
+        banner(
+          level === 'text'
+            ? 'Storage is full — the held text is saved, but its image will not come back after a reload.'
+            : 'Storage is full — held messages stay in this tab and will be lost on reload.',
+          'close',
+          () => {},
+        );
       }
 
       // Held messages are listed above the composer: editable, cancelable,
@@ -4161,6 +4216,7 @@
           field.oninput = () => {
             item.text = field.value;
             saveQueue();
+            warnQueueUnsaved();
           };
           const now = el('button', 'mini', 'Send now');
           now.type = 'button';
@@ -4174,6 +4230,18 @@
         }
         // Every queue mutation ends in a render, so this is the one save hook.
         saveQueue();
+        warnQueueUnsaved();
+        if (state.queue.length && state.queueSaved !== 'full') {
+          list.append(
+            el(
+              'div',
+              'queue-warn',
+              state.queueSaved === 'text'
+                ? 'Storage is full — the text is saved for a reload, but the attached image is not.'
+                : 'Storage is full — this held message is in this tab only and will be lost on reload.',
+            ),
+          );
+        }
       }
 
       function sendQueuedItem(item) {
@@ -4253,12 +4321,19 @@
         renderSendGate();
         const held =
           state.queue.length === 1 ? 'your message is held' : state.queue.length + ' messages are held';
+        // The held notice is not allowed to paper over a write that failed.
+        const unsaved =
+          state.queueSaved === 'none'
+            ? ' Storage is full, so it stays in this tab only.'
+            : state.queueSaved === 'text'
+              ? ' Storage is full, so its image will not come back after a reload.'
+              : '';
         banner(
-          gateLeft()
+          (gateLeft()
             ? 'Rate limited — ' + held + '. The first goes out in ' + durationText(gateLeft()) + '.'
             : state.queue.length === 1
               ? 'Held — it goes out when this answer finishes.'
-              : 'Held — ' + state.queue.length + ' messages go out when this answer finishes.',
+              : 'Held — ' + state.queue.length + ' messages go out when this answer finishes.') + unsaved,
           'close',
           () => {},
         );
