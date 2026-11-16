@@ -5703,9 +5703,9 @@
         const next = merged.slice(0, CHAT_CAP);
         const dropped = merged.slice(CHAT_CAP);
         writeThreads(next, key);
-        // The first saved chat is the first thing worth protecting, so the
-        // persistence ask is not left until the next reload.
-        ensurePersistence();
+        // Ask only once a message is saved. The empty New Chat the page saves
+        // at boot runs without a gesture, and a browser denies that request.
+        if (state.messages.length) ensurePersistence();
         setActiveThread(id);
         renderHistory();
         // The cap warning has a line of its own. A real error owns the banner,
@@ -5827,6 +5827,7 @@
       }
 
       async function keepChats() {
+        persistenceAsked = true;
         const granted = await requestPersistence();
         await refreshStorageHealth();
         banner(
@@ -5842,9 +5843,8 @@
       $('storageKeepBtn').onclick = () => keepChats();
       $('capNoticeExport').onclick = () => $('exportChatsBtn').click();
       $('capNoticeClose').onclick = () => closeCapNotice();
-      // A reload with saved chats re-checks at boot; a first visit asks on its
-      // first save instead (see saveThread).
-      if (readThreads().length) ensurePersistence();
+      // Nothing is asked here: a boot-time request has no user gesture behind
+      // it, so the ask follows the first saved message instead (saveThread).
 
       // Save the chat record the first time a draft gets files. Later writes
       // only update the file namespace; the chat already exists.

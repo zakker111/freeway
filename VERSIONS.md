@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.54 | 2026-11-16 | The persistence ask waits for the first saved message, so it runs on a click |
 | 2.35.53 | 2026-11-16 | The chat-limit warning can be closed and returns for the next one |
 | 2.35.52 | 2026-11-16 | The cap warning has its own line, the first save asks for persistent storage, and a held message waits out the send gate in either mode |
 | 2.35.51 | 2026-11-16 | The near-cap warning comes back if another banner takes its place |
