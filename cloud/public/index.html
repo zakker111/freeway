@@ -3571,7 +3571,7 @@
           if (!state.stopRequested) window.FreewayChatty?.ready();
         } catch (error) {
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
-          if (['upstream_rate', 'rate_limited'].includes(error.code)) {
+          if (['rate-limit', 'upstream_rate', 'rate_limited'].includes(error.code)) {
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
             // Say when the next send is allowed instead of leaving the user to
             // guess, and hold the next message until then.
@@ -4045,7 +4045,7 @@
           }
         } catch (error) {
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
-          if (['upstream_rate', 'rate_limited'].includes(error.code)) {
+          if (['rate-limit', 'upstream_rate', 'rate_limited'].includes(error.code)) {
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
           }
           pending.bubble.classList.remove('cursor');
