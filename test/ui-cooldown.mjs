@@ -620,6 +620,53 @@ async function runRetryStops(browser, edition) {
   return requests;
 }
 
+// A message typed while the gate is closed must wait for the timer and then go
+// out by itself; Enter must not reach the provider early.
+async function runQueuedSend(browser) {
+  await setScenario(browser, 'retry-error');
+  await send(browser, 'cloud', 'First attempt that gets limited.');
+  await waitForPage(
+    browser.cdp,
+    `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS} && document.querySelector('#nextSend') && !document.querySelector('#nextSend').hidden`,
+    30_000,
+  );
+  const before = (await calls(browser)).length;
+  assert.equal(before, RETRY_ATTEMPTS, 'the gate opened before the retry budget ran out');
+
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      const input = document.querySelector('#input');
+      input.value = 'Second, queued message.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal(
+    (await calls(browser)).length,
+    RETRY_ATTEMPTS,
+    'Enter sent the message straight through a closed gate',
+  );
+  const chip = await evaluate(browser.cdp, 'document.querySelector("#nextSend").textContent');
+  assert.match(chip, /queued/i, 'the held message is not marked as queued');
+  assert.match(
+    await evaluate(browser.cdp, 'document.querySelector("#bannerSlot").innerText'),
+    /queued/i,
+    'the page never says the message is held',
+  );
+
+  await waitForPage(browser.cdp, `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS + 1}`, 12_000);
+  const requests = await calls(browser);
+  const queued = requests[RETRY_ATTEMPTS];
+  assert.match(JSON.stringify(queued.body), /Second, queued message/, 'the queued text was not what went out');
+  assert.ok(
+    queued.at - requests[RETRY_ATTEMPTS - 1].at >= RETRY_AFTER_MS,
+    `the queued message left after ${queued.at - requests[RETRY_ATTEMPTS - 1].at}ms, before the wait ended`,
+  );
+  return requests.length;
+}
+
 async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-cooldown-'));
   let app;
@@ -722,6 +769,11 @@ async function main() {
     await check('cloud stream: a repeated 429 stops after one automatic resend', async () => {
       await openPage(browserInfo, `http://127.0.0.1:${cloudPort}/`, 'cloud');
       await runRetryStops(browserInfo, 'cloud');
+    });
+
+    await check('cloud stream: a message typed during the wait is sent when the timer ends', async () => {
+      await openPage(browserInfo, `http://127.0.0.1:${cloudPort}/`, 'cloud');
+      await runQueuedSend(browserInfo);
     });
 
     await check('cloud tools: cooldown shows a countdown and resends exactly once', async () => {

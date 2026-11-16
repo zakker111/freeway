@@ -2466,6 +2466,10 @@
         </div>
       </div>
       <div id="bannerSlot" role="status" aria-live="polite"></div>
+      <div id="capNotice" class="banner" role="status" aria-live="polite" hidden>
+        <span id="capNoticeText"></span>
+        <button class="mini" id="capNoticeExport" type="button">Export</button>
+      </div>
     </main>
 
     <footer>
@@ -2959,7 +2963,7 @@
         setTimeout(() => { live.textContent = String(text || ''); }, 20);
       }
 
-      function banner(text, actionLabel, action, { keep = false } = {}) {
+      function banner(text, actionLabel, action) {
         const slot = $('bannerSlot');
         slot.innerHTML = '';
         if (!text) return;
@@ -2971,17 +2975,6 @@
           box.append(btn);
         }
         slot.append(box);
-        // A message about data loss must not vanish because something else
-        // wanted the same slot a moment later: bring it back once.
-        if (!keep && capNotice && text !== capNotice) {
-          const note = capNotice;
-          setTimeout(() => {
-            if (capNotice !== note) return;
-            const shown = document.querySelector('#bannerSlot .banner');
-            if (shown && shown.textContent.includes(note)) return;
-            banner(note, 'Export', () => $('exportChatsBtn').click(), { keep: true });
-          }, 1500);
-        }
       }
 
       // ------------------------------------------------------------- models
@@ -3462,6 +3455,7 @@
         const box = $('input');
         const text = box.value.trim();
         if ((!text && !images.length) || state.busy) return;
+        if (gateLeft()) return queueSend(images);
         if (!state.model) return banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
         if (!hasKey()) return openKey(`Paste a ${providerInfo().label} key to chat from this deployment.`);
 
@@ -3736,6 +3730,7 @@
 
       async function send() {
         const images = state.attachment ? [state.attachment.dataUrl] : [];
+        if (gateLeft()) return queueSend(images);
         if (images.length && state.busy) {
           banner('Wait for the current answer before attaching an image.', 'close', () => {});
           return;
@@ -3821,30 +3816,55 @@
         state.sendGateUntil = 0;
       }
 
+      // One tick decides whether the wait is over, so the interval and a tab
+      // that comes back from the background agree with each other.
+      function gateTick() {
+        if (!state.gateTimer) return;
+        if (gateLeft() > 0) {
+          renderSendGate();
+          return;
+        }
+        stopSendGate();
+        renderSendGate();
+        const queued = state.queuedSend;
+        state.queuedSend = null;
+        if (queued && !state.busy) {
+          $('input').value = queued.text || '';
+          autoGrow();
+          announce('The wait is over. Sending the queued message.');
+          if (state.mode === 'build' && readSettings().tools) toolSend(queued.images || []);
+          else streamSend(queued.images || []);
+        } else {
+          announce('The wait is over. You can send again.');
+        }
+      }
+
       function startSendGate(ms) {
         const wait = Math.min(Math.max(Number(ms) || 60_000, 1_000), AUTO_RETRY_MAX_MS);
         if (state.gateTimer) clearInterval(state.gateTimer);
         state.sendGateUntil = Date.now() + wait;
         renderSendGate();
         announce(gateText(wait) + '.');
-        state.gateTimer = setInterval(() => {
-          if (gateLeft() > 0) {
-            renderSendGate();
-            return;
-          }
-          stopSendGate();
-          renderSendGate();
-          const queued = state.queuedSend;
-          state.queuedSend = null;
-          if (queued && !state.busy) {
-            $('input').value = queued.text || '';
-            autoGrow();
-            announce('The wait is over. Sending the queued message.');
-            streamSend(queued.images || []);
-          } else {
-            announce('The wait is over. You can send again.');
-          }
-        }, 1000);
+        state.gateTimer = setInterval(gateTick, 1000);
+      }
+
+      // A backgrounded tab has its timers paused, so coming back re-reads the
+      // clock instead of showing a stale countdown with Send still disabled.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) gateTick();
+      });
+      window.addEventListener('focus', gateTick);
+
+      // One place to hold a message while the gate is closed, so the Send
+      // button and Enter behave the same in Plan and Build.
+      function queueSend(images = []) {
+        const text = $('input').value.trim();
+        if (!text && !images.length) return false;
+        state.queuedSend = { text, images };
+        renderSendGate();
+        banner('Rate limited — queued. Sending in ' + Math.ceil(gateLeft() / 1000) + 's.', 'close', () => {});
+        announce('Message queued until the wait ends.');
+        return true;
       }
 
       function sleepAbortable(ms, signal) {
@@ -3892,19 +3912,7 @@
         const box = $('input');
         const text = box.value.trim();
         if ((!text && !images.length) || state.busy) return;
-        if (gateLeft()) {
-          // Keep the message instead of throwing it at a provider that just said
-          // no; the gate sends it the moment the wait ends.
-          state.queuedSend = { text, images };
-          renderSendGate();
-          banner(
-            'Rate limited — queued. Sending in ' + Math.ceil(gateLeft() / 1000) + 's.',
-            'close',
-            () => {},
-          );
-          announce('Message queued until the wait ends.');
-          return;
-        }
+        if (gateLeft()) return queueSend(images);
         if (!state.model) {
           banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
           return;
@@ -5694,34 +5702,34 @@
         const next = merged.slice(0, CHAT_CAP);
         const dropped = merged.slice(CHAT_CAP);
         writeThreads(next, key);
+        // The first saved chat is the first thing worth protecting, so the
+        // persistence ask is not left until the next reload.
+        ensurePersistence();
         setActiveThread(id);
         renderHistory();
-        // The notice that says what will go must outlive the banner the same
-        // click shows, so it lands on the next tick and re-asserts once if a
-        // later message replaces it.
+        // The cap warning has a line of its own. A real error owns the banner,
+        // so neither can erase the other.
         if (dropped.length) {
           const removed = dropped.map((chat) => '"' + chat.title + '"');
-          const note =
+          renderCapNotice(
             'Chat limit: this browser keeps ' +
-            CHAT_CAP +
-            '. Removed ' +
-            (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
-            '.';
-          capNotice = '';
-          setTimeout(() => banner(note, 'Export', () => $('exportChatsBtn').click()), 0);
+              CHAT_CAP +
+              '. Removed ' +
+              (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
+              '.',
+          );
         } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && next.length < CHAT_CAP && next.length !== lastCapWarnAt) {
-          // Warn once per slot used, not once per session: the first warning can
-          // land on a background save and be replaced before anyone reads it.
+          // Warn once per slot used, not once per session.
           lastCapWarnAt = next.length;
-          capNotice =
+          renderCapNotice(
             'Only ' +
-            (CHAT_CAP - next.length === 1 ? '1 chat' : CHAT_CAP - next.length + ' chats') +
-            ' left before the oldest ("' +
-            next[next.length - 1].title +
-            '") is removed.';
-          setTimeout(() => banner(capNotice, 'Export', () => $('exportChatsBtn').click()), 0);
+              (CHAT_CAP - next.length === 1 ? '1 chat' : CHAT_CAP - next.length + ' chats') +
+              ' left before the oldest ("' +
+              next[next.length - 1].title +
+              '") is removed.',
+          );
         } else if (next.length < CHAT_CAP - CHAT_CAP_WARN) {
-          capNotice = '';
+          renderCapNotice('');
         }
       }
 
@@ -5732,7 +5740,17 @@
       const CHAT_CAP = 200;
       const CHAT_CAP_WARN = 5;
       let lastCapWarnAt = -1;
-      let capNotice = '';
+
+      // The cap line is its own element: it is the only place a lost chat is
+      // reported, so it must never compete for the banner slot.
+      function renderCapNotice(text) {
+        const box = $('capNotice');
+        const body = $('capNoticeText');
+        if (!box || !body) return;
+        const note = String(text || '');
+        body.textContent = note;
+        box.hidden = !note;
+      }
 
       function bytesText(bytes) {
         const size = Number(bytes) || 0;
@@ -5761,6 +5779,15 @@
         } catch {
           return null;
         }
+      }
+
+      // Ask once per visit, and as soon as there is a chat to lose.
+      let persistenceAsked = false;
+      async function ensurePersistence() {
+        if (persistenceAsked || !storageSupported()) return;
+        persistenceAsked = true;
+        await requestPersistence();
+        await refreshStorageHealth();
       }
 
       async function refreshStorageHealth() {
@@ -5799,10 +5826,10 @@
       }
 
       $('storageKeepBtn').onclick = () => keepChats();
-      // Ask once per visit, and only when there is something to lose.
-      if (readThreads().length && storageSupported()) {
-        requestPersistence().then(refreshStorageHealth);
-      }
+      $('capNoticeExport').onclick = () => $('exportChatsBtn').click();
+      // A reload with saved chats re-checks at boot; a first visit asks on its
+      // first save instead (see saveThread).
+      if (readThreads().length) ensurePersistence();
 
       // Save the chat record the first time a draft gets files. Later writes
       // only update the file namespace; the chat already exists.

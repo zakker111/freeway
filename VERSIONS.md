@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.52 | 2026-11-16 | The cap warning has its own line, the first save asks for persistent storage, and a held message waits out the send gate in either mode |
 | 2.35.51 | 2026-11-16 | The near-cap warning comes back if another banner takes its place |
 | 2.35.50 | 2026-11-16 | The near-cap notice stops at the last real slot instead of announcing “0 chats left” |
 | 2.35.49 | 2026-11-16 | The last-slot warning says “1 chat left” instead of “1 chats left” |
