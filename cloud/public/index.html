@@ -3810,16 +3810,17 @@
         return Math.max(0, (Number(state.sendGateUntil) || 0) - Date.now());
       }
 
-      function gateText(left) {
+      // One duration shape for the chip and the held-message notices, so a
+      // long gate reads '15m 00s' instead of '900s'.
+      function durationText(left) {
         const total = Math.ceil(left / 1000);
         const minutes = Math.floor(total / 60);
         const seconds = total % 60;
-        return (
-          'next send in ' +
-          (minutes ? minutes + 'm ' : '') +
-          String(seconds).padStart(minutes ? 2 : 1, '0') +
-          's'
-        );
+        return (minutes ? minutes + 'm ' : '') + String(seconds).padStart(minutes ? 2 : 1, '0') + 's';
+      }
+
+      function gateText(left) {
+        return 'next send in ' + durationText(left);
       }
 
       function renderSendGate() {
@@ -3964,7 +3965,7 @@
           state.queue.unshift(item);
           renderSendQueue();
           banner(
-            'Still rate limited — this goes out first in ' + Math.ceil(gateLeft() / 1000) + 's.',
+            'Still rate limited — this goes out first in ' + durationText(gateLeft()) + '.',
             'close',
             () => {},
           );
@@ -3991,9 +3992,7 @@
         banner(
           'Rate limited — ' +
             (state.queue.length === 1 ? 'your message is held' : state.queue.length + ' messages are held') +
-            '. The first goes out in ' +
-            Math.ceil(gateLeft() / 1000) +
-            's.',
+            '. The first goes out in ' + durationText(gateLeft()) + '.',
           'close',
           () => {},
         );
