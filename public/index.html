@@ -9310,8 +9310,7 @@
     const rect = target.getBoundingClientRect();
     // A ring drawn while she is already walking must move on her clock, or
     // the highlight slides to the target long after the cat got there.
-    const walking = rootNode && rootNode.classList.contains('is-touring');
-    const walkMs = walking
+    const walkMs = rootNode
       ? Number.parseFloat(rootNode.style.getPropertyValue('--chatty-move-ms')) || 0
       : 0;
     const ringMs = Math.max(0, moveMs ?? (walkMs || 420));

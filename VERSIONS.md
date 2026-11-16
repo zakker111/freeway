@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.46 | 2026-11-16 | The spotlight ring always borrows the cat’s current walk duration, so a tip cannot out-slide her |
 | 2.35.45 | 2026-11-16 | The cloud tab asks for persistent storage, reports storage health in Settings, and names the chat a full browser drops |
 | 2.35.44 | 2026-11-16 | The spotlight ring rides the cat’s walking clock instead of a stale 420ms |
 | 2.35.43 | 2026-11-16 | A Cat school step hides the leftover tour ring before she walks, and the restored Chatty suite runs green |
