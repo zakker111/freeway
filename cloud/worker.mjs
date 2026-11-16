@@ -28,7 +28,7 @@ import { cleanImages, isChatModel, isFreeModel, recentImages, toUpstreamMessage 
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.37.5-cloud';
+const VERSION = '2.38.0-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;

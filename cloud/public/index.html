@@ -2791,7 +2791,7 @@
         cooling: {},
         attachment: null,
         sendGateUntil: 0,
-        queue: [],
+        queue: readStoredQueue(),
         queueSeq: 0,
         gateReason: '',
         lastBlock: null,
@@ -3681,6 +3681,9 @@
           }
           addMeta(pending.wrap, '', answer);
           bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
+          // An answer that lands is proof the user wants to continue, so a queue
+          // Stop parked goes out behind it instead of waiting for Send now.
+          state.holdQueue = false;
           if (!state.stopRequested) window.FreewayChatty?.ready();
         } catch (error) {
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
@@ -4102,6 +4105,40 @@
         sendQueuedItem(next);
       }
 
+      function newQueueId() {
+        return 'q' + Date.now().toString(36) + '-' + (state.queueSeq += 1);
+      }
+
+      const QUEUE_KEY = 'orc.queue.v1';
+
+      function readStoredQueue() {
+        try {
+          const value = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+          if (!Array.isArray(value)) return [];
+          return value
+            .filter((item) => item && typeof item.text === 'string')
+            .map((item) => ({
+              // state is still being built here, so no shared counter yet.
+              id: typeof item.id === 'string' && item.id ? item.id : 'q' + Math.random().toString(36).slice(2, 9),
+              text: item.text,
+              images: Array.isArray(item.images) ? item.images.filter((url) => typeof url === 'string') : [],
+            }));
+        } catch {
+          return [];
+        }
+      }
+
+      // A held message is text the user already typed, so a reload must not eat
+      // it. The queues are small; a full store still cannot break sending.
+      function saveQueue() {
+        try {
+          if (!state.queue.length) localStorage.removeItem(QUEUE_KEY);
+          else localStorage.setItem(QUEUE_KEY, JSON.stringify(state.queue));
+        } catch {
+          /* a full store keeps the in-memory queue usable */
+        }
+      }
+
       // Held messages are listed above the composer: editable, cancelable,
       // and sent in the order they were written once the gate opens.
       function renderSendQueue() {
@@ -4126,7 +4163,9 @@
           cancel.onclick = () => removeQueued(item.id);
           row.append(field, now, cancel);
           list.append(row);
+          field.onchange = saveQueue;
         }
+        saveQueue();
       }
 
       function sendQueuedItem(item) {
@@ -4194,7 +4233,7 @@
         const box = $('input');
         const text = box.value.trim();
         if (!text && !images.length) return false;
-        state.queue.push({ id: 'q' + (state.queueSeq += 1), text, images });
+        state.queue.push({ id: newQueueId(), text, images });
         box.value = '';
         autoGrow();
         if (images.length) clearAttachment();
@@ -4418,6 +4457,7 @@
           if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
           addMeta(pending.wrap, '', answer);
           if (info && info.keySource === 'browser') meta.textContent += ' · your key';
+          state.holdQueue = false;
           if (!state.stopRequested) {
             window.FreewayChatty?.ready();
             // The cloud has no plan card: the completed Plan-mode reply is the plan.
@@ -7256,6 +7296,17 @@
         await refreshBudget();
         applySidebarPreference();
         renderHistory();
+        renderSendQueue();
+        renderSendGate();
+        if (state.queue.length) {
+          banner(
+            (state.queue.length === 1 ? 'Your held message is' : state.queue.length + ' held messages are') +
+              ' still here from before the reload. Send now releases ' +
+              (state.queue.length === 1 ? 'it.' : 'them.'),
+            'close',
+            () => {},
+          );
+        }
         if (!hasKey()) openKey('');
         // Register after the page is usable so it never delays a first paint.
         // updateViaCache: none makes the browser check sw.js on every load; the
