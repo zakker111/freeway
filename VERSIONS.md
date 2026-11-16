@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.9 | 2026-11-16 | A damaged chats file is set aside with a backup and a warning, chats past the cap move to an archive instead of disappearing, and CI fails when the repo version is ahead of the latest release |
 | 2.38.8 | 2026-11-16 | CI walks the cloud page tour to Finish at 390x844 and 844x390, checking the ring on each stop's own control |
 | 2.38.7 | 2026-11-16 | The control-board tour counts the stops the page really has, so it finishes on "N/N" and the ring points at the control each tip names |
 | 2.38.6 | 2026-11-16 | A refused screenshot address and a mistyped workspace folder answer 400 with a safe message, not a 500 that leaked the path |
@@ -257,6 +258,31 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.9 — 2026-11-16
+
+Two ways the saved-chat store could lose a chat without saying anything.
+
+`threads.json` was parsed inside a bare `catch`: a damaged file started the app
+empty, and the next save overwrote the only copy. A file that cannot be read is now
+renamed to `threads.json.corrupt-<timestamp>` before anything else runs, the last
+good copy in `threads.json.bak` is read back when it is usable, and the sidebar says
+what happened — how many chats came back, or that none could be read. Dismissing the
+banner clears the message, never a file. Every save now keeps the previous file as
+`threads.json.bak` too.
+
+Chats past the limit were deleted, both when an oversized file was loaded and when a
+save or an import pushed the list over the cap. They move to `threads-archive.json`
+instead: the sidebar footer reports the archived count, the banner offers Restore,
+and `POST /api/threads/archived/restore` puts the newest one back — displacing the
+oldest active chat, so the total never shrinks. An export carries the archive, so a
+backup and restore is lossless.
+
+CI gained a release-drift check: it fails when `package.json` is ahead of the latest
+published GitHub release, because a repository newer than the only download means
+every report describes code nobody can install. A test-only bump can be allowed in
+`scripts/release-drift-allowlist.json`, and only with a reason and an expiry date. A
+network or API failure warns instead of failing.
 
 ## 2.38.8 — 2026-11-16
 

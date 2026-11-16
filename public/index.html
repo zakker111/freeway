@@ -1727,6 +1727,16 @@
       .side-head { display: flex; gap: 8px; align-items: center; }
       .side-head input { flex: 1; min-width: 0; }
       .side-head .mini { padding: 6px 11px; font-size: 15px; line-height: 1; }
+      .store-note {
+        display: flex; gap: 8px; align-items: flex-start;
+        padding: 8px 10px; border: 1px solid var(--warn-line);
+        background: var(--warn-soft); color: var(--warn);
+        border-radius: 10px; font-size: 12px; line-height: 1.45;
+      }
+      .store-note[hidden] { display: none; }
+      .store-note span { flex: 1; min-width: 0; }
+      .store-note-actions { display: flex; flex: 0 0 auto; gap: 6px; align-items: center; }
+      .store-note .mini { padding: 4px 8px; font-size: 12px; line-height: 1.2; }
       .thread-list {
         flex: 1; min-height: 0; overflow-y: auto;
         display: flex; flex-direction: column; gap: 3px;
@@ -2428,6 +2438,13 @@
         <input id="threadSearch" type="search" placeholder="Search chats…" aria-label="Search chats" />
         <button id="sideNew" class="mini" type="button" title="New chat" aria-label="New chat">+</button>
         <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
+      </div>
+      <div class="store-note" id="storeNote" role="status" hidden>
+        <span id="storeNoteText"></span>
+        <div class="store-note-actions">
+          <button id="storeRestore" class="mini" type="button" hidden>Restore</button>
+          <button id="storeDismiss" class="mini" type="button" title="Dismiss" aria-label="Dismiss">×</button>
+        </div>
       </div>
       <div class="thread-list" id="threadList"></div>
       <div class="side-foot"><span class="fine" id="threadCount"></span></div>
@@ -3235,10 +3252,67 @@
         }
       }
 
+      // Chats the server had to protect: a damaged file set aside, or chats past
+      // the limit moved to the archive. The banner says so once and can put an
+      // archived chat back; dismissing it never deletes anything.
+      let archivedCount = 0;
+
       async function loadThreads() {
         const data = await api("/api/threads");
         state.threads = data.threads || [];
+        archivedCount = Number.isInteger(data.archived) ? data.archived : 0;
         renderThreadList();
+        renderStoreNote(data.warning);
+      }
+
+      function showStoreNote(message, { restore = false } = {}) {
+        const note = $("storeNote");
+        $("storeNoteText").textContent = message;
+        $("storeRestore").hidden = !restore;
+        note.hidden = false;
+        $("storeRestore").onclick = async () => {
+          const button = $("storeRestore");
+          button.disabled = true;
+          try {
+            const result = await api("/api/threads/archived/restore", { method: "POST", body: "{}" });
+            archivedCount = Number.isInteger(result.archived) ? result.archived : 0;
+            state.threads = result.threads || state.threads;
+            renderThreadList();
+            note.hidden = true;
+          } catch (error) {
+            $("storeNoteText").textContent =
+              error?.message || "That chat could not be restored. It is still in the archive.";
+          } finally {
+            button.disabled = false;
+          }
+        };
+        $("storeDismiss").onclick = () => {
+          note.hidden = true;
+          void api("/api/threads/warning/clear", { method: "POST", body: "{}" }).catch(() => {});
+        };
+      }
+
+      function renderStoreNote(warning) {
+        if (!warning) {
+          $("storeNote").hidden = true;
+          return;
+        }
+        const parts = [];
+        if (warning.corrupt) {
+          const count = warning.corrupt.threads;
+          parts.push(
+            warning.corrupt.recovered
+              ? `Your saved chats file was damaged. It has been set aside as a backup and ${count} chat${count === 1 ? "" : "s"} came back from the last good copy.`
+              : "Your saved chats file was damaged. It has been set aside as a backup; no chats could be read from it.",
+          );
+        }
+        if (warning.archived) {
+          const count = warning.archived;
+          parts.push(
+            `${count} chat${count === 1 ? " was" : "s were"} moved to the archive to keep Freeway fast. Nothing was deleted.`,
+          );
+        }
+        showStoreNote(parts.join(" "), { restore: archivedCount > 0 });
       }
 
       function when(iso) {
@@ -3344,9 +3418,13 @@
               Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
           );
         list.textContent = "";
-        $("threadCount").textContent = state.threads.length
-          ? `${state.threads.length} saved chat${state.threads.length === 1 ? "" : "s"}`
-          : "";
+        const saved = state.threads.length;
+        const archivedNote = archivedCount ? ` · ${archivedCount} archived` : "";
+        $("threadCount").textContent = saved
+          ? `${saved} saved chat${saved === 1 ? "" : "s"}${archivedNote}`
+          : archivedCount
+            ? `${archivedCount} archived`
+            : "";
 
         if (threads.length === 0) {
           const empty = document.createElement("div");

@@ -33,6 +33,15 @@ jobs:
         # app it belongs to, which is what 2.33.0 did.
         run: node scripts/check-versions.mjs
 
+      - name: Check the repository is not ahead of the latest release
+        # v2.38.7 shipped and work kept landing: the repository reported a
+        # version newer than the only download, so reports described code
+        # nobody could install. A test-only bump can be allowed, with a reason
+        # and an expiry date, in scripts/release-drift-allowlist.json.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-release-drift.mjs
+
       - name: Check no secret is passed as an argument
         # Arguments are readable from ps; 2.35.21 moved the release token off
         # curl's command line. This keeps it from creeping back.

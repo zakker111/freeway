@@ -237,7 +237,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.38.8';
+const VERSION = '2.38.9';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -2212,13 +2212,48 @@ async function route(req, res) {
 
   if (req.method === 'GET' && pathname === '/api/threads') {
     if (!requireToken(req, res)) return;
-    return sendJson(res, 200, { threads: store().list(url.searchParams.get('q') ?? '') });
+    const threads = store();
+    // `warning` is only set when the store had to protect chats: a damaged
+    // file was set aside, or chats past the limit went to the archive. The
+    // page shows it once and clears it.
+    return sendJson(res, 200, {
+      threads: threads.list(url.searchParams.get('q') ?? ''),
+      archived: threads.archiveCount(),
+      warning: threads.warning(),
+    });
   }
 
   if (req.method === 'POST' && pathname === '/api/threads') {
     if (!requireToken(req, res)) return;
     const body = await readJson(req);
     return sendJson(res, 200, { thread: store().put(null, body) });
+  }
+
+  // These must come before the per-chat routes below, which treat everything
+  // after /api/threads/ as a chat id.
+  if (req.method === 'GET' && pathname === '/api/threads/archived') {
+    if (!requireToken(req, res)) return;
+    return sendJson(res, 200, { archived: store().archived() });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/threads/archived/restore') {
+    if (!requireToken(req, res)) return;
+    const body = await readJson(req);
+    const id = typeof body?.id === 'string' ? body.id : undefined;
+    if (id && !CHAT_ID.test(id)) return sendJson(res, 400, { error: 'Missing or invalid chat id.' });
+    const thread = store().restoreArchived(id);
+    if (!thread) return sendJson(res, 404, { error: 'No archived chat to restore.' });
+    return sendJson(res, 200, {
+      thread,
+      threads: store().list(),
+      archived: store().archiveCount(),
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/threads/warning/clear') {
+    if (!requireToken(req, res)) return;
+    store().clearWarning();
+    return sendJson(res, 200, { ok: true });
   }
 
   if (pathname.startsWith('/api/threads/')) {
@@ -2259,6 +2294,9 @@ async function route(req, res) {
       model: loadConfig().model ?? null,
       settings: loadSettings(),
       threads: store().all(),
+      // A backup must carry the chats archived at the cap too, or a restore
+      // would silently lose them.
+      archived: store().archivedAll(),
     });
   }
 
