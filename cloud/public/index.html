@@ -2769,9 +2769,10 @@
       const $ = (id) => document.getElementById(id);
       const KEY_PREFIX = 'orc.key.';
       const ACCOUNT_PREFIX = 'orc.account.';
-      // Declared before state: the queue is restored while state is built, so a
-      // later const would be in its own temporal dead zone here.
       const QUEUE_KEY = 'orc.queue.v1';
+      // Restored once, before state exists: the helpers below are hoisted, the key
+      // is not, so the read happens here rather than inside the object literal.
+      const STORED_QUEUE = readStoredQueue();
 
       const state = {
         version: '?',
@@ -2795,8 +2796,7 @@
         cooling: {},
         attachment: null,
         sendGateUntil: 0,
-        queue: readStoredQueue(),
-        queueSeq: 0,
+        queue: STORED_QUEUE,
         gateReason: '',
         lastBlock: null,
         // Stop must not spend what the user typed: the queue waits for Send now.
@@ -3685,9 +3685,7 @@
           }
           addMeta(pending.wrap, '', answer);
           bumpStats(true, Date.now() - startedAt, state.model, lastUsage);
-          // An answer that lands is proof the user wants to continue, so a queue
-          // Stop parked goes out behind it instead of waiting for Send now.
-          state.holdQueue = false;
+          releaseHeld();
           if (!state.stopRequested) window.FreewayChatty?.ready();
         } catch (error) {
           if (error.name !== 'AbortError') bumpStats(false, Date.now() - startedAt);
@@ -3953,21 +3951,20 @@
         }
         stopSendGate();
         renderSendGate();
-        if (state.holdQueue && state.queue.length) {
-          announce('The wait is over. Your held message stays until you send it.');
-          return;
-        }
         if (state.busy) {
           announce('The wait is over. Your held message is ready to send.');
           return;
         }
-        const next = takeNextQueued();
-        if (next) {
-          announce('The wait is over. Sending the first held message.');
-          sendQueuedItem(next);
-        } else {
-          announce('The wait is over. You can send again.');
+        if (queueIsHeld()) {
+          announce('The wait is over. Your held message stays until you send it.');
+          return;
         }
+        if (state.queue.length) {
+          announce('The wait is over. Sending the first held message.');
+          flushHeld();
+          return;
+        }
+        announce('The wait is over. You can send again.');
       }
 
       function startSendGate(ms, reason = '') {
@@ -4095,11 +4092,22 @@
         openKey('');
       };
 
+      // Stop parks the queue: it stays until Send now or an answer that lands.
+      function queueIsHeld() {
+        return Boolean(state.holdQueue && state.queue.length);
+      }
+
+      // An answer that lands is proof the user wants to continue, so a queue Stop
+      // parked follows the next successful send instead of waiting for Send now.
+      function releaseHeld() {
+        state.holdQueue = false;
+      }
+
       // Type-ahead: a message held while an answer streamed goes out as soon as
       // that answer lands, unless a gate owns the moment.
       function flushHeld() {
         if (state.busy || gateLeft() || !state.queue.length) return;
-        if (state.holdQueue) {
+        if (queueIsHeld()) {
           announce('Your held message is still here. Send now releases it.');
           return;
         }
@@ -4109,19 +4117,14 @@
         sendQueuedItem(next);
       }
 
-      function newQueueId() {
-        return 'q' + Date.now().toString(36) + '-' + (state.queueSeq += 1);
-      }
-
       function readStoredQueue() {
         try {
           const value = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
           if (!Array.isArray(value)) return [];
           return value
             .filter((item) => item && typeof item.text === 'string')
+            // Only the message matters; the rows address an item by identity.
             .map((item) => ({
-              // state is still being built here, so no shared counter yet.
-              id: typeof item.id === 'string' && item.id ? item.id : 'q' + Math.random().toString(36).slice(2, 9),
               text: item.text,
               images: Array.isArray(item.images) ? item.images.filter((url) => typeof url === 'string') : [],
             }));
@@ -4155,18 +4158,21 @@
           field.value = item.text || '';
           field.placeholder = (item.images || []).length ? 'Image message' : 'Message';
           field.setAttribute('aria-label', 'Held message');
-          field.oninput = () => { item.text = field.value; };
+          field.oninput = () => {
+            item.text = field.value;
+            saveQueue();
+          };
           const now = el('button', 'mini', 'Send now');
           now.type = 'button';
-          now.onclick = () => sendQueuedNow(item.id);
+          now.onclick = () => sendQueuedNow(item);
           const cancel = el('button', 'mini', 'Cancel');
           cancel.type = 'button';
           cancel.setAttribute('aria-label', 'Cancel this held message');
-          cancel.onclick = () => removeQueued(item.id);
+          cancel.onclick = () => removeQueued(item);
           row.append(field, now, cancel);
           list.append(row);
-          field.onchange = saveQueue;
         }
+        // Every queue mutation ends in a render, so this is the one save hook.
         saveQueue();
       }
 
@@ -4192,10 +4198,10 @@
         return null;
       }
 
-      function removeQueued(id) {
-        const before = state.queue.length;
-        state.queue = state.queue.filter((item) => item.id !== id);
-        if (state.queue.length === before) return;
+      function removeQueued(item) {
+        const index = state.queue.indexOf(item);
+        if (index < 0) return;
+        state.queue.splice(index, 1);
         renderSendQueue();
         renderSendGate();
         announce('Held message removed.');
@@ -4203,17 +4209,22 @@
 
       // Send now still respects the gate: while it is closed the message keeps
       // its place and moves to the front of the queue.
-      function sendQueuedNow(id) {
-        const index = state.queue.findIndex((item) => item.id === id);
+      function sendQueuedNow(item) {
+        const index = state.queue.indexOf(item);
         if (index < 0) return;
-        // An explicit Send now is the release Stop asked for.
-        state.holdQueue = false;
+        // An explicit Send now is the release Stop asked for, even when the send
+        // itself has to wait for the current answer or the gate.
+        if (state.holdQueue) {
+          state.holdQueue = false;
+          renderSendGate();
+        }
         if (state.busy) {
           banner('Wait for the current answer before sending a held message.', 'close', () => {});
           return;
         }
+        state.queue.splice(index, 1);
         if (gateLeft()) {
-          const [item] = state.queue.splice(index, 1);
+          // Keep its place at the front so the timer sends it first.
           state.queue.unshift(item);
           renderSendQueue();
           banner(
@@ -4223,7 +4234,6 @@
           );
           return;
         }
-        const [item] = state.queue.splice(index, 1);
         renderSendQueue();
         renderSendGate();
         sendQueuedItem(item);
@@ -4235,7 +4245,7 @@
         const box = $('input');
         const text = box.value.trim();
         if (!text && !images.length) return false;
-        state.queue.push({ id: newQueueId(), text, images });
+        state.queue.push({ text, images });
         box.value = '';
         autoGrow();
         if (images.length) clearAttachment();
@@ -4459,7 +4469,7 @@
           if (compacted) meta.textContent += ' · memory: ' + compacted + ' earlier messages summarised';
           addMeta(pending.wrap, '', answer);
           if (info && info.keySource === 'browser') meta.textContent += ' · your key';
-          state.holdQueue = false;
+          releaseHeld();
           if (!state.stopRequested) {
             window.FreewayChatty?.ready();
             // The cloud has no plan card: the completed Plan-mode reply is the plan.
@@ -7301,10 +7311,11 @@
         renderSendQueue();
         renderSendGate();
         if (state.queue.length) {
+          const count = state.queue.length;
           banner(
-            (state.queue.length === 1 ? 'Your held message is' : state.queue.length + ' held messages are') +
-              ' still here from before the reload. Send now releases ' +
-              (state.queue.length === 1 ? 'it.' : 'them.'),
+            count === 1
+              ? 'Your held message is still here from before the reload. Send now releases it.'
+              : count + ' held messages are still here from before the reload. Send now releases them.',
             'close',
             () => {},
           );

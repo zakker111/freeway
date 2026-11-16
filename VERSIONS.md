@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.2 | 2026-11-16 | The queue keeps no ids, one path drains it, and edits are saved as they are typed |
 | 2.38.1 | 2026-11-16 | The held-message store is read after its key exists, so a reload really keeps the queue |
 | 2.38.0 | 2026-11-16 | A landed answer releases the queue Stop parked, and held messages survive a reload |
 | 2.37.5 | 2026-11-16 | The countdown and the Why? button appear on phones instead of staying in the hidden hint row |
