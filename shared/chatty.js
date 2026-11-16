@@ -2023,6 +2023,9 @@
     const options = POSITIONS.filter((position) => position !== lastPosition);
     lastPosition = options[Math.floor(Math.random() * options.length)] || 'br';
     const next = lastPosition;
+    // A lesson never carries the tour spotlight: a ring left over from the
+    // last tour stop would animate on the old clock and point at nothing.
+    hideSpotlight();
     const duration = glideBy(() => {
       clearTourPlacement();
       rootNode.dataset.pos = next;

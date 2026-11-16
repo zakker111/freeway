@@ -588,8 +588,10 @@ async function runTutor(cdp, origin) {
   const s1 = await state(cdp);
   assert.equal(s1.label, 'Cat school 1/3', `the lesson did not start (${s1.label})`);
   assert.equal(s1.bubble, true, 'the first lesson step has no bubble');
-  assert.notEqual(s1.pos, beforeTutor.pos, 'starting a lesson did not move Chatty');
-  assert.notDeepEqual(s1.xy, beforeTutor.xy, 'starting a lesson did not change her screen position');
+  // The first step only hops when it brings her back from hiding
+  // (showTutorStep({ move: !wasHidden })), so her corner here depends on
+  // whether the previous tip had already hidden her. Movement is asserted on
+  // every Next paw below, where the corner is guaranteed to change.
   assert.notEqual(s1.text, beforeTutor.text, 'the first lesson step kept the previous text');
 
   const second = await clickAndTrack(cdp, 'tutor-next');

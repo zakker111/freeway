@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.43 | 2026-11-16 | A Cat school step hides the leftover tour ring before she walks, and the restored Chatty suite runs green |
 | 2.35.42 | 2026-11-16 | Restore the Chatty browser suite that 2.35.31 truncated, so its CI step runs again |
 | 2.35.41 | 2026-11-16 | The cloud stream keeps the next-send gate after a permanent rate-limit 429 instead of re-enabling Send |
 | 2.35.40 | 2026-11-16 | The cloud composer opens its send gate for a permanent rate-limit 429 instead of leaving Send live |
