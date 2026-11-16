@@ -2469,6 +2469,7 @@
       <div id="capNotice" class="banner" role="status" aria-live="polite" hidden>
         <span id="capNoticeText"></span>
         <button class="mini" id="capNoticeExport" type="button">Export</button>
+        <button class="mini" id="capNoticeClose" type="button" aria-label="Dismiss the chat-limit warning" title="Dismiss">×</button>
       </div>
     </main>
 
@@ -5743,13 +5744,26 @@
 
       // The cap line is its own element: it is the only place a lost chat is
       // reported, so it must never compete for the banner slot.
+      let capNotice = '';
+      let capNoticeClosed = '';
       function renderCapNotice(text) {
         const box = $('capNotice');
         const body = $('capNoticeText');
         if (!box || !body) return;
         const note = String(text || '');
+        capNotice = note;
         body.textContent = note;
-        box.hidden = !note;
+        box.hidden = !note || note === capNoticeClosed;
+      }
+
+      // Closing one warning keeps the next one visible: only the same text
+      // stays hidden, so a fresh prune or slot still speaks up.
+      function closeCapNotice() {
+        capNoticeClosed = capNotice;
+        const box = $('capNotice');
+        if (box) box.hidden = true;
+        // The control disappears with the line; keep keyboard focus in the page.
+        $('input').focus();
       }
 
       function bytesText(bytes) {
@@ -5827,6 +5841,7 @@
 
       $('storageKeepBtn').onclick = () => keepChats();
       $('capNoticeExport').onclick = () => $('exportChatsBtn').click();
+      $('capNoticeClose').onclick = () => closeCapNotice();
       // A reload with saved chats re-checks at boot; a first visit asks on its
       // first save instead (see saveThread).
       if (readThreads().length) ensurePersistence();
