@@ -9302,13 +9302,20 @@
     return glideBy(() => placeNear(target, bubbleHeight));
   }
 
-  function showSpotlight(target, moveMs = 420) {
+  function showSpotlight(target, moveMs) {
     if (!spotNode || !visibleTarget(target)) {
       hideSpotlight();
       return;
     }
     const rect = target.getBoundingClientRect();
-    spotNode.style.setProperty('--chatty-spot-ms', `${Math.max(0, moveMs)}ms`);
+    // A ring drawn while she is already walking must move on her clock, or
+    // the highlight slides to the target long after the cat got there.
+    const walking = rootNode && rootNode.classList.contains('is-touring');
+    const walkMs = walking
+      ? Number.parseFloat(rootNode.style.getPropertyValue('--chatty-move-ms')) || 0
+      : 0;
+    const ringMs = Math.max(0, moveMs ?? (walkMs || 420));
+    spotNode.style.setProperty('--chatty-spot-ms', `${ringMs}ms`);
     tourTarget = target;
     spotNode.style.left = `${Math.max(4, Math.round(rect.left - 4))}px`;
     spotNode.style.top = `${Math.max(4, Math.round(rect.top - 4))}px`;
