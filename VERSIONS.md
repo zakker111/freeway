@@ -255,6 +255,22 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
 
+## 2.38.5 — 2026-11-16
+
+A tooling release: nothing in the running app changed since v2.38.3, but the phone-sized
+desktop page is now guarded in CI instead of by a one-off script.
+
+- **CI renders the packaged desktop page at 390x844.** The page must report the app's own
+  version, fit the width, stream a turn, and let **Stop** cancel it without a resend before
+  the next send still works.
+- **One browser harness instead of four.** Chrome launch, the DevTools connection, the page
+  waits and the Chrome lookup moved into `test/browser.mjs`. The four browser suites import
+  it and keep their own scenarios, assertions and PASS lines, so a fix reaches all of them;
+  the cooldown suite keeps its two-attempt launch and its progress lines.
+- **The Windows build runs the same guards as Linux.** Page checks read files with normalized
+  line endings and the repository keeps source text LF, so a Git-for-Windows checkout can no
+  longer fail a guard that passes on Linux.
+
 ## 2.38.3 — 2026-11-16
 
 This release collects everything since v2.35.30: the queue, the Why? panel, chat
