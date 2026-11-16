@@ -5687,7 +5687,8 @@
         renderHistory();
         if (dropped.length) {
           const removed = dropped.map((chat) => '"' + chat.title + '"');
-          banner(
+          // New Chat shows its own banner in the same click; land after it.
+          setTimeout(() => banner(
             'Chat limit: this browser keeps ' +
               CHAT_CAP +
               '. Removed ' +
@@ -5695,10 +5696,10 @@
               '.',
             'Export',
             () => $('exportChatsBtn').click(),
-          );
+          ), 0);
         } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && !capWarned) {
           capWarned = true;
-          banner(
+          setTimeout(() => banner(
             'Only ' +
               (CHAT_CAP - next.length) +
               ' chats left before the oldest ("' +
@@ -5706,7 +5707,7 @@
               '") is removed.',
             'Export',
             () => $('exportChatsBtn').click(),
-          );
+          ), 0);
         }
       }
 
