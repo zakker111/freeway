@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.37.0 | 2026-11-16 | A Why? panel names every block, the chat cap archives instead of deleting, and a message typed during an answer is held and sent |
 | 2.36.1 | 2026-11-16 | The held-message notices say 15m 00s instead of 900s |
 | 2.36.0 | 2026-11-16 | Held messages are a list: each one is editable and cancelable, and Send now still waits out the gate |
 | 2.35.54 | 2026-11-16 | The persistence ask waits for the first saved message, so it runs on a click |

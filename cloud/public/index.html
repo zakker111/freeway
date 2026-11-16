@@ -1687,6 +1687,28 @@
         padding: 3px 0;
       }
       .queue-item input:focus { outline: none; border-bottom-color: var(--accent); }
+      .why-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: baseline;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--line-2);
+      }
+      .why-row:last-child { border-bottom: 0; }
+      .why-row b { font-size: 13px; color: var(--text); }
+      .why-row span { font-size: 12.5px; color: var(--muted); flex: 1 1 200px; }
+      .archive-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--line-2);
+      }
+      .archive-row:last-child { border-bottom: 0; }
+      .archive-row .open { font-size: 13px; min-width: 0; }
+      #archiveList { max-height: 46vh; overflow: auto; }
       [hidden] { display: none !important; }
       /* The rail mirrors the desktop app. Storage is browser-local because a
          Worker has no disk, and the panels say so instead of pretending. */
@@ -2332,7 +2354,10 @@
         <button id="sideClose" class="mini" type="button" title="Hide chats" aria-label="Hide chats">×</button>
       </div>
       <div class="thread-list" id="threadList"></div>
-      <div class="side-foot"><span class="fine" id="threadCount"></span></div>
+      <div class="side-foot">
+        <span class="fine" id="threadCount"></span>
+        <button id="archiveBtn" class="ghost mini" type="button" hidden>Archive</button>
+      </div>
     </aside>
     <div class="side-backdrop hidden" id="sideBackdrop"></div>
 
@@ -2532,6 +2557,7 @@
       </div>
       <div class="hint">
         <span id="nextSend" class="budget" role="status" aria-live="polite" hidden></span>
+        <button id="whyBtn" class="mini" type="button" aria-haspopup="dialog" hidden>Why?</button>
         <span id="hintText">Free models only.</span>
         <span>·</span>
         <span id="counter">0 messages</span>
@@ -2700,6 +2726,29 @@
       </div>
     </dialog>
 
+    <dialog id="whyDialog" aria-labelledby="whyTitle">
+      <h2 id="whyTitle">Why is this blocked?</h2>
+      <p class="fine">Every limit this tab knows about, and what clears it.</p>
+      <div id="whyBody"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="ghost mini" id="whySwitch" type="button" hidden>Use another model</button>
+        <button class="ghost mini" id="whyKey" type="button" hidden>Paste your own key</button>
+        <button class="primary mini" id="whyClose" type="button">Close</button>
+      </div>
+    </dialog>
+
+    <dialog id="archiveDialog" aria-labelledby="archiveTitle">
+      <h2 id="archiveTitle">Chat archive</h2>
+      <p class="fine">
+        Chats the 200-chat limit moved here instead of deleting. Restore puts one back in the
+        list; delete removes it for good.
+      </p>
+      <div id="archiveList"></div>
+      <div class="row" style="justify-content:flex-end">
+        <button class="primary mini" id="archiveClose" type="button">Close</button>
+      </div>
+    </dialog>
+
     <dialog id="askDialog" aria-labelledby="askTitle">
       <h2 id="askTitle">Confirm</h2>
       <p id="askMessage"></p>
@@ -2738,6 +2787,8 @@
         sendGateUntil: 0,
         queue: [],
         queueSeq: 0,
+        gateReason: '',
+        lastBlock: null,
         gateTimer: 0,
         previewLink: '',
         previewFull: false,
@@ -3164,11 +3215,13 @@
         const header = Number(res.headers.get('retry-after'));
         const retryAfterMs =
           Number(data.retryAfterMs) || (Number.isFinite(header) && header > 0 ? header * 1000 : 0);
-        return Object.assign(new Error(data.message || 'Request failed (' + res.status + ')'), {
+        const error = Object.assign(new Error(data.message || 'Request failed (' + res.status + ')'), {
           code: data.error,
           model: data.model || '',
           retryAfterMs,
         });
+        noteBlock(error);
+        return error;
       }
 
       function addMeta(wrap, text, copyText) {
@@ -3506,8 +3559,7 @@
         addActions(userNode.wrap, state.messages.length - 1, 'user');
 
         state.busy = true;
-        $('send').disabled = true;
-        $('send').textContent = '…';
+        // Send stays live: a press during an answer holds the message (type-ahead).
         $('stop').disabled = false;
         state.stopRequested = false;
         const pending = addMessage('assistant', '');
@@ -3628,7 +3680,7 @@
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
             // Say when the next send is allowed instead of leaving the user to
             // guess, and hold the next message until then.
-            startSendGate(error.retryAfterMs || 60_000);
+            startSendGate(error.retryAfterMs || 60_000, error.code);
           }
           pending.bubble.classList.remove('cursor');
           if (error.name === 'AbortError') {
@@ -3652,6 +3704,7 @@
           state.abort = null;
           setHints();
           scrollDown();
+          flushHeld();
         }
       }
 
@@ -3767,11 +3820,9 @@
 
       async function send() {
         const images = state.attachment ? [state.attachment.dataUrl] : [];
-        if (gateLeft()) return queueSend(images);
-        if (images.length && state.busy) {
-          banner('Wait for the current answer before attaching an image.', 'close', () => {});
-          return;
-        }
+        // A closed gate and a streaming answer both hold the message instead of
+        // dropping the press; the composer stays usable either way.
+        if (gateLeft() || state.busy) return queueSend(images);
         if (images.length && !(await ensureVisionModel())) return;
         const cooling = state.cooling || {};
         if ((cooling[state.model] || 0) > Date.now()) {
@@ -3823,11 +3874,12 @@
         return 'next send in ' + durationText(left);
       }
 
-      function renderSendGate() {
+      function renderGateChip() {
         const chip = $('nextSend');
         const send = $('send');
         const left = gateLeft();
-        if (!left) {
+        const held = state.queue.length;
+        if (!left && !held) {
           if (chip) {
             chip.hidden = true;
             chip.textContent = '';
@@ -3840,18 +3892,26 @@
         }
         if (chip) {
           chip.hidden = false;
-          chip.textContent = gateText(left) + (state.queue.length ? ' · ' + state.queue.length + ' held' : '');
+          chip.textContent = left
+            ? gateText(left) + (held ? ' · ' + held + ' held' : '')
+            : held + ' held · ' + (state.busy ? 'sending when this answer finishes' : 'ready to send');
         }
         if (send && !state.busy) {
-          send.disabled = true;
-          send.textContent = 'Queued';
+          send.disabled = Boolean(left);
+          send.textContent = left ? 'Queued' : 'Send';
         }
+      }
+
+      function renderSendGate() {
+        renderGateChip();
+        renderWhy();
       }
 
       function stopSendGate() {
         if (state.gateTimer) clearInterval(state.gateTimer);
         state.gateTimer = 0;
         state.sendGateUntil = 0;
+        state.gateReason = '';
       }
 
       // One tick decides whether the wait is over, so the interval and a tab
@@ -3877,10 +3937,11 @@
         }
       }
 
-      function startSendGate(ms) {
+      function startSendGate(ms, reason = '') {
         const wait = Math.min(Math.max(Number(ms) || 60_000, 1_000), AUTO_RETRY_MAX_MS);
         if (state.gateTimer) clearInterval(state.gateTimer);
         state.sendGateUntil = Date.now() + wait;
+        state.gateReason = String(reason || '');
         renderSendGate();
         announce(gateText(wait) + '.');
         state.gateTimer = setInterval(gateTick, 1000);
@@ -3892,6 +3953,124 @@
         if (!document.hidden) gateTick();
       });
       window.addEventListener('focus', gateTick);
+
+      function coolingLeft() {
+        const now = Date.now();
+        return Object.entries(state.cooling || {})
+          .filter(([, until]) => Number(until) > now)
+          .map(([model, until]) => ({ model, until: Number(until) }));
+      }
+
+      // One button owns the whole question: is something stopping a send, and
+      // what clears it? The gate has its own chip; this covers the rest.
+      function renderWhy() {
+        const button = $('whyBtn');
+        if (!button) return;
+        const block = state.lastBlock;
+        const budget = Boolean(block && block.code === 'visitor_budget' && block.until > Date.now());
+        button.hidden = !(gateLeft() || state.queue.length || coolingLeft().length || budget);
+      }
+
+      function renderWhyPanel() {
+        const body = $('whyBody');
+        if (!body) return;
+        body.innerHTML = '';
+        const rows = [];
+        const left = gateLeft();
+        if (left) {
+          const throttle = state.gateReason === 'rate_limited';
+          rows.push([
+            throttle ? 'This address' : 'Provider limit',
+            throttle
+              ? 'The Worker allows 30 chat requests a minute from one address. You can send again in ' + durationText(left) + '.'
+              : 'The provider refused this turn. You can send again in ' + durationText(left) + '.',
+          ]);
+        }
+        const block = state.lastBlock;
+        if (block && block.code === 'visitor_budget') {
+          const wait = Math.max(0, Number(block.until) - Date.now());
+          rows.push([
+            "Today's shared budget",
+            (wait
+              ? 'No shared-key turns are left; they reset in ' + durationText(wait) + ' (00:00 UTC). '
+              : 'No shared-key turns are left today. ') + 'Paste your own key to keep going.',
+          ]);
+        }
+        const cooling = coolingLeft();
+        if (cooling.length) {
+          rows.push([
+            'Cooling models',
+            cooling.map((entry) => entry.model + ' — ' + durationText(entry.until - Date.now())).join(', '),
+          ]);
+        }
+        if (state.queue.length) {
+          rows.push([
+            'Held messages',
+            state.queue.length +
+              (state.queue.length === 1 ? ' message' : ' messages') +
+              (left ? ' waiting for the gate' : state.busy ? ', sent when this answer finishes' : ', ready to send'),
+          ]);
+        }
+        if (!rows.length) rows.push(['Nothing is blocking you', 'Send is open.']);
+        for (const [label, detail] of rows) {
+          const row = el('div', 'why-row');
+          row.append(el('b', '', label));
+          row.append(el('span', '', detail));
+          body.append(row);
+        }
+        const idle = state.models.find((model) => (state.cooling?.[model.id] || 0) <= Date.now());
+        const switchBtn = $('whySwitch');
+        if (switchBtn) {
+          switchBtn.hidden = !(left || cooling.length) || !idle || idle.id === state.model;
+          switchBtn.textContent = idle ? 'Use ' + idle.id : 'Use another model';
+        }
+        const keyBtn = $('whyKey');
+        if (keyBtn) {
+          keyBtn.hidden = !(block && ['visitor_budget', 'missing_key', 'key_rejected'].includes(block.code));
+        }
+      }
+
+      // Blocks that do not open a gate still need a name: a spent daily budget
+      // and a keyless deployment are different problems from a 429.
+      function noteBlock(error) {
+        const code = String(error?.code || '');
+        if (!code) return;
+        state.lastBlock = {
+          code,
+          message: String(error.message || ''),
+          at: Date.now(),
+          until: Number(error.retryAfterMs) ? Date.now() + Number(error.retryAfterMs) : 0,
+        };
+        renderWhy();
+      }
+
+      $('whyBtn').onclick = () => {
+        renderWhyPanel();
+        $('whyDialog').showModal();
+      };
+      $('whyClose').onclick = () => $('whyDialog').close();
+      $('whySwitch').onclick = () => {
+        const idle = state.models.find((model) => (state.cooling?.[model.id] || 0) <= Date.now());
+        if (!idle) return;
+        state.model = idle.id;
+        updateModelButton();
+        banner('Using ' + idle.id + '.', 'close', () => {});
+        $('whyDialog').close();
+      };
+      $('whyKey').onclick = () => {
+        $('whyDialog').close();
+        openKey('');
+      };
+
+      // Type-ahead: a message held while an answer streamed goes out as soon as
+      // that answer lands, unless a gate owns the moment.
+      function flushHeld() {
+        if (state.busy || gateLeft() || !state.queue.length) return;
+        const next = takeNextQueued();
+        if (!next) return;
+        announce('Sending the next held message.');
+        sendQueuedItem(next);
+      }
 
       // Held messages are listed above the composer: editable, cancelable,
       // and sent in the order they were written once the gate opens.
@@ -3989,10 +4168,12 @@
         if (images.length) clearAttachment();
         renderSendQueue();
         renderSendGate();
+        const held =
+          state.queue.length === 1 ? 'your message is held' : state.queue.length + ' messages are held';
         banner(
-          'Rate limited — ' +
-            (state.queue.length === 1 ? 'your message is held' : state.queue.length + ' messages are held') +
-            '. The first goes out in ' + durationText(gateLeft()) + '.',
+          gateLeft()
+            ? 'Rate limited — ' + held + '. The first goes out in ' + durationText(gateLeft()) + '.'
+            : 'Held — ' + held + '. Sent when this answer finishes.',
           'close',
           () => {},
         );
@@ -4068,8 +4249,7 @@
         addActions(userNode.wrap, state.messages.length - 1, 'user');
 
         state.busy = true;
-        $('send').disabled = true;
-        $('send').textContent = '…';
+        // Send stays live: a press during an answer holds the message (type-ahead).
         $('stop').disabled = false;
         state.stopRequested = false;
         const pending = addMessage('assistant', '');
@@ -4215,7 +4395,7 @@
             noteCooldown(error.model || state.model, error.retryAfterMs || 60_000);
             // A spent retry budget still owes the provider its delay: hold the
             // composer instead of leaving Send live for another instant 429.
-            startSendGate(error.retryAfterMs || 60_000);
+            startSendGate(error.retryAfterMs || 60_000, error.code);
           }
           pending.bubble.classList.remove('cursor');
           if (error.name === 'AbortError') {
@@ -4242,6 +4422,7 @@
           state.abort = null;
           setHints();
           scrollDown();
+          flushHeld();
         }
       }
 
@@ -5313,6 +5494,7 @@
         state.cooling = state.cooling || {};
         state.cooling[model] = Date.now() + Math.min(Math.max(Number(ms) || 60_000, 5_000), 15 * 60_000);
         if (!$('rail').hidden && !$('railStatus').hidden) renderStatus();
+        renderWhy();
       }
 
       function tryCloudModel(id) {
@@ -5697,7 +5879,8 @@
       // Same shape the desktop app writes from Settings → Saved chats → Export,
       // so "Import…" there reads this file with no conversion and no key.
       function exportChatsJson() {
-        const threads = readThreads();
+        // Archived chats are still the user's chats, so an export carries them.
+        const threads = [...readThreads(), ...readArchive()];
         if (!threads.length) {
           banner('No saved chats to export yet — send a message first.', 'close', () => {});
           return;
@@ -5812,6 +5995,122 @@
         }
       }
 
+      const ARCHIVE_KEY = 'orc.archive.v1';
+      const ARCHIVE_CAP = 200;
+
+      function readArchive() {
+        try {
+          const value = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+          return Array.isArray(value)
+            ? value
+                .filter((thread) => thread && typeof thread.id === 'string')
+                .map((thread) => ({
+                  ...thread,
+                  title: typeof thread.title === 'string' ? thread.title : 'New chat',
+                  messages: Array.isArray(thread.messages) ? thread.messages : [],
+                  updatedAt: Number(thread.updatedAt) || 0,
+                  archivedAt: Number(thread.archivedAt) || 0,
+                }))
+            : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writeArchive(threads) {
+        try {
+          localStorage.setItem(ARCHIVE_KEY, JSON.stringify(Array.isArray(threads) ? threads : []));
+        } catch {
+          /* the active chats matter more than the safety net */
+        }
+      }
+
+      // The cap moves chats here instead of deleting them. The archive keeps its
+      // newest ARCHIVE_CAP entries; only a second overflow is a real loss.
+      function archiveThreads(threads) {
+        if (!threads.length) return { lost: [] };
+        const now = Date.now();
+        const merged = [
+          ...threads.map((thread) => ({ ...thread, archivedAt: now })),
+          ...readArchive(),
+        ].sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+        writeArchive(merged.slice(0, ARCHIVE_CAP));
+        renderArchiveButton();
+        return { lost: merged.slice(ARCHIVE_CAP) };
+      }
+
+      function renderArchiveButton() {
+        const button = $('archiveBtn');
+        if (!button) return;
+        const count = readArchive().length;
+        button.hidden = !count;
+        button.textContent = 'Archive (' + count + ')';
+      }
+
+      function renderArchiveList() {
+        const list = $('archiveList');
+        if (!list) return;
+        list.innerHTML = '';
+        const archive = readArchive();
+        if (!archive.length) {
+          list.append(el('p', 'fine', 'The archive is empty.'));
+          return;
+        }
+        for (const thread of archive) {
+          const row = el('div', 'archive-row');
+          const label = el('span', 'open', thread.title);
+          label.title = new Date(thread.archivedAt || thread.updatedAt || 0).toLocaleString();
+          const restore = el('button', 'mini', 'Restore');
+          restore.type = 'button';
+          restore.onclick = () => restoreThread(thread.id);
+          const remove = el('button', 'ghost mini', 'Delete');
+          remove.type = 'button';
+          remove.setAttribute('aria-label', 'Delete this archived chat for good');
+          remove.onclick = () => deleteArchived(thread.id);
+          row.append(label, restore, remove);
+          list.append(row);
+        }
+      }
+
+      // Restoring respects the active cap: its oldest chat moves to the archive
+      // rather than being deleted, so nothing is lost in either direction.
+      function restoreThread(id) {
+        const archive = readArchive();
+        const thread = archive.find((entry) => entry.id === id);
+        if (!thread) return;
+        writeArchive(archive.filter((entry) => entry.id !== id));
+        const active = readThreads()
+          .slice()
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        const { archivedAt, ...restored } = thread;
+        const merged = [restored, ...active.filter((entry) => entry.id !== id)].sort(
+          (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0),
+        );
+        writeThreads(merged.slice(0, CHAT_CAP));
+        const overflow = merged.slice(CHAT_CAP);
+        if (overflow.length) archiveThreads(overflow);
+        renderHistory();
+        renderArchiveList();
+        banner('Restored "' + thread.title + '".', 'close', () => {});
+        loadThread(id);
+      }
+
+      function deleteArchived(id) {
+        const archive = readArchive();
+        const thread = archive.find((entry) => entry.id === id);
+        if (!thread) return;
+        writeArchive(archive.filter((entry) => entry.id !== id));
+        renderArchiveList();
+        renderArchiveButton();
+        banner('Deleted "' + thread.title + '" for good.', 'close', () => {});
+      }
+
+      $('archiveBtn').onclick = () => {
+        renderArchiveList();
+        $('archiveDialog').showModal();
+      };
+      $('archiveClose').onclick = () => $('archiveDialog').close();
+
       function saveThread({ allowEmpty = false } = {}) {
         // A chat with files but no messages is still a saved chat. Without this
         // exception a reload cannot find the id that owns its browser files.
@@ -5846,13 +6145,19 @@
         // The cap warning has a line of its own. A real error owns the banner,
         // so neither can erase the other.
         if (dropped.length) {
-          const removed = dropped.map((chat) => '"' + chat.title + '"');
+          // Never delete for space: the oldest chats move to the archive, and the
+          // notice says so with a way back.
+          const { lost } = archiveThreads(dropped);
+          const moved = dropped.map((chat) => '"' + chat.title + '"');
           renderCapNotice(
             'Chat limit: this browser keeps ' +
               CHAT_CAP +
-              '. Removed ' +
-              (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
-              '.',
+              '. Moved ' +
+              (moved.length === 1 ? moved[0] : moved.length + ' older chats, starting with ' + moved[0]) +
+              ' to the archive.' +
+              (lost.length
+                ? ' The archive is full, so ' + lost.length + ' older archived chat' + (lost.length === 1 ? '' : 's') + ' went.'
+                : ''),
           );
         } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && next.length < CHAT_CAP && next.length !== lastCapWarnAt) {
           // Warn once per slot used, not once per session.
@@ -6084,6 +6389,7 @@
       });
 
       function renderHistory() {
+        renderArchiveButton();
         const list = $('threadList');
         list.innerHTML = '';
         const all = readThreads();
