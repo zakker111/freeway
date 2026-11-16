@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.4 | 2026-11-16 | CI renders the packaged desktop page at 390px, streams a turn and cancels it with Stop |
 | 2.38.3 | 2026-11-16 | A full store says which held messages will not survive a reload, and keeps the text when only the image will not fit |
 | 2.38.2 | 2026-11-16 | The queue keeps no ids, one path drains it, and edits are saved as they are typed |
 | 2.38.1 | 2026-11-16 | The held-message store is read after its key exists, so a reload really keeps the queue |
