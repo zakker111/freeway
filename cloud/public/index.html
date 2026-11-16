@@ -6953,11 +6953,11 @@
           // Stop is a decision to keep what was typed, so the queue stays put
           // until the user sends it on purpose.
           state.holdQueue = true;
-          const held =
+          const kept =
             state.queue.length === 1
-              ? 'your held message stays here'
+              ? 'Your held message stays here'
               : state.queue.length + ' held messages stay here';
-          banner('Stopped. ' + held + ' until you press Send now.', 'close', () => {});
+          banner('Stopped. ' + kept + ' until you press Send now.', 'close', () => {});
           renderSendGate();
         }
         if (state.abort) state.abort.abort();

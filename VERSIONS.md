@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.37.4 | 2026-11-16 | The Stop notice starts a sentence, and the held chip is checked for a real box at 390px |
 | 2.37.3 | 2026-11-16 | Stop leaves held messages in the queue until Send now releases them |
 | 2.37.2 | 2026-11-16 | The type-ahead notice says “it goes out when this answer finishes” instead of repeating that it is held |
 | 2.37.1 | 2026-11-16 | Restoring an archived chat at the cap keeps it instead of re-archiving it |
