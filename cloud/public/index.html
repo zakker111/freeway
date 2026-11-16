@@ -6079,16 +6079,18 @@
         const thread = archive.find((entry) => entry.id === id);
         if (!thread) return;
         writeArchive(archive.filter((entry) => entry.id !== id));
-        const active = readThreads()
-          .slice()
+        const others = readThreads()
+          .filter((entry) => entry.id !== id)
           .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         const { archivedAt, ...restored } = thread;
-        const merged = [restored, ...active.filter((entry) => entry.id !== id)].sort(
+        // The restored chat is usually the oldest, so it must never be the one the
+        // cap evicts: keep a slot for it and send the oldest other chat back.
+        const kept = [restored, ...others.slice(0, CHAT_CAP - 1)].sort(
           (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0),
         );
-        writeThreads(merged.slice(0, CHAT_CAP));
-        const overflow = merged.slice(CHAT_CAP);
-        if (overflow.length) archiveThreads(overflow);
+        const evicted = others.slice(CHAT_CAP - 1);
+        writeThreads(kept);
+        if (evicted.length) archiveThreads(evicted);
         renderHistory();
         renderArchiveList();
         banner('Restored "' + thread.title + '".', 'close', () => {});
