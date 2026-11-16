@@ -1257,6 +1257,16 @@
     const header = document.querySelector('header');
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
     if (rect.top < headerBottom - 1) below = Math.max(below, headerBottom + gap);
+    // The cloud announcement sits between the header and the transcript. A
+    // header target parks the cat right on it, covering the first words of the
+    // only description of the cloud edition, so clear it like the header.
+    const notice = document.querySelector('.notice:not([hidden]), #cloudNotice:not([hidden])');
+    const noticeRect = notice ? notice.getBoundingClientRect() : null;
+    const noticeBottom =
+      noticeRect && noticeRect.height > 0 && noticeRect.bottom > 0
+        ? Math.ceil(noticeRect.bottom)
+        : 0;
+    if (noticeBottom > 0 && below < noticeBottom + gap) below = Math.max(below, noticeBottom + gap);
     let belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
     let aboveFits = above - bubbleHeight - bubbleGap >= 8;
     let bubblePosition;
@@ -1341,6 +1351,9 @@
       }
     }
     y = Math.max(8, Math.min(maxY, y));
+    // A side placement can also land on the announcement; one final clamp keeps
+    // her below it whenever the window has room for that.
+    if (noticeBottom > 0 && y < noticeBottom + gap) y = Math.min(maxY, noticeBottom + gap);
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;
     rootNode.style.top = `${Math.round(y)}px`;

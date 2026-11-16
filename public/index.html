@@ -1757,7 +1757,13 @@
       }
       .thread-item .open:hover { background: transparent; border-color: transparent; }
       .thread-item .ttl { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .thread-item .sub { display: block; font-size: 11px; color: var(--dim); }
+      /* A model id like thinkingmachines/inkling-2-small:free is one long
+         token; break it and cap the row at two lines so the list stays even. */
+      .thread-item .sub {
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+        font-size: 11px; color: var(--dim); line-height: 1.35;
+        overflow: hidden; overflow-wrap: anywhere;
+      }
       .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; transition: opacity .15s; }
       .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
       .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
@@ -9112,6 +9118,16 @@
     const header = document.querySelector('header');
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
     if (rect.top < headerBottom - 1) below = Math.max(below, headerBottom + gap);
+    // The cloud announcement sits between the header and the transcript. A
+    // header target parks the cat right on it, covering the first words of the
+    // only description of the cloud edition, so clear it like the header.
+    const notice = document.querySelector('.notice:not([hidden]), #cloudNotice:not([hidden])');
+    const noticeRect = notice ? notice.getBoundingClientRect() : null;
+    const noticeBottom =
+      noticeRect && noticeRect.height > 0 && noticeRect.bottom > 0
+        ? Math.ceil(noticeRect.bottom)
+        : 0;
+    if (noticeBottom > 0 && below < noticeBottom + gap) below = Math.max(below, noticeBottom + gap);
     let belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
     let aboveFits = above - bubbleHeight - bubbleGap >= 8;
     let bubblePosition;
@@ -9196,6 +9212,9 @@
       }
     }
     y = Math.max(8, Math.min(maxY, y));
+    // A side placement can also land on the announcement; one final clamp keeps
+    // her below it whenever the window has room for that.
+    if (noticeBottom > 0 && y < noticeBottom + gap) y = Math.min(maxY, noticeBottom + gap);
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;
     rootNode.style.top = `${Math.round(y)}px`;

@@ -1289,6 +1289,8 @@
 
       select#provider {
         max-width: 190px;
+        text-overflow: ellipsis;
+        overflow: hidden;
         background: var(--surface);
         border: 1px solid var(--line);
         border-radius: 999px;
@@ -1705,7 +1707,13 @@
       }
       .thread-item .open:hover { background: transparent; border-color: transparent; }
       .thread-item .ttl { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .thread-item .sub { display: block; font-size: 11px; color: var(--dim); }
+      /* A model id like thinkingmachines/inkling-2-small:free is one long
+         token; break it and cap the row at two lines so the list stays even. */
+      .thread-item .sub {
+        display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+        font-size: 11px; color: var(--dim); line-height: 1.35;
+        overflow: hidden; overflow-wrap: anywhere;
+      }
       .thread-item .del { opacity: 0; flex: 0 0 auto; margin-right: 6px; }
       .thread-item:hover .del, .thread-item:focus-within .del { opacity: 1; }
       .side-foot { display: flex; justify-content: space-between; gap: 8px; min-height: 1em; }
@@ -1843,9 +1851,6 @@
         #sideBtn, #settingsBtn, #railBtn { min-width: 40px; justify-content: center; }
         #stop:disabled { display: none; }
         .bubble { max-width: 100%; }
-        /* A first-visit announcement must not eat the whole transcript on a
-           short phone. Keep the copy, but let it scroll in a compact bar. */
-        .notice { max-height: 104px; overflow-y: auto; overscroll-behavior: contain; }
       }
       @media (max-height: 640px) {
         .rail-head { padding: 5px 6px; }
@@ -2177,9 +2182,27 @@
         color: var(--accent-strong); background: var(--surface-2); border-color: var(--accent-line);
       }
       .notice-close:active:not(:disabled) { transform: translateY(-50%) scale(.96); }
+      /* The announcement is one flowing paragraph on a desktop and a short
+         summary on a phone. The rest opens in place: a clamped, scrolled bar
+         cut sentences in half and hid the download link under its own fold. */
+      .notice-toggle {
+        display: none; margin-left: 6px; padding: 2px 9px;
+        border-radius: 999px; border: 1px solid var(--line-2);
+        background: transparent; color: var(--accent-strong);
+        font-size: 11.5px; font-weight: 600; box-shadow: none; cursor: pointer;
+      }
+      .notice-toggle:hover:not(:disabled) {
+        background: var(--surface-2); border-color: var(--accent-line);
+      }
+      .notice-more { display: inline; }
       @media (max-width: 640px) {
         .notice { text-align: left; padding-right: 42px; }
         .notice-close { right: 6px; }
+        .notice-toggle { display: inline-block; }
+        .notice-more { display: none; }
+        .notice.is-open .notice-more {
+          display: block; flex-basis: 100%; margin-top: 6px;
+        }
       }
 </style>
   <script>
@@ -2319,11 +2342,10 @@
     <div class="notice" id="cloudNotice">
       <button class="notice-close" id="noticeClose" type="button" title="Dismiss this announcement" aria-label="Dismiss the desktop download announcement">×</button>
       <b>Cloud edition — chat, files and preview.</b>
-      All twelve hosted providers work here; OVHcloud needs no key and the rest take one, with Cloudflare also needing an Account ID.
-      Upload text or HTML and preview it in a sandbox. Chats and files stay in this browser.
-      Commands and real disk folders need the desktop app (v<span class="desktopVer">…</span>):
-      <a id="desktopLink" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">download the current build ↗</a>.
-      A Worker has no disk and cannot run your files or commands.
+      Chats and files stay in this browser.
+      <a id="desktopLink" href="https://github.com/zakker111/freeway/releases/latest" target="_blank" rel="noreferrer">Download the desktop app ↗</a>
+      <button class="notice-toggle" id="noticeToggle" type="button" aria-expanded="false" aria-controls="noticeMore">More</button>
+      <span class="notice-more" id="noticeMore">All twelve hosted providers work here; OVHcloud needs no key and the rest take one, with Cloudflare also needing an Account ID. Upload text or HTML and preview it in a sandbox. Commands and real disk folders need the desktop app (v<span class="desktopVer">…</span>); a Worker has no disk and cannot run your files or commands.</span>
     </div>
     <script>
       // Hide the download note before paint when this visitor already dismissed it.
@@ -2332,6 +2354,17 @@
           document.getElementById('cloudNotice').hidden = true;
         }
       } catch {}
+      // One tap reveals the rest of the announcement on a phone; nothing is
+      // hidden inside a scroll box and the download link stays in the summary.
+      const noticeToggle = document.getElementById('noticeToggle');
+      const cloudNotice = document.getElementById('cloudNotice');
+      if (noticeToggle && cloudNotice) {
+        noticeToggle.onclick = () => {
+          const open = cloudNotice.classList.toggle('is-open');
+          noticeToggle.setAttribute('aria-expanded', String(open));
+          noticeToggle.textContent = open ? 'Less' : 'More';
+        };
+      }
     </script>
 
     <aside class="rail" id="rail" hidden aria-label="Panels">
@@ -5833,6 +5866,32 @@
         }
       }
 
+      // A chat that is empty after a reload still needs the hero. The markup is
+      // authored once above, so keep a copy before the first render clears it and
+      // re-insert it whenever a restored thread has no messages.
+      const EMPTY_STATE_TEMPLATE = $('hello') ? $('hello').cloneNode(true) : null;
+      function renderEmptyState() {
+        const thread = $('thread');
+        thread.innerHTML = '';
+        let hello;
+        if (EMPTY_STATE_TEMPLATE) {
+          hello = EMPTY_STATE_TEMPLATE.cloneNode(true);
+        } else {
+          hello = el('div', 'empty');
+          hello.id = 'hello';
+          hello.append(el('h1', '', 'Free models. Real tools.'));
+          hello.append(el('p', '', 'Ask anything. If a free model is busy, pick another.'));
+          hello.append(suggestRow());
+        }
+        // The boot pass fills .desktopVer only for the nodes that existed then, so
+        // a copy inserted later would otherwise show the placeholder ellipsis.
+        const version = String(state.version || '').replace(/-cloud$/, '');
+        if (version) {
+          for (const node of hello.querySelectorAll('.desktopVer')) node.textContent = version;
+        }
+        thread.append(hello);
+      }
+
       async function loadThread(id) {
         const thread = readThreads().find((each) => each.id === id);
         if (!thread) return;
@@ -5893,15 +5952,24 @@
           state.model = thread.model;
           updateModelButton();
         }
-        $('thread').innerHTML = '';
-        state.messages.forEach((message, index) => {
-          const node = addMessage(message.role, message.content, message.images || []);
-          if (message.role === 'assistant') addMeta(node.wrap, '', message.content);
-          addActions(node.wrap, index, message.role);
-        });
+        // Clearing the transcript and adding nothing is what produced the blank
+        // canvas: an empty saved chat has no messages to restore, so show the hero.
+        if (!state.messages.length) {
+          renderEmptyState();
+        } else {
+          $('thread').innerHTML = '';
+          state.messages.forEach((message, index) => {
+            const node = addMessage(message.role, message.content, message.images || []);
+            if (message.role === 'assistant') addMeta(node.wrap, '', message.content);
+            addActions(node.wrap, index, message.role);
+          });
+        }
         closeSidebar(true);
         setHints();
-        scrollDown();
+        // The hero is taller than a phone viewport once the notice is open, so
+        // scrolling to the bottom would hide its headline. Start at the top.
+        if (state.messages.length) scrollDown();
+        else $('scroller').scrollTop = 0;
         $('input').focus();
       }
 
@@ -5921,6 +5989,9 @@
           clearPreview();
           resetFileEditor();
           renderFiles();
+          // This path returns before the transcript is rebuilt, so the hero has to
+          // be put back here too or the reload lands on an empty page.
+          renderEmptyState();
           // The id was created before the first message; save it now so it is
           // a real sidebar entry and survives the reload.
           saveThread({ allowEmpty: true });
@@ -6195,7 +6266,13 @@
         loadModels().catch(() => {});
       }
 
-      $('provider').onchange = () => applyProvider($('provider').value);
+      $('provider').onchange = () => {
+        applyProvider($('provider').value);
+        // The title carries the full plan label, so it has to follow the pick
+        // instead of staying on whatever was selected at boot.
+        const chosen = state.providers.find((each) => each.id === $('provider').value);
+        $('provider').title = chosen ? `${chosen.label} — ${chosen.planLabel ?? 'free'}` : '';
+      };
       $('noticeClose').onclick = () => {
         $('cloudNotice').hidden = true;
         try { localStorage.setItem('orc.notice.download.v1', 'dismissed'); } catch {}
@@ -6473,15 +6550,36 @@
             node.textContent = desktopVersion;
           }
           const select = $('provider');
+          // Name the kind of free plan, not just "free": daily and monthly
+          // allowances behave very differently after a few turns. A 140px phone
+          // pill cannot hold "OpenRouter — free · always", and a clipped "alwa"
+          // reads as a bug, so phones show the provider name and keep the plan
+          // in the title and the key dialog.
+          const providerOptionText = (provider) =>
+            window.innerWidth <= 560
+              ? provider.label
+              : `${provider.label} — ${provider.planLabel ?? 'free'}`;
+          const labelProviders = () => {
+            for (const option of select.options) {
+              const provider = state.providers.find((each) => each.id === option.value);
+              if (provider) option.textContent = providerOptionText(provider);
+            }
+            const current = state.providers.find((each) => each.id === select.value);
+            select.title = current ? `${current.label} — ${current.planLabel ?? 'free'}` : '';
+          };
           select.innerHTML = '';
           for (const provider of state.providers) {
-            // Name the kind of free plan, not just "free": daily and monthly
-            // allowances behave very differently after a few turns.
-            select.append(
-              new Option(`${provider.label} — ${provider.planLabel ?? 'free'}`, provider.id),
-            );
+            select.append(new Option(providerOptionText(provider), provider.id));
           }
           select.value = state.provider;
+          labelProviders();
+          // Rotation or a resized window must not leave the old label behind.
+          if (!select.dataset.wired) {
+            select.dataset.wired = '1';
+            const narrow = window.matchMedia('(max-width: 560px)');
+            if (narrow.addEventListener) narrow.addEventListener('change', labelProviders);
+            else if (narrow.addListener) narrow.addListener(labelProviders);
+          }
           if (cfg.catalogError) banner('OpenRouter catalog problem: ' + cfg.catalogError, 'retry', loadModels);
         } catch {
           $('ver').textContent = 'v?';
@@ -7778,6 +7876,16 @@
     const header = document.querySelector('header');
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
     if (rect.top < headerBottom - 1) below = Math.max(below, headerBottom + gap);
+    // The cloud announcement sits between the header and the transcript. A
+    // header target parks the cat right on it, covering the first words of the
+    // only description of the cloud edition, so clear it like the header.
+    const notice = document.querySelector('.notice:not([hidden]), #cloudNotice:not([hidden])');
+    const noticeRect = notice ? notice.getBoundingClientRect() : null;
+    const noticeBottom =
+      noticeRect && noticeRect.height > 0 && noticeRect.bottom > 0
+        ? Math.ceil(noticeRect.bottom)
+        : 0;
+    if (noticeBottom > 0 && below < noticeBottom + gap) below = Math.max(below, noticeBottom + gap);
     let belowFits = below + height + bubbleHeight + bubbleGap <= innerHeight - 8;
     let aboveFits = above - bubbleHeight - bubbleGap >= 8;
     let bubblePosition;
@@ -7862,6 +7970,9 @@
       }
     }
     y = Math.max(8, Math.min(maxY, y));
+    // A side placement can also land on the announcement; one final clamp keeps
+    // her below it whenever the window has room for that.
+    if (noticeBottom > 0 && y < noticeBottom + gap) y = Math.min(maxY, noticeBottom + gap);
     rootNode.dataset.pos = 'tour';
     rootNode.style.left = `${Math.round(x)}px`;
     rootNode.style.top = `${Math.round(y)}px`;

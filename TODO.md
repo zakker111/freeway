@@ -36,6 +36,36 @@ releases and commit log; this file tracks what is still open.
 - Security and privacy notes are in [`SECURITY.md`](SECURITY.md) and
   [`PRIVACY.md`](PRIVACY.md).
 
+## Next up
+
+Ranked by value, in the order they were chosen. Numbers are kept from that list, so
+item 8 is intentionally absent. Ticked items already shipped.
+
+- [ ] **1. Protect the data before anything else: persistent storage + an export nudge.**
+      `navigator.storage.persist()`, a storage-health line in Settings, and a warning
+      before the 200-chat cap prunes.
+- [ ] **2. Cross-tab write safety in the cloud edition.** The desktop store refuses a
+      stale `rev` with a 409; the cloud `saveThread` is last-write-wins on the whole array.
+- [x] **3. The blank-canvas reload state.** Shipped in **2.35.36**: a restored thread with
+      no messages renders the hero again instead of clearing the transcript.
+- [ ] **4. A live "free catalog health" system, not just Requesty.** Nightly probe of every
+      provider, a "verified" note in the picker, last-known-good catalog, and a one-click
+      switch when a model id disappears.
+- [ ] **5. A real queue, not one held message.** A visible list of held messages, each
+      cancelable and editable, with a "send now" that still respects the gate.
+- [ ] **6. "Switch to an idle free provider" as one click, never automatic.** Offer the
+      choice after a 429; keep `fallbackOrder` refusing to move on its own.
+- [ ] **7. Survive a reload or tab switch mid-answer.** Persist the streaming text and offer
+      to continue, so a backgrounded phone tab does not cost the whole wait again.
+- [ ] **9. Chat deep links + share target.** `?chat=<id>`, the address updating per chat, and
+      a PWA share target that opens a prefilled composer.
+- [ ] **10. A "what leaves this tab" panel.** Destinations, where each key lives, and a live
+      tail of outgoing request paths.
+- [ ] **Export that includes files.** One archive with chats and IndexedDB workspace files,
+      so moving to another device does not lose the work the chats refer to.
+- [x] **Fix the phone announcement.** Shipped in **2.35.37**: a short summary with a `More`
+      toggle, no clamped scroll box, and the download link always visible.
+
 ## Release work
 
 - [x] Cut the **2.35.30** patch: Chatty's control-board tour fits phones and short landscape

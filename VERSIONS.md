@@ -5,6 +5,10 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.39 | 2026-11-16 | The provider pill keeps a matching title after a switch and chat subtitles cap at two lines |
+| 2.35.38 | 2026-11-16 | Chatty keeps clear of the cloud announcement; the provider pill and chat subtitle stop clipping |
+| 2.35.37 | 2026-11-16 | The phone announcement is a short summary with a More toggle instead of a clipped scroll box |
+| 2.35.36 | 2026-11-16 | A reload of an empty saved cloud chat shows the hero again instead of a blank canvas |
 | 2.35.35 | 2026-11-15 | A page test covers Chatty walking to the control a tip names |
 | 2.35.34 | 2026-11-15 | Chatty walks to the control a tip names, so "switch to Build" lands next to the Build button |
 | 2.35.33 | 2026-11-15 | Chatty's first-run tour resumes after an automatic hide and the cat always offers it again |
