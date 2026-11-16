@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.35.50 | 2026-11-16 | The near-cap notice stops at the last real slot instead of announcing “0 chats left” |
 | 2.35.49 | 2026-11-16 | The last-slot warning says “1 chat left” instead of “1 chats left” |
 | 2.35.48 | 2026-11-16 | The chat-cap warning re-arms for each slot used and the health line stays on one phone line |
 | 2.35.47 | 2026-11-16 | The chat-cap notice waits for New Chat’s own banner, so it is not wiped by the same click |
