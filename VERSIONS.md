@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.37.2 | 2026-11-16 | The type-ahead notice says “it goes out when this answer finishes” instead of repeating that it is held |
 | 2.37.1 | 2026-11-16 | Restoring an archived chat at the cap keeps it instead of re-archiving it |
 | 2.37.0 | 2026-11-16 | A Why? panel names every block, the chat cap archives instead of deleting, and a message typed during an answer is held and sent |
 | 2.36.1 | 2026-11-16 | The held-message notices say 15m 00s instead of 900s |

@@ -4173,11 +4173,13 @@
         banner(
           gateLeft()
             ? 'Rate limited — ' + held + '. The first goes out in ' + durationText(gateLeft()) + '.'
-            : 'Held — ' + held + '. Sent when this answer finishes.',
+            : state.queue.length === 1
+              ? 'Held — it goes out when this answer finishes.'
+              : 'Held — ' + state.queue.length + ' messages go out when this answer finishes.',
           'close',
           () => {},
         );
-        announce('Message held until the wait ends.');
+        announce(gateLeft() ? 'Message held until the wait ends.' : 'Message held until this answer finishes.');
         return true;
       }
 
