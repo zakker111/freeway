@@ -2769,6 +2769,10 @@
       const $ = (id) => document.getElementById(id);
       const KEY_PREFIX = 'orc.key.';
       const ACCOUNT_PREFIX = 'orc.account.';
+      // Declared before state: the queue is restored while state is built, so a
+      // later const would be in its own temporal dead zone here.
+      const QUEUE_KEY = 'orc.queue.v1';
+
       const state = {
         version: '?',
         provider: 'openrouter',
@@ -4108,8 +4112,6 @@
       function newQueueId() {
         return 'q' + Date.now().toString(36) + '-' + (state.queueSeq += 1);
       }
-
-      const QUEUE_KEY = 'orc.queue.v1';
 
       function readStoredQueue() {
         try {
