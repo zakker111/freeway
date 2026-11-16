@@ -10,7 +10,8 @@ releases and commit log; this file tracks what is still open.
 
 ## Current state
 
-- Desktop and cloud source are **2.35.30**.
+- Desktop and cloud source are **2.35.39**, and both cloud environments serve
+  **2.35.39-cloud** from the same build.
 - Chatty ships in both browser pages behind a Settings switch. Her first-run spotlight tour,
   Cat school (eight three-step lessons), a Settings action with an in-panel guide, tips,
   jokes, pounce, an occasional yarn-ball game with an edge peek, close cooldown, single soft
@@ -27,7 +28,8 @@ releases and commit log; this file tracks what is still open.
   below or beside the control, clamps it to the viewport and caps it with internal scrolling
   in short windows. The browser gate also runs the tour at 390×844, 844×390 and 320×480.
 - The latest published GitHub release is **v2.35.30**; it carries the source ZIP,
-  Windows ZIP and `SHA256SUMS`.
+  Windows ZIP and `SHA256SUMS`. `main` is nine patches ahead of it, so those binaries
+  are out of date: cutting the **v2.35.39** release is the open step.
 - The cloud Worker keeps chats in browser `localStorage`, workspace files in IndexedDB,
   and provider/GitHub keys in `sessionStorage`.
 - The shared-key path enforces a per-visitor daily budget in D1 and a short-window
