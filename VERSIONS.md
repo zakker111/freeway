@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.8 | 2026-11-16 | CI walks the cloud page tour to Finish at 390x844 and 844x390, checking the ring on each stop's own control |
 | 2.38.7 | 2026-11-16 | The control-board tour counts the stops the page really has, so it finishes on "N/N" and the ring points at the control each tip names |
 | 2.38.6 | 2026-11-16 | A refused screenshot address and a mistyped workspace folder answer 400 with a safe message, not a 500 that leaked the path |
 | 2.38.5 | 2026-11-16 | The four browser UI tests share one Chrome, DevTools and wait helper instead of four drifting copies |
@@ -256,6 +257,25 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.8 — 2026-11-16
+
+A test release: the cloud page's tour is now guarded in CI, where the bug that shipped in
+2.38.7 was found.
+
+- **`test/ui-cloud-tour.mjs` serves the cloud page locally.** It runs `cloud/dev.mjs` (the real
+  Worker over Node's http server, with `./public` as ASSETS) on a free port, so the page under
+  test is the one a visitor gets, not a copy.
+- **It walks the tour to Finish at two sizes.** At 390x844 the cloud page has 15 of the 18
+  controls and at 844x390 it has 17, so a tour that counts controls the page cannot show fails
+  here: stops must be numbered `1..N` with no gaps, the last one must say **Finish tour** and
+  must report `N/N`, finishing must record the flag, and a reload must not start the tour again.
+- **The ring is checked against the stop's own control.** For each displayed stop the test works
+  out, from the page DOM alone, which control that stop is about, and requires the ring to cover
+  that control's box and to be centred inside it - so a ring drawn on a neighbour, or left behind
+  from an earlier stop, fails.
+- **The test is proven to catch the regression.** Reintroducing the old 18-stop denominator makes
+  it fail with "the tour ends on stop 15/18, not on its last stop".
 
 ## 2.38.7 — 2026-11-16
 

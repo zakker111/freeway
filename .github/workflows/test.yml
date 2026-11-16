@@ -79,6 +79,14 @@ jobs:
           CHROME_BIN: /usr/bin/google-chrome
         run: npm run test:chatty
 
+      - name: Browser cloud tour regression
+        # The cloud page has fewer controls than the desktop one (no starter row,
+        # no Quit at phone width). Its tour must walk the stops it can show,
+        # numbered 1..N, with the ring on each stop's own control, and finish.
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm run test:cloud-tour
+
       - name: Browser desktop 390 regression
         # The desktop page at phone size: renders, streams a turn, Stop cancels it.
         env:
