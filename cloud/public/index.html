@@ -2959,7 +2959,7 @@
         setTimeout(() => { live.textContent = String(text || ''); }, 20);
       }
 
-      function banner(text, actionLabel, action) {
+      function banner(text, actionLabel, action, { keep = false } = {}) {
         const slot = $('bannerSlot');
         slot.innerHTML = '';
         if (!text) return;
@@ -2971,6 +2971,17 @@
           box.append(btn);
         }
         slot.append(box);
+        // A message about data loss must not vanish because something else
+        // wanted the same slot a moment later: bring it back once.
+        if (!keep && capNotice && text !== capNotice) {
+          const note = capNotice;
+          setTimeout(() => {
+            if (capNotice !== note) return;
+            const shown = document.querySelector('#bannerSlot .banner');
+            if (shown && shown.textContent.includes(note)) return;
+            banner(note, 'Export', () => $('exportChatsBtn').click(), { keep: true });
+          }, 1500);
+        }
       }
 
       // ------------------------------------------------------------- models
@@ -5685,31 +5696,32 @@
         writeThreads(next, key);
         setActiveThread(id);
         renderHistory();
+        // The notice that says what will go must outlive the banner the same
+        // click shows, so it lands on the next tick and re-asserts once if a
+        // later message replaces it.
         if (dropped.length) {
           const removed = dropped.map((chat) => '"' + chat.title + '"');
-          // New Chat shows its own banner in the same click; land after it.
-          setTimeout(() => banner(
+          const note =
             'Chat limit: this browser keeps ' +
-              CHAT_CAP +
-              '. Removed ' +
-              (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
-              '.',
-            'Export',
-            () => $('exportChatsBtn').click(),
-          ), 0);
+            CHAT_CAP +
+            '. Removed ' +
+            (removed.length === 1 ? removed[0] : removed.length + ' older chats, starting with ' + removed[0]) +
+            '.';
+          capNotice = '';
+          setTimeout(() => banner(note, 'Export', () => $('exportChatsBtn').click()), 0);
         } else if (next.length >= CHAT_CAP - CHAT_CAP_WARN && next.length < CHAT_CAP && next.length !== lastCapWarnAt) {
           // Warn once per slot used, not once per session: the first warning can
           // land on a background save and be replaced before anyone reads it.
           lastCapWarnAt = next.length;
-          setTimeout(() => banner(
+          capNotice =
             'Only ' +
-              (CHAT_CAP - next.length === 1 ? '1 chat' : CHAT_CAP - next.length + ' chats') +
-              ' left before the oldest ("' +
-              next[next.length - 1].title +
-              '") is removed.',
-            'Export',
-            () => $('exportChatsBtn').click(),
-          ), 0);
+            (CHAT_CAP - next.length === 1 ? '1 chat' : CHAT_CAP - next.length + ' chats') +
+            ' left before the oldest ("' +
+            next[next.length - 1].title +
+            '") is removed.';
+          setTimeout(() => banner(capNotice, 'Export', () => $('exportChatsBtn').click()), 0);
+        } else if (next.length < CHAT_CAP - CHAT_CAP_WARN) {
+          capNotice = '';
         }
       }
 
@@ -5720,6 +5732,7 @@
       const CHAT_CAP = 200;
       const CHAT_CAP_WARN = 5;
       let lastCapWarnAt = -1;
+      let capNotice = '';
 
       function bytesText(bytes) {
         const size = Number(bytes) || 0;
