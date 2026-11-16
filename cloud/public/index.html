@@ -2789,6 +2789,8 @@
         queueSeq: 0,
         gateReason: '',
         lastBlock: null,
+        // Stop must not spend what the user typed: the queue waits for Send now.
+        holdQueue: false,
         gateTimer: 0,
         previewLink: '',
         previewFull: false,
@@ -3894,7 +3896,13 @@
           chip.hidden = false;
           chip.textContent = left
             ? gateText(left) + (held ? ' · ' + held + ' held' : '')
-            : held + ' held · ' + (state.busy ? 'sending when this answer finishes' : 'ready to send');
+            : held +
+              ' held · ' +
+              (state.holdQueue
+                ? 'press Send now to release'
+                : state.busy
+                  ? 'sending when this answer finishes'
+                  : 'ready to send');
         }
         if (send && !state.busy) {
           send.disabled = Boolean(left);
@@ -3924,6 +3932,10 @@
         }
         stopSendGate();
         renderSendGate();
+        if (state.holdQueue && state.queue.length) {
+          announce('The wait is over. Your held message stays until you send it.');
+          return;
+        }
         if (state.busy) {
           announce('The wait is over. Your held message is ready to send.');
           return;
@@ -4066,6 +4078,10 @@
       // that answer lands, unless a gate owns the moment.
       function flushHeld() {
         if (state.busy || gateLeft() || !state.queue.length) return;
+        if (state.holdQueue) {
+          announce('Your held message is still here. Send now releases it.');
+          return;
+        }
         const next = takeNextQueued();
         if (!next) return;
         announce('Sending the next held message.');
@@ -4135,6 +4151,8 @@
       function sendQueuedNow(id) {
         const index = state.queue.findIndex((item) => item.id === id);
         if (index < 0) return;
+        // An explicit Send now is the release Stop asked for.
+        state.holdQueue = false;
         if (state.busy) {
           banner('Wait for the current answer before sending a held message.', 'close', () => {});
           return;
@@ -6931,6 +6949,17 @@
       $('quota').onclick = () => openKey('');
       $('stop').onclick = () => {
         state.stopRequested = true;
+        if (state.queue.length) {
+          // Stop is a decision to keep what was typed, so the queue stays put
+          // until the user sends it on purpose.
+          state.holdQueue = true;
+          const held =
+            state.queue.length === 1
+              ? 'your held message stays here'
+              : state.queue.length + ' held messages stay here';
+          banner('Stopped. ' + held + ' until you press Send now.', 'close', () => {});
+          renderSendGate();
+        }
         if (state.abort) state.abort.abort();
       };
       $('quitBtn').onclick = async () => {
