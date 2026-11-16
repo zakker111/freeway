@@ -195,6 +195,7 @@ function installHarness(config) {
     calls: [],
     mode: 'stream',
     scenario: 'retry-success',
+    retryAfterMs: config.retryAfterMs,
   };
   window.__cooldownHarness = harness;
 
@@ -224,11 +225,11 @@ function installHarness(config) {
         {
           error: 'rate-limit',
           message: 'Mock rate limit',
-          retryAfterMs: config.retryAfterMs,
+          retryAfterMs: harness.retryAfterMs,
           model: 'mock/free-one',
         },
         429,
-        { 'retry-after': String(Math.ceil(config.retryAfterMs / 1000)) },
+        { 'retry-after': String(Math.ceil(harness.retryAfterMs / 1000)) },
       );
     }
     // Both stream clients understand these fields: desktop uses type/reason,
@@ -239,7 +240,7 @@ function installHarness(config) {
         error: 'rate-limit',
         reason: 'rate-limit',
         message: 'Mock rate limit',
-        retryAfterMs: config.retryAfterMs,
+        retryAfterMs: harness.retryAfterMs,
       },
     ]);
   }
@@ -649,10 +650,15 @@ async function runQueuedSend(browser) {
     'Enter sent the message straight through a closed gate',
   );
   const chip = await evaluate(browser.cdp, 'document.querySelector("#nextSend").textContent');
-  assert.match(chip, /queued/i, 'the held message is not marked as queued');
+  assert.match(chip, /1 held/i, 'the held message is not counted in the gate chip');
+  assert.equal(
+    await evaluate(browser.cdp, 'document.querySelectorAll("#sendQueue .queue-item").length'),
+    1,
+    'the held message is not listed above the composer',
+  );
   assert.match(
     await evaluate(browser.cdp, 'document.querySelector("#bannerSlot").innerText'),
-    /queued/i,
+    /held/i,
     'the page never says the message is held',
   );
 
@@ -665,6 +671,96 @@ async function runQueuedSend(browser) {
     `the queued message left after ${queued.at - requests[RETRY_ATTEMPTS - 1].at}ms, before the wait ended`,
   );
   return requests.length;
+}
+
+// The held slot is now a list: both messages show up, the first can be edited,
+// the second cancelled, and the gate sends the edited text by itself.
+async function runQueue(browser) {
+  await evaluate(browser.cdp, 'window.__cooldownHarness.retryAfterMs = 2500; true');
+  await setScenario(browser, 'retry-error');
+  await send(browser, 'cloud', 'First attempt that gets limited.');
+  await waitForPage(
+    browser.cdp,
+    `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS} && document.querySelector('#nextSend') && !document.querySelector('#nextSend').hidden`,
+    40_000,
+  );
+
+  const hold = async (text) => {
+    await evaluate(
+      browser.cdp,
+      `(() => {
+        const input = document.querySelector('#input');
+        input.value = ${JSON.stringify(text)};
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // The Send button is disabled while the gate is closed, so Enter is the
+        // path a person actually has; both go through send().
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        return true;
+      })()`,
+    );
+  };
+  await hold('First held message.');
+  await hold('Second held message.');
+
+  const shape = () =>
+    evaluate(
+      browser.cdp,
+      `(() => {
+        const list = document.querySelector('#sendQueue');
+        const rows = [...document.querySelectorAll('#sendQueue .queue-item')];
+        return {
+          hidden: list.hidden,
+          rows: rows.length,
+          values: rows.map((row) => row.querySelector('input').value),
+          chip: document.querySelector('#nextSend').textContent,
+        };
+      })()`,
+    );
+
+  let state = await shape();
+  assert.equal(state.hidden, false, 'the held-message list stayed hidden');
+  assert.equal(state.rows, 2, 'the queue did not hold both messages');
+  assert.match(state.chip, /2 held/i, 'the gate chip does not count the queue');
+
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      const input = document.querySelector('#sendQueue .queue-item input');
+      input.value = 'First held message, edited.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      const rows = [...document.querySelectorAll('#sendQueue .queue-item')];
+      rows[1].querySelectorAll('button')[1].click();
+      return true;
+    })()`,
+  );
+  state = await shape();
+  assert.equal(state.rows, 1, 'Cancel did not remove the held message');
+  assert.equal(state.values[0], 'First held message, edited.', 'the edit was lost');
+
+  await evaluate(browser.cdp, 'document.querySelector("#sendQueue .queue-item button").click(); true');
+  state = await shape();
+  assert.equal(state.rows, 1, 'Send now bypassed the closed gate');
+  assert.match(
+    await evaluate(browser.cdp, 'document.querySelector("#bannerSlot").innerText'),
+    /still rate limited/i,
+    'Send now said nothing about the wait',
+  );
+
+  await waitForPage(browser.cdp, `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS + 1}`, 15_000);
+  const requests = await calls(browser);
+  assert.match(
+    JSON.stringify(requests[RETRY_ATTEMPTS].body),
+    /First held message, edited\./,
+    'the held message went out unedited',
+  );
+  await waitForPage(browser.cdp, 'document.querySelector("#sendQueue").hidden === true', 8000);
+  return { rows: state.rows };
 }
 
 async function main() {
@@ -774,6 +870,11 @@ async function main() {
     await check('cloud stream: a message typed during the wait is sent when the timer ends', async () => {
       await openPage(browserInfo, `http://127.0.0.1:${cloudPort}/`, 'cloud');
       await runQueuedSend(browserInfo);
+    });
+
+    await check('cloud stream: held messages list, edit, cancel, and send on the timer', async () => {
+      await openPage(browserInfo, `http://127.0.0.1:${cloudPort}/`, 'cloud');
+      await runQueue(browserInfo);
     });
 
     await check('cloud tools: cooldown shows a countdown and resends exactly once', async () => {

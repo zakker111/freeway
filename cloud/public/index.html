@@ -1656,6 +1656,37 @@
         flex-wrap: wrap;
       }
       .banner span { color: var(--text); }
+      /* Held messages sit above the composer: each one is editable, can be
+         cancelled, or sent as soon as the gate allows it. */
+      .queue-list {
+        max-width: var(--content);
+        margin: 0 auto 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .queue-item {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--warn-line);
+        background: var(--warn-soft);
+        border-radius: 10px;
+        padding: 6px 8px;
+      }
+      .queue-item input {
+        flex: 1 1 140px;
+        min-width: 0;
+        border: 0;
+        border-bottom: 1px dashed var(--warn-line);
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+        padding: 3px 0;
+      }
+      .queue-item input:focus { outline: none; border-bottom-color: var(--accent); }
       [hidden] { display: none !important; }
       /* The rail mirrors the desktop app. Storage is browser-local because a
          Worker has no disk, and the panels say so instead of pretending. */
@@ -2484,6 +2515,7 @@
         <button id="modeBuild" class="mini" type="button" aria-pressed="false">Build</button>
         <span id="modeHint" class="fine">Read-only plan · no browser file writes</span>
       </div>
+      <div id="sendQueue" class="queue-list" aria-label="Held messages" hidden></div>
       <div class="composer">
         <textarea id="input" rows="1" placeholder="Message…"></textarea>
         <label id="imageLabel" class="attach attach-image" title="Attach a PNG, JPEG or WebP image">
@@ -2704,7 +2736,8 @@
         cooling: {},
         attachment: null,
         sendGateUntil: 0,
-        queuedSend: null,
+        queue: [],
+        queueSeq: 0,
         gateTimer: 0,
         previewLink: '',
         previewFull: false,
@@ -3452,16 +3485,19 @@
         });
       }
 
-      async function toolSend(images = []) {
+      async function toolSend(images = [], heldText = null) {
         const box = $('input');
-        const text = box.value.trim();
+        const text = heldText === null ? box.value.trim() : String(heldText).trim();
         if ((!text && !images.length) || state.busy) return;
         if (gateLeft()) return queueSend(images);
         if (!state.model) return banner('Pick a model first — the free list has not loaded.', 'retry', loadModels);
         if (!hasKey()) return openKey(`Paste a ${providerInfo().label} key to chat from this deployment.`);
 
-        box.value = '';
-        autoGrow();
+        // A held message never sat in the composer, so keep the draft.
+        if (heldText === null) {
+          box.value = '';
+          autoGrow();
+        }
         const content = text || 'What is in this image?';
         state.messages.push({ role: 'user', content, ...(images.length ? { images } : {}) });
         clearAttachment();
@@ -3803,7 +3839,7 @@
         }
         if (chip) {
           chip.hidden = false;
-          chip.textContent = gateText(left) + (state.queuedSend ? ' · queued' : '');
+          chip.textContent = gateText(left) + (state.queue.length ? ' · ' + state.queue.length + ' held' : '');
         }
         if (send && !state.busy) {
           send.disabled = true;
@@ -3827,14 +3863,14 @@
         }
         stopSendGate();
         renderSendGate();
-        const queued = state.queuedSend;
-        state.queuedSend = null;
-        if (queued && !state.busy) {
-          $('input').value = queued.text || '';
-          autoGrow();
-          announce('The wait is over. Sending the queued message.');
-          if (state.mode === 'build' && readSettings().tools) toolSend(queued.images || []);
-          else streamSend(queued.images || []);
+        if (state.busy) {
+          announce('The wait is over. Your held message is ready to send.');
+          return;
+        }
+        const next = takeNextQueued();
+        if (next) {
+          announce('The wait is over. Sending the first held message.');
+          sendQueuedItem(next);
         } else {
           announce('The wait is over. You can send again.');
         }
@@ -3856,15 +3892,112 @@
       });
       window.addEventListener('focus', gateTick);
 
+      // Held messages are listed above the composer: editable, cancelable,
+      // and sent in the order they were written once the gate opens.
+      function renderSendQueue() {
+        const list = $('sendQueue');
+        if (!list) return;
+        list.innerHTML = '';
+        list.hidden = !state.queue.length;
+        for (const item of state.queue) {
+          const row = el('div', 'queue-item');
+          const field = el('input');
+          field.type = 'text';
+          field.value = item.text || '';
+          field.placeholder = (item.images || []).length ? 'Image message' : 'Message';
+          field.setAttribute('aria-label', 'Held message');
+          field.oninput = () => { item.text = field.value; };
+          const now = el('button', 'mini', 'Send now');
+          now.type = 'button';
+          now.onclick = () => sendQueuedNow(item.id);
+          const cancel = el('button', 'mini', 'Cancel');
+          cancel.type = 'button';
+          cancel.setAttribute('aria-label', 'Cancel this held message');
+          cancel.onclick = () => removeQueued(item.id);
+          row.append(field, now, cancel);
+          list.append(row);
+        }
+      }
+
+      function sendQueuedItem(item) {
+        const images = item.images || [];
+        const text = item.text || '';
+        if (state.mode === 'build' && readSettings().tools) toolSend(images, text);
+        else streamSend(images, text);
+      }
+
+      // The head of the queue, skipping entries the user emptied.
+      function takeNextQueued() {
+        while (state.queue.length) {
+          const item = state.queue.shift();
+          if ((item.text || '').trim() || (item.images || []).length) {
+            renderSendQueue();
+            renderSendGate();
+            return item;
+          }
+        }
+        renderSendQueue();
+        renderSendGate();
+        return null;
+      }
+
+      function removeQueued(id) {
+        const before = state.queue.length;
+        state.queue = state.queue.filter((item) => item.id !== id);
+        if (state.queue.length === before) return;
+        renderSendQueue();
+        renderSendGate();
+        announce('Held message removed.');
+      }
+
+      // Send now still respects the gate: while it is closed the message keeps
+      // its place and moves to the front of the queue.
+      function sendQueuedNow(id) {
+        const index = state.queue.findIndex((item) => item.id === id);
+        if (index < 0) return;
+        if (state.busy) {
+          banner('Wait for the current answer before sending a held message.', 'close', () => {});
+          return;
+        }
+        if (gateLeft()) {
+          const [item] = state.queue.splice(index, 1);
+          state.queue.unshift(item);
+          renderSendQueue();
+          banner(
+            'Still rate limited — this goes out first in ' + Math.ceil(gateLeft() / 1000) + 's.',
+            'close',
+            () => {},
+          );
+          return;
+        }
+        const [item] = state.queue.splice(index, 1);
+        renderSendQueue();
+        renderSendGate();
+        sendQueuedItem(item);
+      }
+
       // One place to hold a message while the gate is closed, so the Send
       // button and Enter behave the same in Plan and Build.
       function queueSend(images = []) {
-        const text = $('input').value.trim();
+        const box = $('input');
+        const text = box.value.trim();
         if (!text && !images.length) return false;
-        state.queuedSend = { text, images };
+        state.queue.push({ id: 'q' + (state.queueSeq += 1), text, images });
+        box.value = '';
+        autoGrow();
+        if (images.length) clearAttachment();
+        renderSendQueue();
         renderSendGate();
-        banner('Rate limited — queued. Sending in ' + Math.ceil(gateLeft() / 1000) + 's.', 'close', () => {});
-        announce('Message queued until the wait ends.');
+        banner(
+          'Rate limited — ' +
+            (state.queue.length === 1 ? 'your message is held' : state.queue.length + ' messages are held') +
+            '. The first goes out in ' +
+            Math.ceil(gateLeft() / 1000) +
+            's.',
+          'close',
+          () => {},
+        );
+        announce('Message held until the wait ends.');
         return true;
       }
 
@@ -3909,9 +4042,9 @@
         announce('Retrying now.');
       }
 
-      async function streamSend(images = []) {
+      async function streamSend(images = [], heldText = null) {
         const box = $('input');
-        const text = box.value.trim();
+        const text = heldText === null ? box.value.trim() : String(heldText).trim();
         if ((!text && !images.length) || state.busy) return;
         if (gateLeft()) return queueSend(images);
         if (!state.model) {
@@ -3923,8 +4056,11 @@
           return;
         }
 
-        box.value = '';
-        autoGrow();
+        // A held message never sat in the composer, so keep the draft.
+        if (heldText === null) {
+          box.value = '';
+          autoGrow();
+        }
         const content = text || 'What is in this image?';
         state.messages.push({ role: 'user', content, ...(images.length ? { images } : {}) });
         clearAttachment();

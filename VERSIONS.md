@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.36.0 | 2026-11-16 | Held messages are a list: each one is editable and cancelable, and Send now still waits out the gate |
 | 2.35.54 | 2026-11-16 | The persistence ask waits for the first saved message, so it runs on a click |
 | 2.35.53 | 2026-11-16 | The chat-limit warning can be closed and returns for the next one |
 | 2.35.52 | 2026-11-16 | The cap warning has its own line, the first save asks for persistent storage, and a held message waits out the send gate in either mode |

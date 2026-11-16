@@ -54,8 +54,10 @@ item 8 is intentionally absent. Ticked items already shipped.
 - [ ] **4. A live "free catalog health" system, not just Requesty.** Nightly probe of every
       provider, a "verified" note in the picker, last-known-good catalog, and a one-click
       switch when a model id disappears.
-- [ ] **5. A real queue, not one held message.** A visible list of held messages, each
-      cancelable and editable, with a "send now" that still respects the gate.
+- [x] **5. A real queue, not one held message.** Shipped in **2.36.0**: the held message
+      became a list above the composer. Every entry is editable and cancelable, `Send now`
+      still waits out a closed gate (moving the entry to the front), and the gate sends one
+      held message as it opens instead of guessing.
 - [ ] **6. "Switch to an idle free provider" as one click, never automatic.** Offer the
       choice after a 429; keep `fallbackOrder` refusing to move on its own.
 - [ ] **7. Survive a reload or tab switch mid-answer.** Persist the streaming text and offer
