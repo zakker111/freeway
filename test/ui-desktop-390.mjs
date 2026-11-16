@@ -16,9 +16,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { evaluate as evaluatePage, findChrome, freePort, launchChrome, sleep, waitForJson, waitForPage } from './browser.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const chromeBin = findChrome();
@@ -31,87 +31,6 @@ const WIDTH = 390;
 const HEIGHT = 844;
 const MODEL = 'mock/free-one';
 const packageVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function findChrome() {
-  const candidates = [
-    process.env.CHROME_BIN,
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    try {
-      if (fs.statSync(candidate).isFile()) return candidate;
-    } catch {
-      /* try the next location */
-    }
-  }
-  return '';
-}
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const probe = net.createServer();
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address();
-      probe.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitForJson(url, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return response.json();
-    } catch {
-      /* not listening yet */
-    }
-    await sleep(120);
-  }
-  throw new Error(`timed out waiting for ${url}`);
-}
-
-function connectCdp(url) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url);
-    const pending = new Map();
-    let seq = 0;
-    ws.onerror = (event) => reject(new Error(`CDP WebSocket failed: ${event.message || 'unknown'}`));
-    ws.onopen = () => {
-      resolve({
-        send(method, params = {}) {
-          const id = ++seq;
-          return new Promise((resolveMessage, rejectMessage) => {
-            pending.set(id, { resolve: resolveMessage, reject: rejectMessage });
-            ws.send(JSON.stringify({ id, method, params }));
-          });
-        },
-        close() {
-          ws.close();
-        },
-      });
-    };
-    ws.onmessage = (event) => {
-      let message;
-      try {
-        message = JSON.parse(String(event.data));
-      } catch {
-        return;
-      }
-      if (!message.id || !pending.has(message.id)) return;
-      const job = pending.get(message.id);
-      pending.delete(message.id);
-      if (message.error) job.reject(new Error(message.error.message || 'CDP error'));
-      else job.resolve(message.result);
-    };
-  });
-}
 
 // Installed before the page runs. /api/config is left alone so the badge and the
 // edition come from the app; everything else is answered here, and no provider
@@ -188,7 +107,7 @@ async function main() {
   let chrome;
   let cdp;
   let appLog = '';
-  let chromeLog = '';
+  let chromeLog = () => '';
   const results = [];
   const stage = async (name, fn) => {
     try {
@@ -214,56 +133,21 @@ async function main() {
     const served = await waitForJson(`http://127.0.0.1:${appPort}/api/config`);
     assert.equal(served.version, packageVersion, 'the app does not report the packaged version');
 
-    const debugPort = await freePort();
-    chrome = spawn(
-      chromeBin,
-      [
-        '--headless',
-        '--no-sandbox',
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--remote-allow-origins=*',
-        `--remote-debugging-port=${debugPort}`,
-        `--user-data-dir=${path.join(temp, 'chrome')}`,
-        '--hide-scrollbars',
-        'about:blank',
-      ],
-      { stdio: ['ignore', 'ignore', 'pipe'], env: process.env },
-    );
-    chrome.stderr.on('data', (chunk) => (chromeLog += chunk));
-    await waitForJson(`http://127.0.0.1:${debugPort}/json/version`);
-    const targets = await waitForJson(`http://127.0.0.1:${debugPort}/json/list`);
-    const target = targets.find((entry) => entry.type === 'page');
-    assert.ok(target?.webSocketDebuggerUrl, 'Chrome did not expose a page target');
-
-    cdp = await connectCdp(target.webSocketDebuggerUrl);
-    await cdp.send('Page.enable');
-    await cdp.send('Runtime.enable');
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: WIDTH,
-      height: HEIGHT,
-      deviceScaleFactor: 2,
-      mobile: true,
+    const browser = await launchChrome({
+      chromePath: chromeBin,
+      userDataDir: path.join(temp, 'chrome'),
+      viewport: { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true },
+      extraArgs: ['--hide-scrollbars'],
     });
+    chrome = browser.chrome;
+    cdp = browser.cdp;
+    chromeLog = browser.log;
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `(${installHarness.toString()})(${JSON.stringify(MODEL)});`,
     });
 
-    const evaluate = async (expression) => {
-      const result = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-      if (result.exceptionDetails) {
-        throw new Error(result.exceptionDetails.exception?.description || 'page evaluation failed');
-      }
-      return result.result?.value;
-    };
-    const waitFor = async (expression, timeoutMs = 20_000) => {
-      const deadline = Date.now() + timeoutMs;
-      while (Date.now() < deadline) {
-        if (await evaluate(expression)) return true;
-        await sleep(100);
-      }
-      throw new Error(`timed out waiting for: ${expression}`);
-    };
+    const evaluate = (expression) => evaluatePage(cdp, expression);
+    const waitFor = (expression, timeoutMs = 20_000) => waitForPage(cdp, expression, timeoutMs);
     const send = async (text) => {
       await evaluate(`(() => {
         const input = document.querySelector('#input');
@@ -355,7 +239,7 @@ async function main() {
   const failed = results.filter((result) => !result.ok);
   if (failed.length) {
     if (appLog) console.error('App log:', appLog.trim().split('\n').slice(-8).join('\n'));
-    if (chromeLog) console.error('Chrome log:', chromeLog.trim().split('\n').slice(-8).join('\n'));
+    if (chromeLog()) console.error('Chrome log:', chromeLog().trim().split('\n').slice(-8).join('\n'));
     console.error(`FAIL browser desktop 390: ${results.length - failed.length}/${results.length} stages passed.`);
     process.exitCode = 1;
   } else {

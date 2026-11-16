@@ -17,9 +17,9 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { evaluate, findChrome, freePort, launchChrome, sleep, waitForHttp, waitForPage } from './browser.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const chromeBin = findChrome();
@@ -46,146 +46,6 @@ const PAGE_TYPES = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
 };
-
-function findChrome() {
-  const candidates = [
-    process.env.CHROME_BIN,
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    try {
-      if (fs.statSync(candidate).isFile()) return candidate;
-    } catch {
-      /* try the next location */
-    }
-  }
-  return '';
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const probe = net.createServer();
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address();
-      probe.close(() => resolve(port));
-    });
-  });
-}
-
-async function waitForHttp(url, timeoutMs = 12_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) return response;
-    } catch {
-      /* not listening yet */
-    }
-    await sleep(120);
-  }
-  throw new Error(`timed out waiting for ${url}`);
-}
-
-async function waitForJson(url, timeoutMs = 12_000) {
-  return (await waitForHttp(url, timeoutMs)).json();
-}
-
-function connectCdp(url, onEvent = () => {}, timeoutMs = 10_000) {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(url);
-    const pending = new Map();
-    let seq = 0;
-    const timer = setTimeout(() => {
-      ws.close();
-      reject(new Error(`timed out connecting to ${url}`));
-    }, timeoutMs);
-
-    ws.onerror = (event) => {
-      clearTimeout(timer);
-      reject(new Error(`CDP WebSocket failed: ${event.message || 'unknown'}`));
-    };
-    ws.onopen = () => {
-      clearTimeout(timer);
-      resolve({
-        send(method, params = {}) {
-          const id = ++seq;
-          return new Promise((resolveMessage, rejectMessage) => {
-            const timer = setTimeout(() => {
-              pending.delete(id);
-              rejectMessage(new Error(`CDP ${method} timed out`));
-            }, 15_000);
-            pending.set(id, {
-              resolve(value) {
-                clearTimeout(timer);
-                resolveMessage(value);
-              },
-              reject(error) {
-                clearTimeout(timer);
-                rejectMessage(error);
-              },
-            });
-            ws.send(JSON.stringify({ id, method, params }));
-          });
-        },
-        close() {
-          ws.close();
-        },
-      });
-    };
-    ws.onmessage = (event) => {
-      let message;
-      try {
-        message = JSON.parse(String(event.data));
-      } catch {
-        return;
-      }
-      if (!message.id) {
-        onEvent(message);
-        return;
-      }
-      if (!pending.has(message.id)) return;
-      const job = pending.get(message.id);
-      pending.delete(message.id);
-      if (message.error) job.reject(new Error(message.error.message || 'CDP error'));
-      else job.resolve(message.result);
-    };
-  });
-}
-
-async function waitForPage(cdp, expression, timeoutMs = 12_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const result = await cdp.send('Runtime.evaluate', {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
-    if (result.exceptionDetails) {
-      throw new Error(result.exceptionDetails.exception?.description || 'page evaluation failed');
-    }
-    if (result.result?.value) return result.result.value;
-    await sleep(100);
-  }
-  throw new Error(`timed out waiting for: ${expression}`);
-}
-
-async function evaluate(cdp, expression) {
-  const result = await cdp.send('Runtime.evaluate', {
-    expression,
-    returnByValue: true,
-    awaitPromise: true,
-  });
-  if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.exception?.description || 'page evaluation failed');
-  }
-  return result.result?.value;
-}
 
 // This function is serialized into the page before the app boots. Keeping it
 // self-contained makes the mocked API identical for both editions.
@@ -401,55 +261,33 @@ async function startDesktopApp(temp) {
   return { app, port, log: () => log };
 }
 
+// Two attempts: a cold DevTools endpoint under load can take longer than the
+// first window allows, and a retry costs a second rather than the whole run.
+const CHROME_STEP_LINES = {
+  devtools: 'Chrome DevTools is listening.',
+  cdp: 'CDP page connected.',
+  page: 'Page domain enabled.',
+  runtime: 'Runtime domain enabled.',
+};
+
 async function startChrome(temp, onEvent) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      return await launchChrome(temp, onEvent, attempt === 1 ? 12_000 : 25_000);
+      return await launchChrome({
+        chromePath: chromeBin,
+        userDataDir: path.join(temp, 'chrome'),
+        onEvent,
+        timeoutMs: attempt === 1 ? 12_000 : 25_000,
+        onStep: (step) => console.log(CHROME_STEP_LINES[step]),
+      });
     } catch (error) {
       lastError = error;
       console.log('Chrome launch attempt ' + attempt + ' failed: ' + error.message.split('\n')[0]);
     }
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await sleep(1_000);
   }
   throw lastError;
-}
-
-async function launchChrome(temp, onEvent, devtoolsTimeoutMs) {
-  const debugPort = await freePort();
-  let log = '';
-  const chrome = spawn(
-    chromeBin,
-    [
-      '--headless',
-      '--no-sandbox',
-      '--disable-gpu',
-      '--disable-dev-shm-usage',
-      '--remote-allow-origins=*',
-      `--remote-debugging-port=${debugPort}`,
-      `--user-data-dir=${path.join(temp, 'chrome')}`,
-      'about:blank',
-    ],
-    { stdio: ['ignore', 'ignore', 'pipe'], env: process.env },
-  );
-  chrome.stderr.on('data', (chunk) => (log += chunk));
-  try {
-    await waitForJson(`http://127.0.0.1:${debugPort}/json/version`, devtoolsTimeoutMs);
-    console.log('Chrome DevTools is listening.');
-    const targets = await waitForJson(`http://127.0.0.1:${debugPort}/json/list`);
-    const target = targets.find((entry) => entry.type === 'page');
-    assert.ok(target?.webSocketDebuggerUrl, 'Chrome did not expose a page target');
-    const cdp = await connectCdp(target.webSocketDebuggerUrl, onEvent);
-    console.log('CDP page connected.');
-    await cdp.send('Page.enable');
-    console.log('Page domain enabled.');
-    await cdp.send('Runtime.enable');
-    console.log('Runtime domain enabled.');
-    return { chrome, cdp, log: () => log };
-  } catch (error) {
-    chrome.kill('SIGTERM');
-    throw new Error(`${error.message}\nChrome log:\n${log.slice(-2000)}`);
-  }
 }
 
 async function openPage(browser, baseUrl, edition, mode = 'stream') {
