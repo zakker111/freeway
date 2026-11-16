@@ -5703,8 +5703,8 @@
           lastCapWarnAt = next.length;
           setTimeout(() => banner(
             'Only ' +
-              (CHAT_CAP - next.length) +
-              ' chats left before the oldest ("' +
+              (CHAT_CAP - next.length === 1 ? '1 chat' : CHAT_CAP - next.length + ' chats') +
+              ' left before the oldest ("' +
               next[next.length - 1].title +
               '") is removed.',
             'Export',
