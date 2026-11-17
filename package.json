@@ -16,6 +16,7 @@
     "test:cooldown": "node test/ui-cooldown.mjs",
     "test:chatty": "node test/ui-chatty.mjs",
     "test:desktop-390": "node test/ui-desktop-390.mjs",
+    "test:store-warning": "node test/ui-store-warning.mjs",
     "build:single": "node build/bundle.mjs",
     "check:pages": "node scripts/check-pages.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",

@@ -101,3 +101,11 @@ jobs:
         env:
           CHROME_BIN: /usr/bin/google-chrome
         run: npm run test:desktop-390
+
+      - name: Browser store warning regression
+        # A damaged threads.json and threads-archive.json must be explained in the
+        # sidebar, and Dismiss must clear the banner for good. The store and CLI
+        # tests cover the payload; this covers the banner the user reads.
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm run test:store-warning

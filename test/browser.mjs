@@ -1,6 +1,7 @@
 // Shared Chrome and DevTools plumbing for the browser UI tests.
 //
-// ui-preview.mjs, ui-cooldown.mjs, ui-chatty.mjs and ui-desktop-390.mjs each
+// ui-preview.mjs, ui-cooldown.mjs, ui-chatty.mjs, ui-desktop-390.mjs and
+// ui-store-warning.mjs each
 // carried their own copy of this: find Chrome, pick a free port, wait for the
 // DevTools endpoint, connect, enable the domains and poll the page. The copies
 // had already drifted — only one waited with a connect timeout, only one
