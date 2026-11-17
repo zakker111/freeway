@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.10 | 2026-11-17 | A relaunch still explains a shortened chat list, and a damaged chat archive is set aside and recovered from its own backup |
 | 2.38.9 | 2026-11-16 | A damaged chats file is set aside with a backup and a warning, chats past the cap move to an archive instead of disappearing, and CI fails when the repo version is ahead of the latest release |
 | 2.38.8 | 2026-11-16 | CI walks the cloud page tour to Finish at 390x844 and 844x390, checking the ring on each stop's own control |
 | 2.38.7 | 2026-11-16 | The control-board tour counts the stops the page really has, so it finishes on "N/N" and the ring points at the control each tip names |
@@ -258,6 +259,24 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.10 — 2026-11-17
+
+The store warning lived only in memory: the launch that found a damaged
+`threads.json` explained it, and the next launch showed the same shortened list
+with no explanation at all. The warning is now written to `threads-warning.json`
+next to the chat file, read back on the next launch, and removed only when the
+banner is dismissed — and a dismissal sticks across restarts too. Chats recovered
+from `threads.json.bak` are written back straight away, so the launch after a
+recovery no longer starts from a missing file.
+
+`threads-archive.json` had none of the protection `threads.json` got in 2.38.9: a
+damaged archive parsed as an empty one and the chats it held were gone without a
+word. Every archive write now keeps `threads-archive.json.bak`, an unreadable
+archive is renamed to `threads-archive.json.corrupt-<timestamp>`, recovered from
+that backup when it is usable, and reported in the same banner. Removing the
+restored chat and adding the one it displaced is a single write, so the copy kept
+as the backup is a real one rather than the list that had just been emptied.
 
 ## 2.38.9 — 2026-11-16
 

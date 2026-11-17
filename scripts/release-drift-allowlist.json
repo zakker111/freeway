@@ -1,9 +1,9 @@
 {
   "allow": [
     {
-      "version": "2.38.9",
-      "reason": "unreleased test-only bump: chat store data protection and the release-drift check itself",
-      "until": "2026-12-16"
+      "version": "2.38.10",
+      "reason": "unreleased: chat store warning persistence and archive backup/quarantine",
+      "until": "2026-12-17"
     }
   ]
 }

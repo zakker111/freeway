@@ -3306,6 +3306,14 @@
               : "Your saved chats file was damaged. It has been set aside as a backup; no chats could be read from it.",
           );
         }
+        if (warning.archiveCorrupt) {
+          const count = warning.archiveCorrupt.threads;
+          parts.push(
+            warning.archiveCorrupt.recovered
+              ? `The archive of older chats was damaged. It has been set aside and ${count} chat${count === 1 ? "" : "s"} came back from the last good copy.`
+              : "The archive of older chats was damaged. It has been set aside as a backup; no archived chats could be read from it.",
+          );
+        }
         if (warning.archived) {
           const count = warning.archived;
           parts.push(

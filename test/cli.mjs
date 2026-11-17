@@ -562,6 +562,141 @@ async function main() {
     }
   });
 
+  await check('archives the overflow and restores it without losing a chat', async () => {
+    const custom = fs.mkdtempSync(path.join(os.tmpdir(), 'openrouter-archive-'));
+    // A file written by an older build can hold more chats than the active
+    // limit. Reading it must archive the extra ones and say so, instead of
+    // dropping them on the next save.
+    const seeded = Array.from({ length: 201 }, (_, i) => ({
+      id: `seed-${String(i).padStart(6, '0')}`,
+      title: `seeded ${i}`,
+      createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+      updatedAt: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+      messages: [{ role: 'user', content: `hello ${i}` }],
+    }));
+    fs.writeFileSync(
+      path.join(custom, 'threads.json'),
+      JSON.stringify({ version: 1, threads: seeded }),
+    );
+
+    const app = await startApp({ args: ['--config', custom] });
+    const headers = { 'content-type': 'application/json', 'x-app-token': app.token };
+    try {
+      const listing = await (await fetch(`${app.base}/api/threads`, { headers })).json();
+      assert.equal(listing.threads.length, 200);
+      assert.equal(listing.archived, 1, 'the chat past the cap was not archived');
+      assert.equal(listing.warning?.archived, 1, 'the move to the archive was not reported');
+      assert.ok(
+        fs.existsSync(path.join(custom, 'threads-archive.json')),
+        'the overflow did not land in threads-archive.json',
+      );
+
+      // Gated like the rest, and a refused clear must change nothing.
+      const refused = await fetch(`${app.base}/api/threads/warning/clear`, { method: 'POST' });
+      assert.ok(refused.status === 401 || refused.status === 403, `got ${refused.status}`);
+      const gated = await fetch(`${app.base}/api/threads/archived`);
+      assert.ok(gated.status === 401 || gated.status === 403, `got ${gated.status}`);
+      const stillWarned = await (await fetch(`${app.base}/api/threads`, { headers })).json();
+      assert.equal(stillWarned.warning?.archived, 1, 'a tokenless clear removed the warning');
+
+      const archived = await (await fetch(`${app.base}/api/threads/archived`, { headers })).json();
+      assert.equal(archived.archived.length, 1);
+      const target = archived.archived[0];
+
+      const restored = await fetch(`${app.base}/api/threads/archived/restore`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: target.id }),
+      });
+      assert.equal(restored.status, 200, 'a known archived chat could not be restored');
+      const body = await restored.json();
+      assert.equal(body.thread.id, target.id);
+      assert.ok(body.threads.some((t) => t.id === target.id), 'the restored chat is not in the list');
+      assert.equal(body.threads.length, 200, 'restoring pushed the active list over the cap');
+      // The chat the restore displaced took its place in the archive: nothing
+      // was deleted to make room.
+      assert.equal(body.archived, 1);
+
+      // Each of these routes must be matched before /api/threads/:id, which
+      // would read "archived" as a chat id and answer 400.
+      const unknown = await fetch(`${app.base}/api/threads/archived/restore`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ id: 'no-such-chat-1' }),
+      });
+      assert.equal(unknown.status, 404, 'an unknown archived id must be a 404, not a 400');
+
+    } finally {
+      await stopApp(app);
+    }
+
+    // The archive is its own file and the explanation is on disk: a relaunch
+    // must find both, so a shortened list is never unexplained.
+    const restarted = await startApp({ args: ['--config', custom] });
+    try {
+      const authHeaders = { 'content-type': 'application/json', 'x-app-token': restarted.token };
+      const listing = await (
+        await fetch(`${restarted.base}/api/threads`, { headers: authHeaders })
+      ).json();
+      assert.equal(listing.threads.length, 200);
+      assert.equal(listing.archived, 1, 'the archive did not survive a restart');
+      assert.equal(listing.warning?.archived, 1, 'the explanation was lost on restart');
+
+      // Dismissing it must stick across the next launch too.
+      const cleared = await fetch(`${restarted.base}/api/threads/warning/clear`, {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      assert.equal(cleared.status, 200);
+      const afterClear = await (
+        await fetch(`${restarted.base}/api/threads`, { headers: authHeaders })
+      ).json();
+      assert.equal(afterClear.warning, null, 'the warning survived being cleared');
+    } finally {
+      await stopApp(restarted);
+    }
+
+    // The archive has the same protection as the active store: damaged, it is
+    // set aside and recovered from its own backup, and a relaunch says so. The
+    // dismissal given above must stay dismissed.
+    fs.writeFileSync(path.join(custom, 'threads-archive.json'), '{ not json');
+    const recovered = await startApp({ args: ['--config', custom] });
+    try {
+      const authHeaders = { 'content-type': 'application/json', 'x-app-token': recovered.token };
+      const listing = await (
+        await fetch(`${recovered.base}/api/threads`, { headers: authHeaders })
+      ).json();
+      assert.equal(listing.threads.length, 200);
+      assert.equal(listing.archived, 1, 'the archive was not recovered from its backup');
+      assert.equal(
+        listing.warning?.archiveCorrupt?.recovered,
+        true,
+        'a damaged archive read as empty and said nothing',
+      );
+      assert.match(String(listing.warning.archiveCorrupt.quarantined), /threads-archive\.json\.corrupt-/);
+      assert.ok(
+        fs.existsSync(listing.warning.archiveCorrupt.quarantined),
+        'the damaged archive was deleted instead of set aside',
+      );
+      assert.equal(listing.warning?.archived, undefined, 'the dismissed warning came back');
+    } finally {
+      await stopApp(recovered);
+    }
+
+    // An empty archive is nothing to restore, not a bad chat id.
+    const fresh = await startApp();
+    try {
+      const empty = await fetch(`${fresh.base}/api/threads/archived/restore`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-app-token': fresh.token },
+        body: JSON.stringify({}),
+      });
+      assert.equal(empty.status, 404, 'restoring from an empty archive must be a 404');
+    } finally {
+      await stopApp(fresh);
+    }
+  });
+
   await check('--config keeps the key, settings and chats in one folder', async () => {
     const custom = fs.mkdtempSync(path.join(os.tmpdir(), 'openrouter-config-'));
     // Simulate a config created by an older build with a permissive mode.
