@@ -1,9 +1,3 @@
 {
-  "allow": [
-    {
-      "version": "2.38.10",
-      "reason": "unreleased: chat store warning persistence and archive backup/quarantine",
-      "until": "2026-12-17"
-    }
-  ]
+  "allow": []
 }
