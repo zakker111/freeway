@@ -1036,9 +1036,11 @@
   // tour or lesson. The lesson render path passes interrupting === false and
   // only checks enabled/root/blocked, since startTutor/advanceTutor have already
   // cleared the tour before calling showTutorStep.
-  function mayShowMessage(interrupting = true) {
+  function mayShowMessage(interrupting = true, ignoreFlow = false) {
     if (!enabled || !rootNode || isBlocked()) return false;
-    if (interrupting && inFlowState()) return false;
+    // The flow hold is for unsolicited messages. A coach note the user asked
+    // for (the pet click or a check) still answers while they type.
+    if (interrupting && !ignoreFlow && inFlowState()) return false;
     if (!interrupting) return true;
     return tourStep < 0 && !tourBusy && tutorStep < 0;
   }
@@ -1136,7 +1138,7 @@
   }
 
   function showPromptCoach(force = false) {
-    if (!mayShowMessage()) return false;
+    if (!mayShowMessage(true, force)) return false;
     const tip = promptCoach(force);
     if (!tip) return false;
     clearTimeout(appearTimer);
@@ -2437,7 +2439,9 @@
   // A finished plan is a real hand-off point: bring Chatty up even when the
   // composer still has focus, and put the mode switch one click away.
   function planReady() {
-    if (!mayShowMessage()) return;
+    // A finished plan is a hand-off the user is waiting for: it still appears
+    // when the composer has focus or the last keystroke was a moment ago.
+    if (!mayShowMessage(true, true)) return;
     clearTimeout(appearTimer);
     fitToComposer();
     if (rootNode.hidden) {
