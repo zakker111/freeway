@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.11",
-      "reason": "unreleased: desktop Alt+H shortcut bound so Chatty's tip and the palette command work; publish to release",
+      "version": "2.38.12",
+      "reason": "unreleased: cloud dialog action rows wrap instead of stretching to a long label (key dialog on phones)",
       "until": "2026-12-18"
     }
   ]

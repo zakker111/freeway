@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.12 | 2026-11-18 | The key dialog's buttons stop stretching and mangling at phone width, so Save, Clear and Cancel stay usable |
 | 2.38.11 | 2026-11-18 | Chatty's Alt + H shortcut works on the desktop again, and a guard ties every shortcut her tips promise to a real binding |
 | 2.38.10 | 2026-11-17 | A relaunch still explains a shortened chat list, and a damaged chat archive is set aside and recovered from its own backup |
 | 2.38.9 | 2026-11-16 | A damaged chats file is set aside with a backup and a warning, chats past the cap move to an archive instead of disappearing, and CI fails when the repo version is ahead of the latest release |
@@ -260,6 +261,20 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.12 — 2026-11-18
+
+The key dialog on a phone was a mess: Clear, **Use OVHcloud instead — no key**,
+Cancel and Save sat in one nowrap flex row, so the long label wrapped inside a
+122px button and the row's default stretch made every button 115px tall. The
+buttons looked broken exactly where a key is entered, and Save became a tall
+white slab that no longer read as the primary action.
+
+The cloud page's action row now wraps and aligns its items, matching the rule the
+desktop page already had, so a long label moves to the next line instead of
+squeezing its neighbours. A source guard requires both properties in each page's
+base `.row` rule, so the next dialog with a long action label cannot reintroduce
+it.
 
 ## 2.38.11 — 2026-11-18
 

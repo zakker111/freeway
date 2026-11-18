@@ -1618,7 +1618,11 @@
         box-shadow: var(--shadow-sm);
       }
       dialog input:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); outline: none; }
-      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+      /* A long label must wrap onto another line instead of squeezing its
+       * siblings: with nowrap and the default stretch, "Use OVHcloud instead
+       * — no key" forced every button in the key dialog to 115px tall on a
+       * phone. */
+      .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; align-items: center; }
       .promptList { max-height: min(50vh, 320px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
       .promptList .fine { color: var(--dim); font-size: 12.5px; margin: 0; }
       .promptRow { display: flex; gap: 6px; align-items: center; }
