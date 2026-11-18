@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.18 | 2026-11-18 | CI uploads the ZIP it launches, and covers start.cmd's node app.mjs fallback |
 | 2.38.17 | 2026-11-18 | CI also assembles the Windows ZIP, unpacks it and launches start.cmd from the unzipped folder |
 | 2.38.16 | 2026-11-18 | CI builds and launches the packaged Windows client on every push, so a binary that cannot start fails before a release |
 | 2.38.15 | 2026-11-18 | Attaching an image works again in both editions: the page CSP blocked the blob URL the composer compresses from |
@@ -266,6 +267,22 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.18 — 2026-11-18
+
+Two gaps left by 2.38.17. The ZIP the job assembled was thrown away, so the build
+that was actually launched could not be handed to anyone when a download failed only
+on a real desktop; and `start.cmd` has two branches, but only the `Freeway.exe` one
+was ever run. The `node app.mjs` branch is what a source checkout uses, and it can
+rot without anyone noticing because the release ZIP never takes it.
+
+The job now uploads its archive as the `windows-client-zip` artifact. It also runs
+`start.cmd` before building the executable, while the repository has only `app.mjs`,
+so the fallback — `where node`, then `node app.mjs %*` — serves the page and reports
+the version just like the packaged branch does afterwards.
+
+A guard in `lib/docs.test.mjs` keeps the fallback step ahead of the build; once
+`Freeway.exe` exists the step would silently test the other branch.
 
 ## 2.38.17 — 2026-11-18
 

@@ -136,9 +136,11 @@ installer. A build copies a Windows `node.exe`, injects the app as a Node SEA bl
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
 end to end on commit `94715e4` (run 41940445555), including launching the executable and
 reading `/api/config`. The `Tests` workflow now repeats that whole path on every push (job
-**Windows client**): it builds the executable, launches it, assembles the ZIP with
+**Windows client**): it launches `start.cmd` in a source checkout (the `node app.mjs`
+fallback), builds the executable and launches it, assembles the ZIP with
 `scripts/pack-windows-client.ps1`, unpacks that ZIP and launches `start.cmd` from the
-unzipped folder — so a download that cannot start fails on `main` instead of at a tag. The Windows executable for each release is built and smoke-tested
+unzipped folder, then uploads the ZIP as the `windows-client-zip` artifact — so a download
+that cannot start fails on `main`, and the exact archive CI ran can be fetched. The Windows executable for each release is built and smoke-tested
 by that workflow and attached to the release; the source ZIP is built by `release.sh`.
 Download the current build from
 [the latest release](https://github.com/zakker111/freeway/releases/latest). The workflow is

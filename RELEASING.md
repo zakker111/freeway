@@ -81,10 +81,12 @@ executed in the Linux VM; the authoritative, Windows-tested build is
 `scripts/smoke-windows-client.mjs`, run by the `Windows client` job in `Tests` on every push
 and again by `.github/workflows/build-windows.yml` when a tag ships the `windows-client`
 artifact. The smoke script requires `Freeway.exe --version`, then launches the binary and
-reads `/api/config` and the page; the per-push job then assembles the ZIP, unpacks it into a
-temp folder and launches `start.cmd` from there, so the archive and the launcher in the
-download are exercised long before a release. What still needs a person is a real desktop:
-SmartScreen and a double-click.
+reads `/api/config` and the page; the per-push job also launches `start.cmd` in a source
+checkout before the exe exists (the `node app.mjs` fallback), then assembles the ZIP,
+unpacks it into a temp folder and launches `start.cmd` from there, so the archive and both
+launcher branches are exercised long before a release. That job uploads the archive as the
+`windows-client-zip` artifact, which is the build to hand out when a download only fails on
+a real desktop. What still needs a person is that desktop: SmartScreen and a double-click.
 
 ## Release assets come from the tag workflow
 

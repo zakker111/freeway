@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.17",
-      "reason": "unreleased: CI unpacks the Windows ZIP and launches start.cmd",
+      "version": "2.38.18",
+      "reason": "unreleased: CI uploads the Windows ZIP it launches",
       "until": "2026-12-18"
     }
   ]

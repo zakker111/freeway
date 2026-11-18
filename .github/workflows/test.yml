@@ -127,6 +127,13 @@ jobs:
       - name: Rebuild the single file
         run: node build/bundle.mjs
 
+      - name: Launch start.cmd without Freeway.exe
+        # A source checkout has no executable, so the launcher has to fall back to
+        # `node app.mjs`. That branch only runs before the build below creates
+        # Freeway.exe, so this step stays ahead of it.
+        shell: pwsh
+        run: node scripts/smoke-windows-client.mjs -- cmd.exe /c start.cmd
+
       - name: Build the Windows client
         # The release workflow runs this same script, so the packaged binary and
         # the one CI launches cannot drift apart.
@@ -159,3 +166,10 @@ jobs:
           $launcher = Join-Path $dest "start.cmd"
           if (-not (Test-Path $launcher)) { throw "the ZIP does not contain start.cmd" }
           node scripts/smoke-windows-client.mjs -- cmd.exe /c $launcher
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-client-zip
+          # The exact archive this job unpacked and launched, so a build that only
+          # fails on a real desktop can be downloaded without rebuilding it.
+          path: Freeway-*-windows.zip
