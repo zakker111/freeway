@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.17 | 2026-11-18 | CI also assembles the Windows ZIP, unpacks it and launches start.cmd from the unzipped folder |
 | 2.38.16 | 2026-11-18 | CI builds and launches the packaged Windows client on every push, so a binary that cannot start fails before a release |
 | 2.38.15 | 2026-11-18 | Attaching an image works again in both editions: the page CSP blocked the blob URL the composer compresses from |
 | 2.38.14 | 2026-11-18 | The held-image browser check runs the page's real compressor, with a stand-in only for the blob: URLs this Chrome cannot load |
@@ -265,6 +266,26 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.17 — 2026-11-18
+
+2.38.16 runs `Freeway.exe`. Users do not: they unzip `Freeway-<version>-windows.zip`
+and double-click `start.cmd`, and neither the archive nor the launcher was part of
+the check.
+
+The **Windows client** job now continues past the executable. It assembles the ZIP
+with `scripts/pack-windows-client.ps1` — the same script the release workflow uses,
+so the archive CI unpacks is the archive a release uploads — expands it into a temp
+folder, and launches `start.cmd` from that folder, which is the launcher's real test
+because it resolves `Freeway.exe` relative to itself. The same smoke assertions run:
+`--version`, `/api/config`, and the page.
+
+The smoke script now kills the process tree on Windows, since `start.cmd` runs the
+client as a child and killing only `cmd.exe` would leave the client holding the port.
+
+Manually dispatching `Release assets` proved the release path too: run 44307954484
+built on `windows-latest`, passed, and uploaded the 34.6 MB `windows-client` artifact
+with the tag-gated publish job skipped, as it should be without a tag.
 
 ## 2.38.16 — 2026-11-18
 

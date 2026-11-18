@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.16",
-      "reason": "unreleased: CI launches the packaged Windows client on every push",
+      "version": "2.38.17",
+      "reason": "unreleased: CI unpacks the Windows ZIP and launches start.cmd",
       "until": "2026-12-18"
     }
   ]

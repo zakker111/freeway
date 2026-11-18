@@ -77,12 +77,14 @@ npx postject /tmp/node.exe NODE_SEA_BLOB sea-prep.blob \
 Name the result `Freeway.exe`, zip it with the README, and keep it out of the source
 ZIP. It is unsigned, so SmartScreen shows **More info → Run anyway**. The `.exe` cannot be
 executed in the Linux VM; the authoritative, Windows-tested build is
-`scripts/build-windows-client.ps1` plus `scripts/smoke-windows-client.mjs`, run by the
-`Windows client` job in `Tests` on every push and again by
-`.github/workflows/build-windows.yml` when a tag ships the `windows-client` artifact. The
-smoke script requires `Freeway.exe --version`, then launches the binary and reads
-`/api/config` and the page, so the packaged client is exercised long before a release.
-What still needs a person is a real desktop: SmartScreen and a double-click.
+`scripts/build-windows-client.ps1`, `scripts/pack-windows-client.ps1` and
+`scripts/smoke-windows-client.mjs`, run by the `Windows client` job in `Tests` on every push
+and again by `.github/workflows/build-windows.yml` when a tag ships the `windows-client`
+artifact. The smoke script requires `Freeway.exe --version`, then launches the binary and
+reads `/api/config` and the page; the per-push job then assembles the ZIP, unpacks it into a
+temp folder and launches `start.cmd` from there, so the archive and the launcher in the
+download are exercised long before a release. What still needs a person is a real desktop:
+SmartScreen and a double-click.
 
 ## Release assets come from the tag workflow
 

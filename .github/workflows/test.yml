@@ -137,3 +137,25 @@ jobs:
         # Runs what users download: Freeway.exe has to report the package version
         # and serve the app page, not just exist.
         run: node scripts/smoke-windows-client.mjs
+
+      - name: Package the Windows ZIP
+        # The release uploads this exact archive, so build it here too.
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/pack-windows-client.ps1
+
+      - name: Unzip the ZIP and launch start.cmd
+        # A person unzips the download and double-clicks start.cmd, so the launcher
+        # has to find the binary next to it and serve. The exe test above never
+        # touches start.cmd or the archive.
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $zip = "Freeway-$version-windows.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "freeway-unzipped"
+          if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
+          Expand-Archive -Path $zip -DestinationPath $dest
+          Get-ChildItem $dest | Select-Object Name, Length
+          $launcher = Join-Path $dest "start.cmd"
+          if (-not (Test-Path $launcher)) { throw "the ZIP does not contain start.cmd" }
+          node scripts/smoke-windows-client.mjs -- cmd.exe /c $launcher

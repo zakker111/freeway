@@ -73,13 +73,10 @@ jobs:
         run: node scripts/smoke-windows-client.mjs
 
       - name: Package
+        # The per-push job assembles the ZIP with this same script, so the archive
+        # CI unpacks and launches is the archive this job uploads.
         shell: pwsh
-        run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          $zip = "Freeway-$version-windows.zip"
-          Compress-Archive -Path Freeway.exe, README.md, VERSIONS.md, start.cmd `
-            -DestinationPath $zip -Force
-          "ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/pack-windows-client.ps1
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

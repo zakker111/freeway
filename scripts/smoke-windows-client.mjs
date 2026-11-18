@@ -91,6 +91,12 @@ client.on('exit', (code, signal) => {
 
 function stop() {
   if (exited) return;
+  // start.cmd runs Freeway.exe as a child, so killing the wrapper alone would
+  // leave the client holding the port. Kill the whole tree on Windows.
+  if (process.platform === 'win32' && client.pid) {
+    spawnSync('taskkill', ['/pid', String(client.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true });
+    return;
+  }
   client.kill('SIGKILL');
 }
 process.on('exit', stop);
