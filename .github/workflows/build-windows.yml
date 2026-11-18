@@ -51,7 +51,9 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          # Exact, not "22": this node.exe becomes Freeway.exe, so a patch bump
+          # changes the binary the SEA fuse has to match.
+          node-version: "22.23.5"
 
       - name: Rebuild the single file
         run: node build/bundle.mjs

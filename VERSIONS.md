@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.21 | 2026-11-18 | The Windows ZIP names its own commit, and the client is built with pinned Node and postject |
 | 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |
 | 2.38.19 | 2026-11-18 | CI proves start.cmd fails loudly, and exits 1, when it has no executable and no Node |
 | 2.38.18 | 2026-11-18 | CI uploads the ZIP it launches, and covers start.cmd's node app.mjs fallback |
@@ -269,6 +270,34 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.21 — 2026-11-18
+
+The archive handed to a person said nothing about itself. `Freeway.exe` identifies the
+version through `--version`, but the ZIP around it carried no commit, so two downloads
+from different weeks looked identical, and the build fetched `postject` through
+`npx --yes postject` — whatever was newest that day — into a binary we distribute.
+A floating Node is worse: the SEA blob is injected into the runner's own `node.exe`,
+so a patch bump swaps the binary the fuse has to match.
+
+The ZIP now contains `build-info.txt`:
+
+```
+version: 2.38.21
+commit: 784087f…
+node: v22.23.5
+postject: 1.0.0-alpha.6
+```
+
+It is written by `scripts/build-windows-client.ps1` from `package.json`, `GITHUB_SHA` (or
+`git rev-parse HEAD`), the running Node and the pinned postject — no timestamp, so
+rebuilding one commit with the same pins produces the same file. `pack-windows-client.ps1`
+refuses to package without it and refuses a version mismatch, the per-push job reads it back
+out of the unzipped archive and rejects a `commit:` that is not a SHA, and
+`lib/docs.test.mjs` keeps both the file and the pins in place.
+
+Node is now pinned to `22.23.5` (from `"22"`) in both Windows-building workflows, and the
+Linux job rides along so the suites and the binary use one runtime.
 
 ## 2.38.20 — 2026-11-18
 

@@ -5,6 +5,8 @@ threads.json
 secrets.json
 sea-prep.blob
 Freeway.exe
+Freeway-*-windows.zip
+build-info.txt
 freeway.mjs
 freeway.cjs
 node_modules/

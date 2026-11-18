@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.20",
-      "reason": "unreleased: CI covers start.cmd with no exe and no node",
+      "version": "2.38.21",
+      "reason": "unreleased: the Windows ZIP records its commit and pins its toolchain",
       "until": "2026-12-18"
     }
   ]

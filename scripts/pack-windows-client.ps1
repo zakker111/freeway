@@ -7,9 +7,19 @@ $ErrorActionPreference = "Stop"
 
 $version = (Get-Content package.json | ConvertFrom-Json).version
 $zip = "Freeway-$version-windows.zip"
-$files = @("Freeway.exe", "README.md", "VERSIONS.md", "start.cmd")
+$files = @("Freeway.exe", "build-info.txt", "README.md", "VERSIONS.md", "start.cmd")
 foreach ($file in $files) {
   if (-not (Test-Path $file)) { throw "$file is missing; build the client first" }
+}
+
+# The archive has to identify its own commit, so a downloaded ZIP can be traced
+# without guessing which Actions run it came from.
+$info = Get-Content build-info.txt
+foreach ($key in @("version: ", "commit: ", "node: ", "postject: ")) {
+  if (-not ($info | Where-Object { $_ -like "$key*" })) { throw "build-info.txt has no $key line" }
+}
+if (-not ($info -contains "version: $version")) {
+  throw "build-info.txt does not describe $version; rebuild the client"
 }
 
 Compress-Archive -Path $files -DestinationPath $zip -Force

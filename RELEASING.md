@@ -87,7 +87,10 @@ no node on `PATH`, where it must exit 1 and name what is missing, then assembles
 unpacks it into a temp folder and launches `start.cmd` from there, so the archive and all
 three launcher branches are exercised long before a release. That job uploads the archive as the
 `windows-client-zip` artifact, which is the build to hand out when a download only fails on
-a real desktop. What still needs a person is that desktop: SmartScreen and a double-click.
+a real desktop. That archive includes `build-info.txt` — version, commit, Node and postject —
+and `scripts/build-windows-client.ps1` pins the toolchain (Node `22.23.5`, postject
+`1.0.0-alpha.6`) because the SEA blob only fits the `node.exe` it was built from. Bumping
+either pin means rebuilding and re-running the Windows job before shipping. What still needs a person is that desktop: SmartScreen and a double-click.
 
 ## Release assets come from the tag workflow
 

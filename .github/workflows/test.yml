@@ -23,7 +23,9 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          # Exact, not "22": the Windows client is node.exe with a blob injected,
+          # so a patch bump changes the binary the SEA fuse has to match.
+          node-version: "22.23.5"
           cache: npm
           cache-dependency-path: cloud/package-lock.json
 
@@ -122,7 +124,9 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
+          # Exact, not "22": the Windows client is node.exe with a blob injected,
+          # so a patch bump changes the binary the SEA fuse has to match.
+          node-version: "22.23.5"
 
       - name: Rebuild the single file
         run: node build/bundle.mjs
@@ -187,6 +191,12 @@ jobs:
           if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
           Expand-Archive -Path $zip -DestinationPath $dest
           Get-ChildItem $dest | Select-Object Name, Length
+          $info = Get-Content (Join-Path $dest "build-info.txt")
+          $info | ForEach-Object { Write-Host $_ }
+          if (-not ($info -contains "version: $version")) {
+            throw "the ZIP's build-info.txt does not describe $version"
+          }
+          if (-not ($info -match '^commit: [0-9a-f]{7,}$')) { throw "the ZIP does not name its commit" }
           $launcher = Join-Path $dest "start.cmd"
           if (-not (Test-Path $launcher)) { throw "the ZIP does not contain start.cmd" }
           node scripts/smoke-windows-client.mjs -- cmd.exe /c $launcher

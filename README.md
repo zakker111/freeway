@@ -141,7 +141,10 @@ fallback), launches it again with neither an exe nor node on `PATH` (it must exi
 so), builds the executable and launches it, assembles the ZIP with
 `scripts/pack-windows-client.ps1`, unpacks that ZIP and launches `start.cmd` from the
 unzipped folder, then uploads the ZIP as the `windows-client-zip` artifact — so a download
-that cannot start fails on `main`, and the exact archive CI ran can be fetched. The Windows executable for each release is built and smoke-tested
+that cannot start fails on `main`, and the exact archive CI ran can be fetched. That archive
+carries `build-info.txt` (version, commit, Node and postject), and the toolchain is pinned —
+Node `22.23.5`, postject `1.0.0-alpha.6` — so a downloaded ZIP names the commit it was built
+from and a rebuild uses the same tools instead of whatever `npx` found that day. The Windows executable for each release is built and smoke-tested
 by that workflow and attached to the release; the source ZIP is built by `release.sh`.
 Download the current build from
 [the latest release](https://github.com/zakker111/freeway/releases/latest). The workflow is
