@@ -9035,6 +9035,28 @@
     rootNode.style.bottom = 'auto';
   }
 
+  // Walks to a control, keeping the ring on her clock, and lands with a pounce.
+  // Returns the travel time so a caller can wait for the landing.
+  function walkToTarget(target, bubbleHeight = 0) {
+    if (!rootNode) return 0;
+    if (petNode) {
+      petNode.classList.remove('chatty-pounce');
+      clearTimeout(pounceTimer);
+    }
+    const moveMs = glideTo(target, bubbleHeight) || 520;
+    rootNode.style.setProperty('--chatty-move-ms', `${moveMs}ms`);
+    showSpotlight(target, moveMs);
+    rootNode.classList.add('is-touring');
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      moveTimer = 0;
+      if (!rootNode) return;
+      rootNode.classList.remove('is-touring');
+      pouncePet();
+    }, moveMs + 20);
+    return moveMs;
+  }
+
   function showTip(message, duration = 13000, actions = null, label = 'Chatty', keepSpot = false) {
     if (!bubbleNode) return;
     if (!keepSpot) hideSpotlight();
@@ -9044,19 +9066,30 @@
     if (labelNode) labelNode.textContent = label;
     renderActions(actions);
     // Travel before the bubble becomes visible, so its size is measured where
-    // the cat actually lands. The tour passes keepSpot and keeps its own route.
-    if (!keepSpot && !REDUCE_MOTION) {
-      const target = targetForMessage(message);
-      if (target) {
-        placeNear(target);
-        showSpotlight(target);
-      }
+    // the cat actually lands — and walk there rather than blink there. A tip
+    // that names a control is about that control; placeNear made her appear on
+    // it with no hop, which read as the companion being broken. The tour and
+    // Cat school pass keepSpot and run their own route.
+    const reveal = () => {
+      if (!bubbleNode) return;
+      bubbleNode.hidden = false;
+      requestAnimationFrame(fitBubble);
+      setTimeout(fitBubble, 260);
+      clearTimeout(tipTimer);
+      if (duration > 0) tipTimer = setTimeout(hideTip, duration);
+    };
+    const target = keepSpot || REDUCE_MOTION ? null : targetForMessage(message);
+    if (target) {
+      clearTimeout(tipTimer);
+      // The sentence belongs where she lands: keep the old bubble's height for
+      // the placement, then take it away for the walk.
+      const bubbleHeight = bubbleNode.hidden ? 0 : bubbleNode.offsetHeight;
+      bubbleNode.hidden = true;
+      const walkMs = walkToTarget(target, bubbleHeight);
+      tipTimer = setTimeout(reveal, walkMs + 20);
+      return;
     }
-    bubbleNode.hidden = false;
-    requestAnimationFrame(fitBubble);
-    setTimeout(fitBubble, 260);
-    clearTimeout(tipTimer);
-    if (duration > 0) tipTimer = setTimeout(hideTip, duration);
+    reveal();
   }
 
   function hideTip(keepSpot = false) {
@@ -9529,6 +9562,13 @@
     // Hide the old sentence before she travels so the next step cannot appear
     // at the old corner while the pet is still hopping to the new one.
     hideTip();
+    // A step that names a control is about that control, so the walk itself is
+    // the lesson: showTip glides there and reveals the sentence on landing. The
+    // old order hopped to a random edge and then blinked onto the control.
+    if (!REDUCE_MOTION && targetForMessage(lesson.steps[step])) {
+      render();
+      return;
+    }
     const duration = moveTutorStep();
     if (!duration) {
       render();

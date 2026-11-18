@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.21",
-      "reason": "unreleased: the Windows ZIP records its commit and pins its toolchain",
+      "version": "2.38.22",
+      "reason": "unreleased: Chatty walks to the control a tip names",
       "until": "2026-12-18"
     }
   ]

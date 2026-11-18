@@ -948,6 +948,85 @@ async function runReduced(cdp, origin) {
   assert.equal(r2.bubble, true, 'the reduced-motion second step lost its bubble');
 }
 
+async function runTipWalk(cdp, origin) {
+  await loadChatty(cdp, origin, false);
+  assert.equal(await clickAction(cdp, 'skip'), true, 'the auto-start tour has no End tour action');
+  await sleep(300);
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      return Boolean(root && !root.hidden && root.classList.contains('is-in'));
+    })()`,
+    5000,
+  );
+  await sleep(MOVE_SETTLE_MS);
+  const before = await state(cdp);
+
+  // A tip that names a control used to place her on it with no travel at all:
+  // one frame at the old corner, the next on the button. Users read that as the
+  // cat being broken, so the walk is what this stage measures.
+  const result = await evaluate(
+    cdp,
+    `(async () => {
+      const root = document.querySelector('#chatty');
+      const pet = root.querySelector('.chatty-pet');
+      const settings = document.querySelector('#settingsBtn');
+      const at = () => {
+        const box = pet.getBoundingClientRect();
+        return [Math.round(box.x), Math.round(box.y)];
+      };
+      const frames = [];
+      const start = performance.now();
+      window.FreewayChatty.tip('Open Settings to switch me off.');
+      await new Promise((resolve) => {
+        const tick = () => {
+          frames.push({
+            t: Math.round(performance.now() - start),
+            touring: root.classList.contains('is-touring'),
+            anim: getComputedStyle(pet).animationName,
+            xy: at(),
+            pounce: pet.classList.contains('chatty-pounce'),
+            bubble: !document.querySelector('.chatty-bubble').hidden,
+            spot: Boolean([...document.querySelectorAll('.chatty-spot')].find((node) => !node.hidden)),
+          });
+          if (performance.now() - start < 1500) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      const rect = settings ? settings.getBoundingClientRect() : null;
+      return { frames, settings: rect ? [Math.round(rect.x), Math.round(rect.y)] : null };
+    })()`,
+  );
+
+  const xs = new Set(result.frames.map((frame) => frame.xy[0]));
+  const ys = new Set(result.frames.map((frame) => frame.xy[1]));
+  assert.ok(
+    Math.max(xs.size, ys.size) >= 4,
+    `a tip that names Settings moved in only ${Math.max(xs.size, ys.size)} positions instead of walking`,
+  );
+  const walking = result.frames.findIndex((frame) => frame.touring && frame.anim === 'chatty-walk');
+  assert.ok(walking >= 0, 'the tip never walked to the control it names');
+  assert.equal(result.frames[walking].bubble, false, 'the tip bubble was up while she was still walking');
+  const landed = result.frames[result.frames.length - 1];
+  assert.equal(landed.bubble, true, 'the tip bubble never appeared after the walk');
+  assert.ok(landed.spot, 'the ring is not on the control the tip names');
+  assert.ok(
+    result.frames.slice(walking).some((frame) => frame.pounce),
+    'she did not pounce when she landed on the control',
+  );
+  assert.notDeepEqual(landed.xy, before.xy, 'the tip did not move her at all');
+  if (result.settings) {
+    const [sx, sy] = result.settings;
+    assert.ok(
+      Math.abs(landed.xy[0] - sx) < 220 && Math.abs(landed.xy[1] - sy) < 260,
+      `she ended at ${landed.xy.join(',')} instead of beside Settings at ${result.settings.join(',')}`,
+    );
+  }
+}
+
 async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-chatty-'));
   let app;
@@ -996,6 +1075,10 @@ async function main() {
       stage = 'Cat school';
       await runTutor(cdp, origin);
       console.log('  PASS  Cat school movement, finish, another lesson and stop');
+
+      stage = 'a tip that names a control';
+      await runTipWalk(cdp, origin);
+      console.log('  PASS  a tip that names a control walks there, rings it and pounces');
 
       stage = 'dismiss race and lesson double-click';
       await runDismissRace(cdp);

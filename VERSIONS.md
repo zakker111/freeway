@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.22 | 2026-11-18 | Chatty walks to the control a tip or lesson names instead of blinking onto it, and pounces on landing |
 | 2.38.21 | 2026-11-18 | The Windows ZIP names its own commit, and the client is built with pinned Node and postject |
 | 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |
 | 2.38.19 | 2026-11-18 | CI proves start.cmd fails loudly, and exits 1, when it has no executable and no Node |
@@ -270,6 +271,30 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.22 — 2026-11-18
+
+Chatty's tips and Cat school steps name controls — Settings, Build, Plan, the model
+picker, the composer. When a message named one, `showTip` called `placeNear` directly:
+the cat was at one corner in one frame and on the button in the next, with the ring
+already around it and no travel at all. Measured in the real page, a tip naming
+Settings moved her from (10, 534) to (120, 173) in a single frame. That is what "she
+does not bounce, she is just suddenly there" looks like.
+
+A lesson made it worse: the step first hopped to a random edge through `moveTutorStep`
+and then blinked onto the control the sentence mentioned, so the one movement users
+watched was the meaningless one.
+
+Now `walkToTarget` glides her to the control on the same clock as the ring, takes the
+old bubble away while she travels, reveals the sentence where she lands and pounces on
+arrival. Cat school uses that path for any step that names a control and keeps the
+edge hop only for steps about phrasing, which name none. Reduced motion still places
+her directly and skips the hop.
+
+The browser suite grows a stage that fails on the old behaviour: a tip naming Settings
+has to move through at least four screen positions, travel with the bubble hidden, end
+with the ring on the button, pounce, and land beside it. It caught a first attempt that
+walked with the bubble still up, which is why that order is now part of the check.
 
 ## 2.38.21 — 2026-11-18
 
