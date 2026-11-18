@@ -135,7 +135,8 @@ installer. A build copies a Windows `node.exe`, injects the app as a Node SEA bl
 `postject`, then clears the Authenticode signature that appending broke. The GitHub Actions
 workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; it passed
 end to end on commit `94715e4` (run 41940445555), including launching the executable and
-reading `/api/config`. The Windows executable for each release is built and smoke-tested
+reading `/api/config`. The `Tests` workflow now repeats that build and launch on every push
+(job **Windows client**), so a binary that cannot start fails on `main` instead of at a tag. The Windows executable for each release is built and smoke-tested
 by that workflow and attached to the release; the source ZIP is built by `release.sh`.
 Download the current build from
 [the latest release](https://github.com/zakker111/freeway/releases/latest). The workflow is

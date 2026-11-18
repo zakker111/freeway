@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.16 | 2026-11-18 | CI builds and launches the packaged Windows client on every push, so a binary that cannot start fails before a release |
 | 2.38.15 | 2026-11-18 | Attaching an image works again in both editions: the page CSP blocked the blob URL the composer compresses from |
 | 2.38.14 | 2026-11-18 | The held-image browser check runs the page's real compressor, with a stand-in only for the blob: URLs this Chrome cannot load |
 | 2.38.13 | 2026-11-18 | A message held by the desktop rate-limit gate empties the composer and keeps its image, so it goes out once and no attachment is lost |
@@ -264,6 +265,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.16 — 2026-11-18
+
+The Windows download is a single `Freeway.exe` with Node inside, and the only job
+that ever built it ran on tags and manual dispatch. A pull request could therefore
+break the binary, merge, and sit green until the next release.
+
+`Tests` now has a **Windows client** job on `windows-latest` that rebuilds the
+single file, builds the executable and launches it. The build and the check live in
+`scripts/build-windows-client.ps1` and `scripts/smoke-windows-client.mjs`, and the
+release-asset workflow calls the same two scripts, so the binary CI runs is the
+binary a release ships. The smoke test is the one a user would do: `--version`
+reports the version in `package.json`, `/api/config` reports it too, and `/` serves
+the app page whose title the script checks.
+
+A guard in `lib/docs.test.mjs` keeps both workflows on those scripts, so the
+per-push job cannot quietly lose the launch step again.
 
 ## 2.38.15 — 2026-11-18
 

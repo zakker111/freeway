@@ -63,77 +63,14 @@ jobs:
       - name: CLI and single-file tests
         run: node test/cli.mjs
 
-      - name: Build the SEA blob
-        run: node --experimental-sea-config sea-config.json
-
-      - name: Inject the blob into node.exe
+      - name: Build the Windows client
+        # CI's per-push Windows job builds and launches with these two scripts; a
+        # binary that fails here has already failed on main.
         shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $exe = "Freeway.exe"
-          Copy-Item (Get-Command node).Source $exe
-          npx --yes postject $exe NODE_SEA_BLOB sea-prep.blob `
-            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          # Appending the blob invalidates the Authenticode signature that node.exe
-          # ships with; Windows refuses to start a binary whose signature is broken,
-          # so the signature has to be removed before it will run.
-          $signtool = Get-Command signtool.exe -ErrorAction SilentlyContinue
-          if ($signtool) {
-            & $signtool.Source remove /s $exe
-          } else {
-            Write-Host "signtool not found; leaving the signature untouched"
-          }
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-client.ps1
 
-      - name: Smoke-test the executable
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          .\Freeway.exe --version
-          if ($LASTEXITCODE -ne 0) { throw "the executable did not report a version" }
-
-      - name: Launch the executable and serve the page
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          $port = 31234
-          $config = Join-Path $env:RUNNER_TEMP "freeway-smoke-config"
-          $out = Join-Path $env:RUNNER_TEMP "freeway-smoke.out.log"
-          $err = Join-Path $env:RUNNER_TEMP "freeway-smoke.err.log"
-          $env:NO_OPEN = "1"
-          $exe = Start-Process -FilePath ".\Freeway.exe" `
-            -ArgumentList "--port", $port, "--host", "127.0.0.1", "--config", $config `
-            -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
-          try {
-            $served = $null
-            for ($i = 0; $i -lt 60; $i++) {
-              Start-Sleep -Milliseconds 250
-              if (-not (Get-Process -Id $exe.Id -ErrorAction SilentlyContinue)) { break }
-              try {
-                $served = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/config" -TimeoutSec 2
-                break
-              } catch {
-                $served = $null
-              }
-            }
-            if (-not $served) {
-              Get-Content $out -ErrorAction SilentlyContinue
-              Get-Content $err -ErrorAction SilentlyContinue
-              throw "Freeway.exe did not answer /api/config"
-            }
-            if ($served.version -ne $version) {
-              throw "Freeway.exe reported $($served.version), expected $version"
-            }
-            $page = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -TimeoutSec 10 -UseBasicParsing
-            if ($page.StatusCode -ne 200 -or $page.Content -notmatch "Freeway") {
-              throw "Freeway.exe did not serve the page"
-            }
-            Write-Host "Freeway.exe served $($served.version) and the page on Windows"
-          } finally {
-            if (Get-Process -Id $exe.Id -ErrorAction SilentlyContinue) {
-              Stop-Process -Id $exe.Id -Force
-            }
-          }
+      - name: Launch the client and read /api/config
+        run: node scripts/smoke-windows-client.mjs
 
       - name: Package
         shell: pwsh
