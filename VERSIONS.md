@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |
 | 2.38.19 | 2026-11-18 | CI proves start.cmd fails loudly, and exits 1, when it has no executable and no Node |
 | 2.38.18 | 2026-11-18 | CI uploads the ZIP it launches, and covers start.cmd's node app.mjs fallback |
 | 2.38.17 | 2026-11-18 | CI also assembles the Windows ZIP, unpacks it and launches start.cmd from the unzipped folder |
@@ -268,6 +269,23 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.20 — 2026-11-18
+
+2.38.19's new step did what it was written to do: the first CI run printed
+
+```
+Neither Freeway.exe nor Node.js was found in this folder.
+Install the LTS version from https://nodejs.org/en/download and run this file again.
+```
+
+and then the step failed anyway. Actions ends a `pwsh` step with
+`exit $LASTEXITCODE`, and the exit code left behind was `start.cmd`'s deliberate
+`1`, so the correct behaviour was reported as a broken build.
+
+The step now clears `$LASTEXITCODE` after its assertions. A real regression still
+fails, because every check throws before that line. `lib/docs.test.mjs` requires
+the reset, so the same trap cannot come back.
 
 ## 2.38.19 — 2026-11-18
 

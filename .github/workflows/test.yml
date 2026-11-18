@@ -154,6 +154,9 @@ jobs:
             throw "start.cmd did not say what is missing"
           }
           if ($output -notmatch 'nodejs\.org') { throw "start.cmd did not say where to get node" }
+          # start.cmd exits 1 on purpose here, and Actions ends the step with
+          # `exit $LASTEXITCODE`; without this the correct behaviour fails the job.
+          $LASTEXITCODE = 0
 
       - name: Build the Windows client
         # The release workflow runs this same script, so the packaged binary and
