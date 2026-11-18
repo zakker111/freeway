@@ -1018,6 +1018,44 @@ async function main() {
       await runSwitch(cdp);
       console.log('  PASS  Chatty Settings switch off and on');
 
+      // Chatty's tip promises Alt + H for the saved-chat panel, so the check is
+      // the shortcut itself rather than the sentence that describes it.
+      stage = 'alt+h shortcut';
+      const sidebarState = () =>
+        evaluate(
+          cdp,
+          `(() => {
+            const bar = document.querySelector('#sidebar');
+            return {
+              collapsed: bar.classList.contains('collapsed'),
+              closed: document.documentElement.classList.contains('sidebar-closed'),
+              open: bar.classList.contains('open'),
+            };
+          })()`,
+        );
+      const beforeAltH = await sidebarState();
+      await evaluate(
+        cdp,
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', altKey: true, bubbles: true })); true`,
+      );
+      await sleep(250);
+      assert.notDeepEqual(
+        await sidebarState(),
+        beforeAltH,
+        'Alt + H did nothing, though Chatty and the palette both promise it',
+      );
+      await evaluate(
+        cdp,
+        `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', altKey: true, bubbles: true })); true`,
+      );
+      await sleep(250);
+      assert.deepEqual(
+        await sidebarState(),
+        beforeAltH,
+        'Alt + H did not bring the saved-chat panel back',
+      );
+      console.log('  PASS  Alt + H opens and closes the saved-chat panel');
+
       stage = 'reduced motion';
       await runReduced(cdp, origin);
       console.log('  PASS  reduced-motion lesson moves without the hop');

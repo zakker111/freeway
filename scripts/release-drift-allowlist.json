@@ -1,3 +1,9 @@
 {
-  "allow": []
+  "allow": [
+    {
+      "version": "2.38.11",
+      "reason": "unreleased: desktop Alt+H shortcut bound so Chatty's tip and the palette command work; publish to release",
+      "until": "2026-12-18"
+    }
+  ]
 }

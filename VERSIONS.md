@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.11 | 2026-11-18 | Chatty's Alt + H shortcut works on the desktop again, and a guard ties every shortcut her tips promise to a real binding |
 | 2.38.10 | 2026-11-17 | A relaunch still explains a shortened chat list, and a damaged chat archive is set aside and recovered from its own backup |
 | 2.38.9 | 2026-11-16 | A damaged chats file is set aside with a backup and a warning, chats past the cap move to an archive instead of disappearing, and CI fails when the repo version is ahead of the latest release |
 | 2.38.8 | 2026-11-16 | CI walks the cloud page tour to Finish at 390x844 and 844x390, checking the ring on each stop's own control |
@@ -259,6 +260,21 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.11 — 2026-11-18
+
+Chatty told desktop users to press **Alt + H** to open the saved-chat panel, and
+the command palette listed the same shortcut. The cloud page bound it; the
+desktop page never did, so on the desktop the tip named a key that did nothing.
+Both editions now bind Alt + H to the same sidebar toggle, with Ctrl and Cmd
+held out so it cannot fire as a browser shortcut.
+
+A source guard now ties every shortcut Chatty promises — Ctrl + K, Ctrl + M,
+Alt + H and Alt + N — to a binding in each page, so a tip can no longer describe
+a shortcut that is not wired up. `test/ui-chatty.mjs` also presses Alt + H and
+requires the panel to close and reopen instead of trusting the sentence. The old
+Chatty test only asserted that the tip's text existed, which is how this
+shipped: the tip was checked, the key was not.
 
 ## 2.38.10 — 2026-11-17
 

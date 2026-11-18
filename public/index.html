@@ -7930,6 +7930,13 @@
           event.preventDefault();
           resetThread();
         }
+        // Chatty's tip and the palette command both promise Alt+H for the
+        // saved-chat panel, and the cloud page bound it; this page only
+        // described it, so the shortcut did nothing here.
+        if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "h") {
+          event.preventDefault();
+          toggleSidebar();
+        }
       });
 
       const input = $("input");
