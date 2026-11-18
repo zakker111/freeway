@@ -8888,6 +8888,7 @@
   // The last conversation topic a tip was tailored to. The first tip after
   // the topic changes is always contextual; later ones are occasional.
   let lastContextualTopic = '';
+  let lastSuggestedTopic = '';
   // Real input, not the app focusing the composer while it boots.
   let hasUserActed = false;
   let spotNode = null;
@@ -9200,7 +9201,9 @@
   }
 
   // Suggest a better model for the detected task type, but only when the
-  // current model does not already belong to the suggested family.
+  // current model does not already belong to the suggested family. One
+  // suggestion per topic: a 20% roll on top of the contextual-tip odds meant a
+  // user with the wrong model basically never saw this at all.
   function modelSuggestionTip() {
     const topic = detectConversationTopic();
     const hint = MODEL_TASK_HINTS[topic];
@@ -9208,8 +9211,8 @@
     const current = currentModelId().toLowerCase();
     if (!current) return '';
     if (hint.families.some((f) => current.includes(f))) return '';
-    // Suggest occasionally so it does not feel pushy.
-    if (Math.random() > 0.2) return '';
+    if (topic === lastSuggestedTopic) return '';
+    lastSuggestedTopic = topic;
     return `You're ${topic === 'debugging' ? 'debugging' : topic === 'coding' ? 'writing code' : topic === 'explaining' ? 'explaining something' : 'writing'}. ${hint.name} tends to give ${hint.reason} — try it with Ctrl + M.`;
   }
 
@@ -9247,6 +9250,10 @@
   }
 
   function pickMessage() {
+    // The most useful thing she can say about this conversation is that the
+    // model in use is a poor fit for it, so that outranks the generic tip.
+    const suggestion = modelSuggestionTip();
+    if (suggestion) return suggestion;
     // A tip that fits the conversation outranks a joke.
     const tailored = contextualTip();
     if (tailored) return tailored;

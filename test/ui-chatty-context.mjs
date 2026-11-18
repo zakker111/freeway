@@ -99,51 +99,85 @@ async function main() {
       features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
     });
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${appPort}/` });
+    // A page Chrome keeps in the background is hidden as far as Chatty is
+    // concerned, and every tip path refuses while document.hidden is true.
+    await cdp.send('Page.bringToFront').catch(() => {});
     await waitFor('typeof window.FreewayChatty?.tip === "function"');
     await waitFor("document.querySelector('#input') !== null");
 
+    const rootVisible =
+      "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()";
+    const blockedState = `JSON.stringify({
+      hidden: document.hidden,
+      visibility: document.visibilityState,
+      dialogs: [...document.querySelectorAll('dialog[open]')].map((node) => node.id || node.className),
+      overlays: [...document.querySelectorAll('.overlay:not(.hidden)')].map((node) => node.id || node.className),
+      enabled: window.FreewayChatty.isEnabled(),
+      rootHidden: document.querySelector('#chatty')?.hidden ?? null,
+    })`;
+
     // A clean first run: dismiss the key card and keep the cat out of overlays.
-    await evaluate(
-      `(() => {
-        document.querySelector('#keyCancel')?.click();
-        document.querySelectorAll('dialog[open]').forEach((dialog) => {
-          try { dialog.close(); } catch {}
-        });
-        document.querySelectorAll('.overlay:not(.hidden)').forEach((overlay) => {
-          overlay.classList.add('hidden');
-        });
-        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-        if (!window.FreewayChatty.isEnabled()) window.FreewayChatty.setEnabled(true);
-        // Past the first-run tour and on the returning-user path, so show()
-        // cannot start the tour in the middle of a stage.
-        localStorage.setItem('freeway.chatty.tour.v2', '1');
-        window.FreewayChatty.hide();
-        window.FreewayChatty.show();
-        window.FreewayChatty.dismissTip();
-        return true;
-      })()`,
-    );
-    await waitFor(
-      "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()",
-    );
+    // The card can render just after the first script runs, and isBlocked() then
+    // makes show() a silent no-op, so close overlays and ask again instead of
+    // trusting one pass.
+    const bringChattyIn = async () => {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await evaluate(
+          `(() => {
+            document.querySelector('#keyCancel')?.click();
+            document.querySelectorAll('dialog[open]').forEach((dialog) => {
+              try { dialog.close(); } catch {}
+            });
+            document.querySelectorAll('.overlay:not(.hidden)').forEach((overlay) => {
+              overlay.classList.add('hidden');
+            });
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            if (!window.FreewayChatty.isEnabled()) window.FreewayChatty.setEnabled(true);
+            // Past the first-run tour and on the returning-user path, so show()
+            // cannot start the tour in the middle of a stage.
+            localStorage.setItem('freeway.chatty.tour.v2', '1');
+            window.FreewayChatty.hide();
+            window.FreewayChatty.show();
+            window.FreewayChatty.dismissTip();
+            return true;
+          })()`,
+        );
+        try {
+          await waitForPage(cdp, rootVisible, 3000);
+          return;
+        } catch {
+          await sleep(400);
+        }
+      }
+      throw new Error(`the cat never came back in: ${await evaluate(blockedState)}`);
+    };
+    await bringChattyIn();
 
     const type = async (text) => {
       await evaluate("document.querySelector('#input').focus(); true");
       await cdp.send('Input.insertText', { text });
       return evaluate("document.querySelector('#input').value");
     };
+    // The app restores an emptied draft asynchronously, so a stage that only
+    // needs the conversation text sets it in one shot right before asking.
+    const setDraft = (text) =>
+      evaluate(`(() => {
+        const input = document.querySelector('#input');
+        input.focus();
+        input.value = ${JSON.stringify(text)};
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return input.value;
+      })()`);
     const bubbleOpen = "document.querySelector('.chatty-bubble')?.hidden === false";
     const bubbleText = "document.querySelector('.chatty-text')?.textContent?.trim() || ''";
 
     await stage('a debugging conversation gets a debugging tip', async () => {
-      const typed = await type('Fix the bug: this request throws an exception in app.mjs at line 42.');
-      assert.match(typed, /throws an exception/, 'the debugging prompt did not reach the composer');
-      await sleep(FLOW_CLEAR_MS);
       // Clear any welcome or coach note so the tip under test owns the bubble.
-      await evaluate('window.FreewayChatty.hide(); window.FreewayChatty.show(); window.FreewayChatty.dismissTip(); true');
-      await waitFor(
-        "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()",
-      );
+      await bringChattyIn();
+      const typed = await setDraft('Fix the bug: this request throws an exception in app.mjs at line 42.');
+      assert.match(typed, /throws an exception/, 'the debugging prompt did not reach the composer');
+      // Writing the draft is itself typing, so wait out the flow hold it opens.
+      await sleep(FLOW_CLEAR_MS);
       const shown = await evaluate('window.FreewayChatty.tip()');
       assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
       await waitFor(bubbleOpen, 5000);
@@ -156,10 +190,7 @@ async function main() {
     });
 
     await stage('typing suppresses a tip', async () => {
-      await evaluate('window.FreewayChatty.hide(); window.FreewayChatty.show(); window.FreewayChatty.dismissTip(); true');
-      await waitFor(
-        "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()",
-      );
+      await bringChattyIn();
       assert.equal(await evaluate(bubbleOpen), false, 'the bubble was not clear before typing');
       await type(' still digging through the stack trace');
       const shown = await evaluate('window.FreewayChatty.tip()');
@@ -178,41 +209,18 @@ async function main() {
       return { shown };
     });
 
-    const resetBubble = async () => {
-      await evaluate('window.FreewayChatty.hide(); window.FreewayChatty.show(); window.FreewayChatty.dismissTip(); true');
-      await waitFor(
-        "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()",
-      );
-    };
-    // The suggestion itself is deliberately occasional. A stub keeps the two
-    // draws that matter (decline the repeat contextual tip, accept the model
-    // suggestion) deterministic instead of leaning on a 7% coincidence.
-    const stubRandom = async (values) =>
-      evaluate(
-        `(() => {
-          window.__chattyRandom ??= Math.random;
-          const values = ${JSON.stringify(values)};
-          Math.random = () => (values.length ? values.shift() : 0.9);
-          return true;
-        })()`,
-      );
-    const restoreRandom = () => evaluate('Math.random = window.__chattyRandom; true');
+    const resetBubble = () => bringChattyIn();
 
     await stage('a model outside the family gets a suggestion after a debugging prompt', async () => {
       await resetBubble();
       // The actual model ID is what the family check reads, so this is a real
-      // OpenRouter-style id with no Claude or Anthropic in it.
+      // OpenRouter-style id with no Claude or Anthropic in it. The suggestion is
+      // one per topic, so no randomness stands between the draft and the tip.
       await evaluate("localStorage.setItem('openrouter.model', 'qwen/qwen3-coder-480b-a35b'); true");
-      await stubRandom([0.9, 0.1]);
       const shown = await evaluate('window.FreewayChatty.tip()');
-      let text = '';
-      try {
-        assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
-        await waitFor(bubbleOpen, 5000);
-        text = await evaluate(bubbleText);
-      } finally {
-        await restoreRandom();
-      }
+      assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
+      await waitFor(bubbleOpen, 5000);
+      const text = await evaluate(bubbleText);
       assert.match(
         text,
         /^You're debugging\. Claude Sonnet tends to give stronger reasoning for tricky bugs \u2014 try it with Ctrl \+ M\.$/,
@@ -221,19 +229,26 @@ async function main() {
       return { text };
     });
 
+    await stage('the suggestion is said once, not on every tip', async () => {
+      const shown = await evaluate('window.FreewayChatty.tip()');
+      assert.equal(shown, true, 'Chatty stopped answering after the suggestion');
+      await waitFor(bubbleOpen, 5000);
+      const text = await evaluate(bubbleText);
+      assert.doesNotMatch(text, /tends to give/, `the same suggestion repeated: ${text}`);
+      return { text };
+    });
+
     await stage('a model in the suggested family gets no suggestion', async () => {
       await resetBubble();
-      await evaluate("localStorage.setItem('openrouter.model', 'anthropic/claude-sonnet-4.5'); true");
-      await stubRandom([0.9]);
+      // Explaining is the one topic that recommends a GPT model, so an OpenAI id
+      // is the matching family here; a new topic also re-arms the check.
+      await evaluate("localStorage.setItem('openrouter.model', 'openai/gpt-4o'); true");
+      await setDraft('Explain how this cache invalidates entries');
+      await sleep(FLOW_CLEAR_MS);
       const shown = await evaluate('window.FreewayChatty.tip()');
-      let text = '';
-      try {
-        assert.equal(shown, true, 'Chatty showed nothing at all');
-        await waitFor(bubbleOpen, 5000);
-        text = await evaluate(bubbleText);
-      } finally {
-        await restoreRandom();
-      }
+      assert.equal(shown, true, 'Chatty showed nothing at all');
+      await waitFor(bubbleOpen, 5000);
+      const text = await evaluate(bubbleText);
       assert.doesNotMatch(text, /tends to give/, `a Claude model still got a Claude suggestion: ${text}`);
       return { text };
     });
