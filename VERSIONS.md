@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.14 | 2026-11-18 | The held-image browser check runs the page's real compressor, with a stand-in only for the blob: URLs this Chrome cannot load |
 | 2.38.13 | 2026-11-18 | A message held by the desktop rate-limit gate empties the composer and keeps its image, so it goes out once and no attachment is lost |
 | 2.38.12 | 2026-11-18 | The key dialog's buttons stop stretching and mangling at phone width, so Save, Clear and Cancel stay usable |
 | 2.38.11 | 2026-11-18 | Chatty's Alt + H shortcut works on the desktop again, and a guard ties every shortcut her tips promise to a real binding |
@@ -262,6 +263,29 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.14 — 2026-11-18
+
+The check added in 2.38.13 held a message and an image under a closed gate, but it
+stubbed `Image.decode` and `drawImage` before attaching anything, so the page's
+compressor never ran and the check could not have noticed one that was broken. It
+now runs the real `compressImage` and requires a real `data:image/jpeg` thumbnail
+of a sensible size, then requires the request that leaves the queue to carry
+exactly those bytes.
+
+The stub was there because this sandbox's `chrome-headless-shell` seemed unable to
+decode the test image. That diagnosis was wrong. A `data:` image decodes normally
+and `createImageBitmap(blob)` works; what this build cannot do is load a **blob:**
+URL in an `<img>`: `onload` fires `error` and `decode()` rejects with "The source
+image cannot be decoded". The page compresses through `URL.createObjectURL(file)`,
+while the old probe used a `data:` URL, so it reported "decodes" while the attach
+still failed.
+
+The check now probes the blob path itself. Where blob images load, as in CI's full
+Chrome, nothing is replaced. Where they do not, only `URL.createObjectURL` is
+wrapped, and only for the one file the test attaches: the page is handed the same
+bytes as a `data:` URL, and decode, `drawImage`, `toDataURL` and the revoke all run
+unchanged.
 
 ## 2.38.13 — 2026-11-18
 

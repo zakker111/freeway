@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.13",
-      "reason": "unreleased: a held desktop message empties the composer and keeps its image",
+      "version": "2.38.14",
+      "reason": "unreleased: the held-image browser check runs the page's real compressor",
       "until": "2026-12-18"
     }
   ]

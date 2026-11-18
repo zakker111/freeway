@@ -640,34 +640,55 @@ async function runDesktopHeldMessages(browser) {
     'the held text stayed in the composer and can be sent again',
   );
 
-  // This check is about the queue, not the compressor: some headless builds
-  // cannot decode image data at all, and the page's compress step then stops
-  // before an attachment exists. Stub only the decode and the canvas draw, so an
-  // attachment is made the same way in every environment and the queue below
-  // still runs the page's own code.
-  await evaluate(
+  // Some builds cannot load a blob: URL in an <img> at all. This sandbox's
+  // chrome-headless-shell is one: a data: image decodes normally and
+  // createImageBitmap works, but a blob: image fires onerror and decode() rejects
+  // with "The source image cannot be decoded". The page compresses through
+  // URL.createObjectURL(file), so a probe on a data: URL says "decodes" while the
+  // attach still fails — which an earlier version of this check tripped over.
+  // Probe the blob path itself, and where it is broken hand the page the same
+  // bytes as a data: URL for this one file. Everything after that — decode,
+  // drawImage, toDataURL — is the page's real compressor, and CI's full Chrome
+  // loads blob URLs and gets no shim at all.
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR42mM4IaeBFTEMLQkAiE5Dgbkng6oAAAAASUVORK5CYII=';
+  const blobImages = await evaluate(
     browser.cdp,
-    `(() => {
-      Object.defineProperty(HTMLImageElement.prototype, 'decode', {
-        configurable: true,
-        value: async function decode() { return true; },
-      });
-      const realDrawImage = CanvasRenderingContext2D.prototype.drawImage;
-      CanvasRenderingContext2D.prototype.drawImage = function (...args) {
-        try { return realDrawImage.apply(this, args); } catch { return undefined; }
-      };
-      return true;
+    `(async () => {
+      const png = ${JSON.stringify(png)};
+      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+      const image = new Image();
+      image.src = url;
+      try {
+        await image.decode();
+        return 'loads';
+      } catch {
+        return 'broken';
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     })()`,
   );
+  if (blobImages !== 'loads') {
+    console.log('        note: this Chrome cannot load blob: images; the test file goes in as a data: URL');
+  }
 
-  // A 1x1 PNG through the page's own image input, with nothing typed: this is
+  // An 8x8 PNG through the page's own image input, with nothing typed: this is
   // the message that used to drain as empty text.
   await evaluate(
     browser.cdp,
-    `(async () => {
-      const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    `(() => {
+      const png = ${JSON.stringify(png)};
       const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
       const file = new File([bytes], 'held.png', { type: 'image/png' });
+      if (${JSON.stringify(blobImages)} !== 'loads') {
+        const sources = new WeakMap();
+        sources.set(file, 'data:image/png;base64,' + png);
+        const realCreateObjectURL = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = function (value) {
+          return sources.get(value) || realCreateObjectURL(value);
+        };
+      }
       const input = document.querySelector('#imageFile');
       const data = new DataTransfer();
       data.items.add(file);
@@ -680,12 +701,18 @@ async function runDesktopHeldMessages(browser) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     attach = await evaluate(
       browser.cdp,
-      `({ hidden: document.querySelector('#imageBar').hidden, status: document.querySelector('#status').textContent })`,
+      `({
+        hidden: document.querySelector('#imageBar').hidden,
+        status: document.querySelector('#status').textContent,
+        thumb: document.querySelector('#imageThumb').src || '',
+      })`,
     );
     if (!attach.hidden) break;
     await sleep(100);
   }
   assert.equal(attach.hidden, false, 'the image never attached: ' + attach.status);
+  assert.match(attach.thumb, /^data:image\/jpeg;base64,/, 'the page did not run its compressor on the attachment');
+  assert.ok(attach.thumb.length > 400, `the compressed image is only ${attach.thumb.length} bytes`);
   await evaluate(
     browser.cdp,
     `(() => {
@@ -729,7 +756,10 @@ async function runDesktopHeldMessages(browser) {
   const second = JSON.stringify(requests[before + 1].body);
   assert.match(first, /Held under the gate\./, 'the held text was not what went out');
   assert.doesNotMatch(first, /data:image/, 'a text-only held message carried an image');
-  assert.match(second, /data:image\/jpeg/, 'the held image was lost');
+  assert.ok(
+    second.includes(attach.thumb),
+    'the held image went out as something other than what the page compressed',
+  );
   assert.match(second, /What is in this image\?/, 'the image-only message had no prompt');
   return requests.length;
 }
