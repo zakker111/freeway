@@ -8,7 +8,9 @@
 // keystroke really holds one back. This boots the real desktop app, types a
 // debugging prompt into the real composer, and asks Chatty for a tip through the
 // same entry point the page uses. It then types again and checks that no bubble
-// opens until the typing pause has passed.
+// opens until the typing pause has passed. Two more stages store a model id and
+// check the model-suggestion tip appears only when that id is outside the family
+// the detected task recommends.
 //
 // Reduced motion is emulated so the cat never travels during the run: this test
 // is about the bubble, not the walk. It skips (exit 0) when Chrome is missing.
@@ -176,9 +178,69 @@ async function main() {
       return { shown };
     });
 
+    const resetBubble = async () => {
+      await evaluate('window.FreewayChatty.hide(); window.FreewayChatty.show(); window.FreewayChatty.dismissTip(); true');
+      await waitFor(
+        "(() => { const root = document.querySelector('#chatty'); return Boolean(root && !root.hidden && root.classList.contains('is-in')); })()",
+      );
+    };
+    // The suggestion itself is deliberately occasional. A stub keeps the two
+    // draws that matter (decline the repeat contextual tip, accept the model
+    // suggestion) deterministic instead of leaning on a 7% coincidence.
+    const stubRandom = async (values) =>
+      evaluate(
+        `(() => {
+          window.__chattyRandom ??= Math.random;
+          const values = ${JSON.stringify(values)};
+          Math.random = () => (values.length ? values.shift() : 0.9);
+          return true;
+        })()`,
+      );
+    const restoreRandom = () => evaluate('Math.random = window.__chattyRandom; true');
+
+    await stage('a model outside the family gets a suggestion after a debugging prompt', async () => {
+      await resetBubble();
+      // The actual model ID is what the family check reads, so this is a real
+      // OpenRouter-style id with no Claude or Anthropic in it.
+      await evaluate("localStorage.setItem('openrouter.model', 'qwen/qwen3-coder-480b-a35b'); true");
+      await stubRandom([0.9, 0.1]);
+      const shown = await evaluate('window.FreewayChatty.tip()');
+      let text = '';
+      try {
+        assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
+        await waitFor(bubbleOpen, 5000);
+        text = await evaluate(bubbleText);
+      } finally {
+        await restoreRandom();
+      }
+      assert.match(
+        text,
+        /^You're debugging\. Claude Sonnet tends to give stronger reasoning for tricky bugs \u2014 try it with Ctrl \+ M\.$/,
+        `the tip did not suggest a better model for this debugging draft: ${text}`,
+      );
+      return { text };
+    });
+
+    await stage('a model in the suggested family gets no suggestion', async () => {
+      await resetBubble();
+      await evaluate("localStorage.setItem('openrouter.model', 'anthropic/claude-sonnet-4.5'); true");
+      await stubRandom([0.9]);
+      const shown = await evaluate('window.FreewayChatty.tip()');
+      let text = '';
+      try {
+        assert.equal(shown, true, 'Chatty showed nothing at all');
+        await waitFor(bubbleOpen, 5000);
+        text = await evaluate(bubbleText);
+      } finally {
+        await restoreRandom();
+      }
+      assert.doesNotMatch(text, /tends to give/, `a Claude model still got a Claude suggestion: ${text}`);
+      return { text };
+    });
+
     const failed = results.filter((result) => !result.ok);
     assert.deepEqual(failed, [], `${failed.length} contextual-tip stage(s) failed`);
-    console.log('PASS browser Chatty: contextual debugging tip, typing hold and its release.');
+    console.log('PASS browser Chatty: contextual debugging tip, typing hold and its release, model suggestion.');
   } catch (error) {
     console.error('FAIL browser Chatty contextual tips:', error.stack || error.message);
     console.error('App exit:', app?.exitCode);

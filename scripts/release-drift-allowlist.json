@@ -4,6 +4,11 @@
       "version": "2.38.23",
       "reason": "unreleased: Chatty checks the Cat school walk too",
       "until": "2026-12-18"
+    },
+    {
+      "version": "2.38.27",
+      "reason": "unreleased: browser coverage for the model-suggestion tip",
+      "until": "2026-12-18"
     }
   ]
 }
