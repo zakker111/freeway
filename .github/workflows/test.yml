@@ -134,6 +134,27 @@ jobs:
         shell: pwsh
         run: node scripts/smoke-windows-client.mjs -- cmd.exe /c start.cmd
 
+      - name: Launch start.cmd with no runtime at all
+        # The launcher's last branch: no Freeway.exe and no node on PATH. It has to
+        # explain that and exit 1, not exit quietly or sit waiting; < nul answers its
+        # pause so a regression cannot hang the job. PATH is narrowed to the system
+        # directories so nothing can resolve a node from the tool cache.
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $env:PATH = "$env:SystemRoot\system32;$env:SystemRoot"
+          $found = cmd.exe /c 'where node' 2>&1
+          if ($LASTEXITCODE -eq 0) { throw "node still resolves to $found" }
+          $output = (cmd.exe /c 'start.cmd < nul' 2>&1) -join "`n"
+          $code = $LASTEXITCODE
+          Write-Host $output
+          if ($code -ne 1) { throw "start.cmd exited $code with neither Freeway.exe nor node" }
+          if ($output -notmatch 'Neither Freeway\.exe nor Node\.js was found') {
+            throw "start.cmd did not say what is missing"
+          }
+          if ($output -notmatch 'nodejs\.org') { throw "start.cmd did not say where to get node" }
+
       - name: Build the Windows client
         # The release workflow runs this same script, so the packaged binary and
         # the one CI launches cannot drift apart.

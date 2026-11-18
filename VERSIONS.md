@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.19 | 2026-11-18 | CI proves start.cmd fails loudly, and exits 1, when it has no executable and no Node |
 | 2.38.18 | 2026-11-18 | CI uploads the ZIP it launches, and covers start.cmd's node app.mjs fallback |
 | 2.38.17 | 2026-11-18 | CI also assembles the Windows ZIP, unpacks it and launches start.cmd from the unzipped folder |
 | 2.38.16 | 2026-11-18 | CI builds and launches the packaged Windows client on every push, so a binary that cannot start fails before a release |
@@ -267,6 +268,24 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.19 — 2026-11-18
+
+`start.cmd` has three branches and 2.38.18 only covered two: the packaged
+`Freeway.exe` (twice — alone, and from the unzipped ZIP) and the `node app.mjs`
+fallback in a source checkout. The third — no executable *and* no `node` on `PATH` —
+had never run, and it is the one a person meets after unzipping without Node
+installed. A launcher that exits quietly there leaves them with nothing to read.
+
+The **Windows client** job now narrows `PATH` to `%SystemRoot%` and `system32`, proves
+`where node` fails, then runs `start.cmd` with `< nul` answering its `pause`. It
+requires exit code 1 and both halves of the explanation — "Neither Freeway.exe nor
+Node.js was found in this folder." and the `nodejs.org` download link — so a silent
+exit, a hang, or a rewritten message all fail the job.
+
+The step sits before the build, where no `Freeway.exe` exists yet, and
+`lib/docs.test.mjs` keeps it there. Together with the earlier steps the job now runs
+all three branches of the launcher on every push.
 
 ## 2.38.18 — 2026-11-18
 

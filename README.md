@@ -137,7 +137,8 @@ workflow (`.github/workflows/build-windows.yml`) does that on `windows-latest`; 
 end to end on commit `94715e4` (run 41940445555), including launching the executable and
 reading `/api/config`. The `Tests` workflow now repeats that whole path on every push (job
 **Windows client**): it launches `start.cmd` in a source checkout (the `node app.mjs`
-fallback), builds the executable and launches it, assembles the ZIP with
+fallback), launches it again with neither an exe nor node on `PATH` (it must exit 1 and say
+so), builds the executable and launches it, assembles the ZIP with
 `scripts/pack-windows-client.ps1`, unpacks that ZIP and launches `start.cmd` from the
 unzipped folder, then uploads the ZIP as the `windows-client-zip` artifact — so a download
 that cannot start fails on `main`, and the exact archive CI ran can be fetched. The Windows executable for each release is built and smoke-tested
