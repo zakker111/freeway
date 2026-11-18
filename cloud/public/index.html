@@ -8343,6 +8343,9 @@
   // holds back so she never interrupts a thought in progress.
   let lastTypingAt = 0;
   let lastScrollAt = 0;
+  // The last conversation topic a tip was tailored to. The first tip after
+  // the topic changes is always contextual; later ones are occasional.
+  let lastContextualTopic = '';
   // Real input, not the app focusing the composer while it boots.
   let hasUserActed = false;
   let spotNode = null;
@@ -8639,6 +8642,19 @@
     }
   }
 
+  // A contextual tip that is due for this conversation: always tailored the
+  // first time a topic appears, then occasionally so she still feels helpful.
+  function contextualTip() {
+    const topic = detectConversationTopic();
+    if (!topic) return '';
+    const tips = CONTEXTUAL_TIPS[topic];
+    if (!tips || !tips.length) return '';
+    const first = topic !== lastContextualTopic;
+    lastContextualTopic = topic;
+    if (!first && Math.random() >= 0.35) return '';
+    return tips[Math.floor(Math.random() * tips.length)];
+  }
+
   // Suggest a better model for the detected task type, but only when the
   // current model does not already belong to the suggested family.
   function modelSuggestionTip() {
@@ -8664,11 +8680,8 @@
     const modelTip = modelSuggestionTip();
     if (modelTip) return modelTip;
     // Contextual tips come next: they are tailored to what the user is doing.
-    const topic = detectConversationTopic();
-    const contextual = topic ? CONTEXTUAL_TIPS[topic] : null;
-    if (contextual && contextual.length && Math.random() < 0.35) {
-      return contextual[Math.floor(Math.random() * contextual.length)];
-    }
+    const contextual = contextualTip();
+    if (contextual) return contextual;
     const context = tipContext();
     if (context && Math.random() < WORKFLOW_CHANCE) {
       const workflowTip = pickWorkflowTip(context);
@@ -8690,6 +8703,9 @@
   }
 
   function pickMessage() {
+    // A tip that fits the conversation outranks a joke.
+    const tailored = contextualTip();
+    if (tailored) return tailored;
     const funny = !lastWasFunny && Math.random() < FUNNY_CHANCE;
     lastWasFunny = funny;
     return funny ? pickJoke() : pickTip();
@@ -10264,10 +10280,14 @@
     ready: playReadyChime,
     planReady: () => planReady(),
     coach: () => showPromptCoach(true),
+    // Close the bubble without sending the cat away: a check can clear a
+    // welcome or a coach note before it types.
+    dismissTip: () => hideTip(),
     tip: (message) => {
-      if (!enabled) return;
+      if (!enabled || !mayShowMessage()) return false;
       if (!rootNode || rootNode.hidden) show();
       showTip(message || pickMessage());
+      return true;
     },
   };
   window.FreewayChatty = api;

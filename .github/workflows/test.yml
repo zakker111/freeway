@@ -90,6 +90,13 @@ jobs:
           CHROME_BIN: /usr/bin/google-chrome
         run: npm run test:chatty
 
+      - name: Browser Chatty contextual tip regression
+        # A debugging draft must earn a debugging tip, and a keystroke must hold
+        # the next one back until the typing pause passes.
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm run test:chatty-context
+
       - name: Browser cloud tour regression
         # The cloud page has fewer controls than the desktop one (no starter row,
         # no Quit at phone width). Its tour must walk the stops it can show,

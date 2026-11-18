@@ -1,9 +1,9 @@
 {
   "name": "freeway",
-  "version": "2.38.24",
+  "version": "2.38.25",
   "private": true,
   "type": "module",
-  "description": "Freeway — local and cloud chat for free models across providers, with model retries and local tools.",
+  "description": "Freeway \u2014 local and cloud chat for free models across providers, with model retries and local tools.",
   "engines": {
     "node": ">=20.11"
   },
@@ -15,6 +15,7 @@
     "test:ui": "node test/ui-preview.mjs",
     "test:cooldown": "node test/ui-cooldown.mjs",
     "test:chatty": "node test/ui-chatty.mjs",
+    "test:chatty-context": "node test/ui-chatty-context.mjs",
     "test:desktop-390": "node test/ui-desktop-390.mjs",
     "test:store-warning": "node test/ui-store-warning.mjs",
     "build:single": "node build/bundle.mjs",

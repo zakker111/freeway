@@ -7,6 +7,7 @@ change. The running app reports its version in the header badge and at `GET /api
 |---|---|---|
 | 2.38.23 | 2026-11-18 | A browser stage covers the Cat school branch that walks to a control-naming step, and both lesson paths run on demand |
 | 2.38.24 | 2026-11-18 | Chatty tailors tips to the conversation's topic, suggests a model for the task, and stays quiet while you type or scroll |
+| 2.38.25 | 2026-11-18 | A browser stage proves a debugging conversation gets a debugging tip and that typing holds the next one back |
 | 2.38.22 | 2026-11-18 | Chatty walks to the control a tip or lesson names instead of blinking onto it, and pounces on landing |
 | 2.38.21 | 2026-11-18 | The Windows ZIP names its own commit, and the client is built with pinned Node and postject |
 | 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |
