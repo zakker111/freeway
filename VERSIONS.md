@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.13 | 2026-11-18 | A message held by the desktop rate-limit gate empties the composer and keeps its image, so it goes out once and no attachment is lost |
 | 2.38.12 | 2026-11-18 | The key dialog's buttons stop stretching and mangling at phone width, so Save, Clear and Cancel stay usable |
 | 2.38.11 | 2026-11-18 | Chatty's Alt + H shortcut works on the desktop again, and a guard ties every shortcut her tips promise to a real binding |
 | 2.38.10 | 2026-11-17 | A relaunch still explains a shortened chat list, and a damaged chat archive is set aside and recovered from its own backup |
@@ -261,6 +262,25 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.13 — 2026-11-18
+
+When the desktop app was rate limited, the next message was kept in the queue but
+its text stayed in the composer. The gate then sent the held copy, and the text
+was still sitting there when the wait ended, so one more Enter sent it a second
+time. The held message now takes the composer's text and its image with it,
+leaving both slots empty for the next draft.
+
+An image-only message was worse: the queue item carried text alone, so when the
+gate opened the item drained as an empty message and the attachment never went
+out. Each held item now carries its own image, and `send()` tells a drained
+item's images apart from the composer's attachment, so neither can ride on the
+wrong message.
+
+`test/ui-cooldown.mjs` holds a message and an image under a closed gate on the
+desktop page, requires the composer to be empty afterwards, and then requires
+exactly one request per held message — the image still on the image-only one —
+after the gate opens and again after another Enter.
 
 ## 2.38.12 — 2026-11-18
 

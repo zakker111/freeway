@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.12",
-      "reason": "unreleased: cloud dialog action rows wrap instead of stretching to a long label (key dialog on phones)",
+      "version": "2.38.13",
+      "reason": "unreleased: a held desktop message empties the composer and keeps its image",
       "until": "2026-12-18"
     }
   ]

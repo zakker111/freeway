@@ -6458,23 +6458,27 @@
         setStatus("retrying…");
       }
 
-      async function send({ replay = false, text = "" } = {}) {
+      async function send({ replay = false, text = "", images = null } = {}) {
         if (state.streaming) return;
         const box = $("input");
 
         if (!replay) {
           const content = text.trim();
-          const attachment = state.attachment;
-          if (!content && !attachment) return;
+          // A drained queue item brings its own images and must not borrow the
+          // composer's attachment, which belongs to whatever is typed there now.
+          const fromQueue = Array.isArray(images);
+          const ownImages = fromQueue ? images.filter(Boolean) : [];
+          const attachment = fromQueue ? null : state.attachment;
+          const outgoing = ownImages.length ? ownImages : attachment ? [attachment.dataUrl] : [];
+          if (!content && outgoing.length === 0) return;
           if (attachment && !(await ensureVisionModel())) return;
           ensureThread();
-          const images = attachment ? [attachment.dataUrl] : [];
           state.messages.push({
             role: "user",
             content: content || "What is in this image?",
-            ...(images.length ? { images } : {}),
+            ...(outgoing.length ? { images: outgoing } : {}),
           });
-          clearAttachment();
+          if (!fromQueue) clearAttachment();
           persist();
           $("thread").appendChild(createMessageNode(state.messages[state.messages.length - 1], state.messages.length - 1));
         }
@@ -6908,8 +6912,11 @@
         updateQueueBar();
       }
 
-      function enqueue(text) {
-        const item = { qid: ++state.qid, text, node: null };
+      // A held message carries its own image. Keeping it on the item frees the
+      // composer's attachment slot for whatever is typed next, and stops an
+      // image-only message from draining as empty text.
+      function enqueue(text, attachment = null) {
+        const item = { qid: ++state.qid, text, attachment, node: null };
         state.queue.push(item);
 
         const wrap = document.createElement("div");
@@ -6918,11 +6925,11 @@
         item.node = wrap;
         const bubble = document.createElement("div");
         bubble.className = "bubble";
-        bubble.textContent = text;
+        bubble.textContent = text || (attachment ? `Image: ${attachment.name}` : "");
         const meta = document.createElement("div");
         meta.className = "meta-line";
         const tag = document.createElement("span");
-        tag.textContent = "queued";
+        tag.textContent = attachment ? "queued · image" : "queued";
         const kill = document.createElement("button");
         kill.type = "button";
         kill.className = "mini";
@@ -6945,7 +6952,7 @@
         const next = state.queue.shift();
         next.node?.remove();
         updateQueueBar();
-        send({ text: next.text });
+        void send({ text: next.text, images: next.attachment ? [next.attachment.dataUrl] : [] });
       }
 
       function submit() {
@@ -6954,8 +6961,13 @@
         if (!text && !state.attachment) return;
         if (gateLeft()) {
           // Keep the message instead of firing it at a provider that just said
-          // no; the gate drains the queue the moment the wait ends.
-          enqueue(text);
+          // no; the gate drains the queue the moment the wait ends. Empty the
+          // composer and its attachment slot with it: leaving the text there
+          // let the same message be pressed again and sent twice.
+          enqueue(text, state.attachment);
+          box.value = "";
+          autoGrow();
+          clearAttachment();
           state.paused = false;
           renderSendGate();
           setStatus("rate limited — queued, " + gateText(gateLeft()));

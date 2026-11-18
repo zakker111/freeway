@@ -171,7 +171,9 @@ function installHarness(config) {
       return json({
         provider: 'openrouter',
         tier: 'verified',
-        models: [{ id: 'mock/free-one', name: 'Mock Free One', context_length: 128_000 }],
+        // vision: the desktop page only attaches an image when a vision model
+        // is available, and the held-image case needs a real attachment.
+        models: [{ id: 'mock/free-one', name: 'Mock Free One', context_length: 128_000, vision: true }],
       });
     }
 
@@ -601,6 +603,137 @@ async function runQueue(browser) {
   return { rows: state.rows };
 }
 
+// The desktop gate holds the message but used to leave it in the composer, so
+// pressing Enter after the wait sent the same text a second time. An image-only
+// message also had to survive the queue: the item now carries its own image.
+async function runDesktopHeldMessages(browser) {
+  await evaluate(browser.cdp, 'window.__cooldownHarness.retryAfterMs = 6000; true');
+  await setScenario(browser, 'retry-error');
+  await send(browser, 'desktop', 'First attempt that gets limited.');
+  await waitForPage(
+    browser.cdp,
+    `window.__cooldownHarness.calls.length === ${RETRY_ATTEMPTS} && document.querySelector('#nextSend') && !document.querySelector('#nextSend').hidden`,
+    60_000,
+  );
+  // The gate is closed now, so anything typed is held. Let the held messages
+  // succeed: re-running the retry budget for each of them is not what this
+  // check is about.
+  await setScenario(browser, 'retry-success');
+
+  const before = (await calls(browser)).length;
+  assert.equal(before, RETRY_ATTEMPTS, 'the gate opened before the retry budget ran out');
+
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      const input = document.querySelector('#input');
+      input.value = 'Held under the gate.';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`,
+  );
+  assert.equal((await calls(browser)).length, before, 'Enter sent a message through the closed gate');
+  assert.equal(
+    await evaluate(browser.cdp, 'document.querySelector("#input").value'),
+    '',
+    'the held text stayed in the composer and can be sent again',
+  );
+
+  // This check is about the queue, not the compressor: some headless builds
+  // cannot decode image data at all, and the page's compress step then stops
+  // before an attachment exists. Stub only the decode and the canvas draw, so an
+  // attachment is made the same way in every environment and the queue below
+  // still runs the page's own code.
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      Object.defineProperty(HTMLImageElement.prototype, 'decode', {
+        configurable: true,
+        value: async function decode() { return true; },
+      });
+      const realDrawImage = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (...args) {
+        try { return realDrawImage.apply(this, args); } catch { return undefined; }
+      };
+      return true;
+    })()`,
+  );
+
+  // A 1x1 PNG through the page's own image input, with nothing typed: this is
+  // the message that used to drain as empty text.
+  await evaluate(
+    browser.cdp,
+    `(async () => {
+      const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
+      const file = new File([bytes], 'held.png', { type: 'image/png' });
+      const input = document.querySelector('#imageFile');
+      const data = new DataTransfer();
+      data.items.add(file);
+      input.files = data.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`,
+  );
+  let attach = { hidden: true, status: '' };
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    attach = await evaluate(
+      browser.cdp,
+      `({ hidden: document.querySelector('#imageBar').hidden, status: document.querySelector('#status').textContent })`,
+    );
+    if (!attach.hidden) break;
+    await sleep(100);
+  }
+  assert.equal(attach.hidden, false, 'the image never attached: ' + attach.status);
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      document.querySelector('#input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`,
+  );
+
+  const held = await evaluate(
+    browser.cdp,
+    `(() => ({
+      drafts: document.querySelectorAll('#thread .msg.user.queued').length,
+      info: document.querySelector('#queueInfo').textContent,
+      imageBarHidden: document.querySelector('#imageBar').hidden,
+      composer: document.querySelector('#input').value,
+    }))()`,
+  );
+  assert.equal(held.drafts, 2, 'the gate did not keep both held messages');
+  assert.match(held.info, /2 queued/, 'the queue bar does not count the held messages');
+  assert.equal(held.imageBarHidden, true, 'the held image stayed in the composer to ride the next message');
+  assert.equal(held.composer, '', 'the composer kept text while a message was held');
+  assert.equal((await calls(browser)).length, before, 'a held message went out through the closed gate');
+
+  await waitForPage(browser.cdp, `window.__cooldownHarness.calls.length === ${before + 2}`, 20_000);
+  await waitForPage(browser.cdp, 'document.querySelector("#queueBar").hidden === true', 10_000);
+  await sleep(RETRY_SETTLE_MS);
+
+  // The emptied composer holds nothing, so Enter cannot resurrect the held text.
+  await evaluate(
+    browser.cdp,
+    `(() => {
+      document.querySelector('#input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      return true;
+    })()`,
+  );
+  await sleep(1_500);
+
+  const requests = await calls(browser);
+  assert.equal(requests.length, before + 2, 'a held message went out twice');
+  const first = JSON.stringify(requests[before].body);
+  const second = JSON.stringify(requests[before + 1].body);
+  assert.match(first, /Held under the gate\./, 'the held text was not what went out');
+  assert.doesNotMatch(first, /data:image/, 'a text-only held message carried an image');
+  assert.match(second, /data:image\/jpeg/, 'the held image was lost');
+  assert.match(second, /What is in this image\?/, 'the image-only message had no prompt');
+  return requests.length;
+}
+
 async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-cooldown-'));
   let app;
@@ -693,6 +826,11 @@ async function main() {
     await check('desktop: a repeated 429 stops after one automatic resend', async () => {
       await openPage(browserInfo, `http://127.0.0.1:${started.port}/`, 'desktop');
       await runRetryStops(browserInfo, 'desktop');
+    });
+
+    await check('desktop: held messages empty the composer and keep their image', async () => {
+      await openPage(browserInfo, `http://127.0.0.1:${started.port}/`, 'desktop');
+      await runDesktopHeldMessages(browserInfo);
     });
 
     await check('cloud stream: cooldown shows a countdown and resends exactly once', async () => {
