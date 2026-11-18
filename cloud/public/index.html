@@ -7736,6 +7736,42 @@
   ];
   const FUNNY_CHANCE = 0.3;
 
+  // Contextual tips keyed by the topic detected in the user's conversation.
+  // These take priority over generic tips when the topic is clear.
+  const CONTEXTUAL_TIPS = {
+    debugging: [
+      'Start with the error message, not the whole codebase. The first line that names a file and a line number is your clue.',
+      'Change one thing that tests one guess. A giant rewrite is just a box; I will sit in it.',
+      'If a reply misses, name one thing to keep and one thing to change. Smaller follow-ups land better.',
+    ],
+    coding: [
+      'Ask for one example and one counter-example when learning a new API.',
+    ],
+    explaining: [
+      'Ask for one example and one counter-example. Cats learn edges by bumping into them.',
+      'Pick one idea and explain it in three sentences without jargon. The wobbly sentence is the one to study.',
+    ],
+    reviewing: [
+      'Read the diff for behavior first. What can it do now that it could not before?',
+      'Check the unhappy path: empty input, failed request, missing file. That is where the mice hide.',
+      'Ask for one concrete fix and one test. \"Handle a missing file and cover it with a focused test.\"',
+    ],
+    prompting: [
+      'A good prompt has four parts: goal, constraint, context, and proof.',
+      'If a reply misses, name one thing to keep and one thing to change.',
+      'Ask for a smaller slice: \"Show only the first failing test.\"',
+    ],
+  };
+
+  // Maps a conversation topic to a model suggestion. Only fires when the
+  // current model does not already match the suggested family.
+  const MODEL_TASK_HINTS = {
+    debugging: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'stronger reasoning for tricky bugs' },
+    coding: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'cleaner code generation' },
+    explaining: { families: ['gpt', 'openai'], name: 'GPT-4o', reason: 'clear, structured explanations' },
+    writing: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'more natural prose' },
+  };
+
   const REDUCE_MOTION =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -8303,6 +8339,10 @@
   let audioContext = null;
   let lastReadyChime = 0;
   let lastActivity = Date.now();
+  // Flow-state tracking: when the user is actively typing or scrolling, Chatty
+  // holds back so she never interrupts a thought in progress.
+  let lastTypingAt = 0;
+  let lastScrollAt = 0;
   // Real input, not the app focusing the composer while it boots.
   let hasUserActed = false;
   let spotNode = null;
@@ -8401,6 +8441,29 @@
     return Boolean(document.querySelector('dialog[open], .overlay:not(.hidden)'));
   }
 
+  // True when the user is actively typing or scrolling — a sign that they are
+  // in a flow state and should not be interrupted.
+  function inFlowState() {
+    const now = Date.now();
+    return now - lastTypingAt < 3000 || now - lastScrollAt < 3000;
+  }
+
+  // One answer to "may Chatty show a tip, lesson, coach note, or plan-ready
+  // notice right now?". All four paths route through this so the availability
+  // rules live in one place. The tour, idle/wander path and ball game are
+  // separate concerns and are not covered here.
+  //
+  // Interrupting paths (tips, coach, plan-ready) must not break into an active
+  // tour or lesson. The lesson render path passes interrupting === false and
+  // only checks enabled/root/blocked, since startTutor/advanceTutor have already
+  // cleared the tour before calling showTutorStep.
+  function mayShowMessage(interrupting = true) {
+    if (!enabled || !rootNode || isBlocked()) return false;
+    if (interrupting && inFlowState()) return false;
+    if (!interrupting) return true;
+    return tourStep < 0 && !tourBusy && tutorStep < 0;
+  }
+
   function isEditable(node) {
     const element = node && node.nodeType === 1 ? node : node && node.parentElement;
     return Boolean(
@@ -8494,8 +8557,7 @@
   }
 
   function showPromptCoach(force = false) {
-    if (!enabled || !rootNode || isBlocked()) return false;
-    if (tourStep >= 0 || tutorStep >= 0) return false;
+    if (!mayShowMessage()) return false;
     const tip = promptCoach(force);
     if (!tip) return false;
     clearTimeout(appearTimer);
@@ -8530,6 +8592,67 @@
     return '';
   }
 
+  // Read the user's conversation to detect what they are working on. Returns
+  // a lowercase string of the latest user message, latest assistant reply,
+  // and the current draft, so topic detection has real signal.
+  function readConversationText() {
+    if (typeof document === 'undefined') return '';
+    const parts = [];
+    const userBubbles = document.querySelectorAll('.msg.user .bubble');
+    if (userBubbles.length) parts.push(userBubbles[userBubbles.length - 1].textContent || '');
+    const assistantBubbles = document.querySelectorAll('.msg.assistant .bubble');
+    if (assistantBubbles.length) parts.push(assistantBubbles[assistantBubbles.length - 1].textContent || '');
+    const input = document.querySelector('#input');
+    if (input && typeof input.value === 'string') parts.push(input.value);
+    return parts.join(' ').slice(0, 4000).toLowerCase();
+  }
+
+  // Detect the dominant topic of the user's conversation from keyword signals.
+  function detectConversationTopic() {
+    const text = readConversationText();
+    if (!text) return '';
+    if (/\b(error|bug|broken|crash|fail|exception|traceback|stack|not working|debug|404|500)\b/.test(text)) return 'debugging';
+    if (/\b(function|code|implement|refactor|class|method|variable|syntax|compile)\b/.test(text)) return 'coding';
+    if (/\b(explain|what is|how does|why|understand|teach|learn)\b/.test(text)) return 'explaining';
+    if (/\b(review|check|test|verify|audit|inspect)\b/.test(text)) return 'reviewing';
+    if (/\b(write|draft|compose|email|message)\b/.test(text)) return 'writing';
+    if (/\b(prompt|ask|request|instruction)\b/.test(text)) return 'prompting';
+    return '';
+  }
+
+  // Read the actual model ID from localStorage (not the display name).
+  function currentModelId() {
+    try {
+      let id = localStorage.getItem('openrouter.model');
+      if (!id) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('openrouter.model.')) {
+            id = localStorage.getItem(key);
+            if (id) break;
+          }
+        }
+      }
+      return id || '';
+    } catch {
+      return '';
+    }
+  }
+
+  // Suggest a better model for the detected task type, but only when the
+  // current model does not already belong to the suggested family.
+  function modelSuggestionTip() {
+    const topic = detectConversationTopic();
+    const hint = MODEL_TASK_HINTS[topic];
+    if (!hint) return '';
+    const current = currentModelId().toLowerCase();
+    if (!current) return '';
+    if (hint.families.some((f) => current.includes(f))) return '';
+    // Suggest occasionally so it does not feel pushy.
+    if (Math.random() > 0.2) return '';
+    return `You're ${topic === 'debugging' ? 'debugging' : topic === 'coding' ? 'writing code' : topic === 'explaining' ? 'explaining something' : 'writing'}. ${hint.name} tends to give ${hint.reason} — try it with Ctrl + M.`;
+  }
+
   function pickWorkflowTip(context) {
     const tips = WORKFLOW_TIPS[context];
     if (!tips || !tips.length) return '';
@@ -8537,6 +8660,15 @@
   }
 
   function pickTip() {
+    // Model suggestion takes priority when the task and model are mismatched.
+    const modelTip = modelSuggestionTip();
+    if (modelTip) return modelTip;
+    // Contextual tips come next: they are tailored to what the user is doing.
+    const topic = detectConversationTopic();
+    const contextual = topic ? CONTEXTUAL_TIPS[topic] : null;
+    if (contextual && contextual.length && Math.random() < 0.35) {
+      return contextual[Math.floor(Math.random() * contextual.length)];
+    }
     const context = tipContext();
     if (context && Math.random() < WORKFLOW_CHANCE) {
       const workflowTip = pickWorkflowTip(context);
@@ -9286,6 +9418,11 @@
       scheduleWander(6000);
       return;
     }
+    // Hold back while the user is in a flow state (typing or scrolling).
+    if (inFlowState()) {
+      scheduleWander(3000);
+      return;
+    }
     if (bubbleNode && !bubbleNode.hidden) {
       scheduleWander(4000);
       return;
@@ -9300,14 +9437,16 @@
         hide();
         return;
       }
-      if (tour && visibleTarget(tour.target)) {
-        showTip(message, 10000);
-        placeNear(tour.target);
-        showSpotlight(tour.target);
-      } else {
-        choosePosition();
-        hideSpotlight();
-        showTip(message);
+      if (mayShowMessage()) {
+        if (tour && visibleTarget(tour.target)) {
+          showTip(message, 10000);
+          placeNear(tour.target);
+          showSpotlight(tour.target);
+        } else {
+          choosePosition();
+          hideSpotlight();
+          showTip(message);
+        }
       }
       rootNode.classList.remove('is-wandering');
       if (!REDUCE_MOTION) {
@@ -9532,7 +9671,7 @@
   }
 
   function showTutorStep({ move = false } = {}) {
-    if (!enabled || !rootNode || !tutorLesson || tutorStep < 0 || isBlocked()) return;
+    if (!tutorLesson || !mayShowMessage(false)) return;
     const lesson = tutorLesson;
     const step = tutorStep;
     if (step >= lesson.steps.length) {
@@ -9706,8 +9845,7 @@
   // A finished plan is a real hand-off point: bring Chatty up even when the
   // composer still has focus, and put the mode switch one click away.
   function planReady() {
-    if (!enabled || !rootNode) return;
-    if (isBlocked() || tourStep >= 0 || tutorStep >= 0) return;
+    if (!mayShowMessage()) return;
     clearTimeout(appearTimer);
     fitToComposer();
     if (rootNode.hidden) {
@@ -9992,7 +10130,8 @@
     for (const eventName of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'touchmove']) {
       document.addEventListener(eventName, noteActivity, { passive: true });
     }
-    document.addEventListener('scroll', noteActivity, { passive: true, capture: true });
+    document.addEventListener('scroll', () => { lastScrollAt = Date.now(); noteActivity(); }, { passive: true, capture: true });
+    document.addEventListener('input', () => { lastTypingAt = Date.now(); noteActivity(); }, { passive: true });
     document.addEventListener('focusin', noteActivity);
     // The desktop focuses the composer on boot. That autofocus is not the user
     // typing, so Chatty's one-time welcome must still be allowed over it.
