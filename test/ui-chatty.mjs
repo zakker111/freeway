@@ -462,7 +462,9 @@ async function runTutor(cdp, origin) {
   const beforeTutor = await state(cdp);
   assert.equal(beforeTutor.xy.length, 2, 'Chatty has no screen position before tutoring');
 
-  await evaluate(cdp, `window.FreewayChatty.tutor(); true`);
+  // Ask for the lesson whose steps name no control, so this stage always measures
+  // the edge hop; the lesson that names one has its own stage below.
+  await evaluate(cdp, `window.FreewayChatty.tutor('The Three-Paw Prompt'); true`);
   await waitForPage(
     cdp,
     `document.querySelector('.chatty-label')?.textContent === 'Cat school 1/3'`,
@@ -1027,6 +1029,90 @@ async function runTipWalk(cdp, origin) {
   }
 }
 
+async function runTutorWalk(cdp, origin) {
+  await loadChatty(cdp, origin, false);
+  assert.equal(await clickAction(cdp, 'skip'), true, 'the auto-start tour has no End tour action');
+  await sleep(300);
+  await evaluate(cdp, `window.FreewayChatty.show(); true`);
+  await waitForPage(
+    cdp,
+    `(() => {
+      const root = document.querySelector('#chatty');
+      return Boolean(root && !root.hidden && root.classList.contains('is-in'));
+    })()`,
+    5000,
+  );
+  await sleep(MOVE_SETTLE_MS);
+  const before = await state(cdp);
+
+  // Cat school skips the random edge hop when the step names a control, and
+  // then the walk is the only movement. Nothing measured that branch: the tip
+  // stage covers showTip, not showTutorStep. The first Secret Keeper step is
+  // about Settings → Secrets, so it has to walk to Settings and pounce there.
+  const result = await evaluate(
+    cdp,
+    `(async () => {
+      const root = document.querySelector('#chatty');
+      const pet = root.querySelector('.chatty-pet');
+      const settings = document.querySelector('#settingsBtn');
+      const at = () => {
+        const box = pet.getBoundingClientRect();
+        return [Math.round(box.x), Math.round(box.y)];
+      };
+      const frames = [];
+      const start = performance.now();
+      window.FreewayChatty.tutor('Secret Keeper');
+      await new Promise((resolve) => {
+        const tick = () => {
+          frames.push({
+            touring: root.classList.contains('is-touring'),
+            anim: getComputedStyle(pet).animationName,
+            xy: at(),
+            pounce: pet.classList.contains('chatty-pounce'),
+            bubble: !document.querySelector('.chatty-bubble').hidden,
+            spot: Boolean([...document.querySelectorAll('.chatty-spot')].find((node) => !node.hidden)),
+            label: document.querySelector('.chatty-label')?.textContent?.trim() || '',
+            text: (document.querySelector('.chatty-text')?.textContent || '').replace(/[ ]+/g, ' ').trim(),
+          });
+          if (performance.now() - start < 1600) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      const rect = settings ? settings.getBoundingClientRect() : null;
+      return { frames, settings: rect ? [Math.round(rect.x), Math.round(rect.y)] : null };
+    })()`,
+  );
+
+  const landed = result.frames[result.frames.length - 1];
+  assert.equal(landed.label, 'Cat school 1/3', `the named lesson did not start (${landed.label})`);
+  assert.match(landed.text, /Settings/, `the first Secret Keeper step does not name Settings (${landed.text})`);
+  const xs = new Set(result.frames.map((frame) => frame.xy[0]));
+  assert.ok(
+    xs.size >= 4,
+    `a lesson step naming Settings moved in only ${xs.size} positions instead of walking`,
+  );
+  const walking = result.frames.findIndex((frame) => frame.touring && frame.anim === 'chatty-walk');
+  assert.ok(walking >= 0, 'the lesson step never walked to the control it names');
+  assert.equal(result.frames[walking].bubble, false, 'the lesson bubble was up while she walked');
+  assert.ok(
+    result.frames.slice(walking).some((frame) => frame.pounce),
+    'she did not pounce on the control the lesson names',
+  );
+  assert.equal(landed.bubble, true, 'the lesson step never showed its bubble');
+  assert.ok(landed.spot, 'the ring is not on the control the lesson names');
+  assert.notDeepEqual(landed.xy, before.xy, 'the lesson step did not move her');
+  if (result.settings) {
+    const [sx, sy] = result.settings;
+    assert.ok(
+      Math.abs(landed.xy[0] - sx) < 220 && Math.abs(landed.xy[1] - sy) < 260,
+      `she ended at ${landed.xy.join(',')} instead of beside Settings at ${result.settings.join(',')}`,
+    );
+  }
+  assert.equal(await clickAction(cdp, 'tutor-stop'), true, 'the lesson has no Stop action');
+  await sleep(200);
+}
+
 async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'freeway-chatty-'));
   let app;
@@ -1079,6 +1165,10 @@ async function main() {
       stage = 'a tip that names a control';
       await runTipWalk(cdp, origin);
       console.log('  PASS  a tip that names a control walks there, rings it and pounces');
+
+      stage = 'a lesson step that names a control';
+      await runTutorWalk(cdp, origin);
+      console.log('  PASS  a lesson step naming a control walks to it and pounces');
 
       stage = 'dismiss race and lesson double-click';
       await runDismissRace(cdp);

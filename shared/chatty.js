@@ -2693,7 +2693,9 @@
     setEnabled,
     show: () => show(),
     hide,
-    tutor: () => startTutor(),
+    // A title picks the lesson, which is how a browser check can ask for the
+    // one whose first step names a control instead of any random lesson.
+    tutor: (title) => startTutor(title),
     tour: () => startTour(),
     settings: () => openSettings(),
     ready: playReadyChime,

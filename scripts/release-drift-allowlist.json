@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.22",
-      "reason": "unreleased: Chatty walks to the control a tip names",
+      "version": "2.38.23",
+      "reason": "unreleased: Chatty checks the Cat school walk too",
       "until": "2026-12-18"
     }
   ]

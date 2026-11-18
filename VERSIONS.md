@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.23 | 2026-11-18 | A browser stage covers the Cat school branch that walks to a control-naming step, and both lesson paths run on demand |
 | 2.38.22 | 2026-11-18 | Chatty walks to the control a tip or lesson names instead of blinking onto it, and pounces on landing |
 | 2.38.21 | 2026-11-18 | The Windows ZIP names its own commit, and the client is built with pinned Node and postject |
 | 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |
@@ -271,6 +272,28 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.23 — 2026-11-18
+
+2.38.22 changed two paths and tested one. The new stage proved that a *tip*
+naming Settings walks there; the Cat school branch — the step that skips the
+random edge hop and walks straight to the control its sentence names — had no
+check at all. Deleting that branch would have left every test green.
+
+A second stage asks for the lesson by name (`FreewayChatty.tutor('Secret Keeper')`,
+whose first step is about Settings → Secrets) and requires the pet to travel to
+`#settingsBtn`: at least four screen positions, a `chatty-walk` frame with the
+bubble hidden, the ring on the button, a pounce after the walk, the sentence shown
+on landing and a final position beside it.
+
+`tutor()` now passes its optional title through to `startTutor`, because a check
+cannot measure a branch that depends on which of seven lessons `Math.random`
+picked. For the same reason the older Cat school stage now asks for "The Three-Paw
+Prompt", whose steps name no control: that stage keeps measuring the edge hop, the
+new one measures the walk.
+
+Both were verified the honest way. Removing the branch makes the suite fail; with
+it restored, all fifteen stages pass, including the phone and landscape tours.
 
 ## 2.38.22 — 2026-11-18
 
