@@ -28,7 +28,7 @@ import { cleanImages, isChatModel, isFreeModel, recentImages, toUpstreamMessage 
 import { withToolInstruction } from '../lib/tool-prompt.mjs';
 import { scrubSecrets } from '../lib/redact.mjs';
 
-const VERSION = '2.38.14-cloud';
+const VERSION = '2.38.15-cloud';
 const UPSTREAM = 'https://openrouter.ai/api/v1';
 const MAX_BODY_BYTES = 1_500_000;
 const MAX_MESSAGES = 60;
@@ -52,7 +52,9 @@ const PAGE_CSP = [
   "default-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  // blob: is the composer's attachment: it is compressed from a
+  // URL.createObjectURL(file) URL before it is sent.
+  "img-src 'self' data: blob:",
   "connect-src 'self' https://api.github.com",
   "frame-src https:",
   "base-uri 'none'",

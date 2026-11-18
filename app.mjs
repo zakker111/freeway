@@ -237,7 +237,7 @@ const ALLOWED_HOSTS = new Set(
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
 const APP_TOKEN = randomBytes(16).toString('hex');
-const VERSION = '2.38.14';
+const VERSION = '2.38.15';
 const MAX_BODY_BYTES = 8_000_000;
 // Chat bodies end up at OpenRouter, so they get a much tighter ceiling than a
 // local backup import.
@@ -937,7 +937,10 @@ function loadSettings() {
 // inside an iframe. Nothing may frame *this* app (frame-ancestors 'none').
 const SECURITY_HEADERS = {
   'content-security-policy':
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src http: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    // img-src needs blob: because the composer compresses an attachment from a
+    // URL.createObjectURL(file) URL. Without it every image attach fails with
+    // "The source image cannot be decoded."
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src http: https:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'x-frame-options': 'DENY',

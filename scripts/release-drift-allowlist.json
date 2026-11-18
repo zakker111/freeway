@@ -1,8 +1,8 @@
 {
   "allow": [
     {
-      "version": "2.38.14",
-      "reason": "unreleased: the held-image browser check runs the page's real compressor",
+      "version": "2.38.15",
+      "reason": "unreleased: both page CSPs allow the blob: attachment preview",
       "until": "2026-12-18"
     }
   ]

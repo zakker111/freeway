@@ -761,6 +761,9 @@ async function main() {
       assert.match(csp, /default-src 'self'/);
       assert.match(csp, /script-src 'self' 'unsafe-inline'/);
       assert.match(csp, /frame-ancestors 'none'/);
+      // The composer compresses an attachment from an object URL; without blob:
+      // in img-src every image attach fails with a broken image.
+      assert.match(csp, /img-src 'self' data: blob:/, 'the page may not load its own attachment preview');
       // The preview panel frames a local dev server, and nothing else.
       assert.match(csp, /frame-src http: https:/);
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');

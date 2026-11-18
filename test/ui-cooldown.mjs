@@ -640,55 +640,21 @@ async function runDesktopHeldMessages(browser) {
     'the held text stayed in the composer and can be sent again',
   );
 
-  // Some builds cannot load a blob: URL in an <img> at all. This sandbox's
-  // chrome-headless-shell is one: a data: image decodes normally and
-  // createImageBitmap works, but a blob: image fires onerror and decode() rejects
-  // with "The source image cannot be decoded". The page compresses through
-  // URL.createObjectURL(file), so a probe on a data: URL says "decodes" while the
-  // attach still fails — which an earlier version of this check tripped over.
-  // Probe the blob path itself, and where it is broken hand the page the same
-  // bytes as a data: URL for this one file. Everything after that — decode,
-  // drawImage, toDataURL — is the page's real compressor, and CI's full Chrome
-  // loads blob URLs and gets no shim at all.
-  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR42mM4IaeBFTEMLQkAiE5Dgbkng6oAAAAASUVORK5CYII=';
-  const blobImages = await evaluate(
-    browser.cdp,
-    `(async () => {
-      const png = ${JSON.stringify(png)};
-      const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
-      const image = new Image();
-      image.src = url;
-      try {
-        await image.decode();
-        return 'loads';
-      } catch {
-        return 'broken';
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    })()`,
-  );
-  if (blobImages !== 'loads') {
-    console.log('        note: this Chrome cannot load blob: images; the test file goes in as a data: URL');
-  }
-
+  // The page compresses an attachment through URL.createObjectURL(file) and
+  // <img>.decode(), which only works when the page's CSP allows blob: images —
+  // that header is guarded in lib/pages.test.mjs. Nothing is stubbed here: the
+  // real compressor decodes the PNG, draws it to a canvas and writes a JPEG, and
+  // the thumbnail checked below is what it produced.
+  //
   // An 8x8 PNG through the page's own image input, with nothing typed: this is
   // the message that used to drain as empty text.
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR42mM4IaeBFTEMLQkAiE5Dgbkng6oAAAAASUVORK5CYII=';
   await evaluate(
     browser.cdp,
     `(() => {
       const png = ${JSON.stringify(png)};
       const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
       const file = new File([bytes], 'held.png', { type: 'image/png' });
-      if (${JSON.stringify(blobImages)} !== 'loads') {
-        const sources = new WeakMap();
-        sources.set(file, 'data:image/png;base64,' + png);
-        const realCreateObjectURL = URL.createObjectURL.bind(URL);
-        URL.createObjectURL = function (value) {
-          return sources.get(value) || realCreateObjectURL(value);
-        };
-      }
       const input = document.querySelector('#imageFile');
       const data = new DataTransfer();
       data.items.add(file);
@@ -697,7 +663,7 @@ async function runDesktopHeldMessages(browser) {
       return true;
     })()`,
   );
-  let attach = { hidden: true, status: '' };
+  let attach = { hidden: true, status: '', thumb: '' };
   for (let attempt = 0; attempt < 60; attempt += 1) {
     attach = await evaluate(
       browser.cdp,

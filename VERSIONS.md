@@ -5,6 +5,7 @@ change. The running app reports its version in the header badge and at `GET /api
 
 | Version | Date | Summary |
 |---|---|---|
+| 2.38.15 | 2026-11-18 | Attaching an image works again in both editions: the page CSP blocked the blob URL the composer compresses from |
 | 2.38.14 | 2026-11-18 | The held-image browser check runs the page's real compressor, with a stand-in only for the blob: URLs this Chrome cannot load |
 | 2.38.13 | 2026-11-18 | A message held by the desktop rate-limit gate empties the composer and keeps its image, so it goes out once and no attachment is lost |
 | 2.38.12 | 2026-11-18 | The key dialog's buttons stop stretching and mangling at phone width, so Save, Clear and Cancel stay usable |
@@ -263,6 +264,27 @@ change. The running app reports its version in the header badge and at `GET /api
 | 1.8.1 | 2026-11-03 | Version badge in the header; `AGENTS.md`, `TODO.md`, `VERSIONS.md` |
 | 1.8.0 | 2026-11-03 | Survives a restart, recovers cut-off answers, refuses stale saves |
 | 1.7.0 | 2026-11-03 | 256 KB chat body cap, strict CSP, secret redaction |
+
+## 2.38.15 — 2026-11-18
+
+Attaching an image failed in both editions with "The source image cannot be
+decoded." The composer compresses an attachment by loading it from
+`URL.createObjectURL(file)`, and both security headers said `img-src 'self'
+data:` — no `blob:` — so the browser blocked the page's own attachment and the
+`<img>` stayed broken. The image never became an attachment at all; the message
+around it was fine either way.
+
+Both headers now allow `blob:` images: the desktop app's `SECURITY_HEADERS` and
+the cloud worker's `PAGE_CSP`. Nothing else about the policy moved.
+
+This is what the held-image browser check had been hiding. It stubbed
+`Image.decode` and `drawImage` to get past the failure, and the stub was written
+after a probe on a `data:` URL reported "decodes" — but the page uses a `blob:`
+URL, which the CSP refused. 2.38.14 replaced that stub with a blob-URL probe and a
+narrow object-URL stand-in; that stand-in is gone too. The check now runs the
+page's real compressor on the real URL, and requires the JPEG it produced to be
+the image that leaves the queue. A source guard requires `img-src` to keep
+allowing `blob:` in both editions, and the HTTP test checks the desktop header.
 
 ## 2.38.14 — 2026-11-18
 
