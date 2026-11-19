@@ -24,6 +24,11 @@
       "version": "2.38.30",
       "reason": "unreleased: browser stage for a long reply over a debugging draft",
       "until": "2026-12-18"
+    },
+    {
+      "version": "2.38.31",
+      "reason": "unreleased: fast Node coverage for topic detection and the picker",
+      "until": "2026-12-18"
     }
   ]
 }

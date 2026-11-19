@@ -119,30 +119,31 @@ async function main() {
 
     // A clean first run: dismiss the key card and keep the cat out of overlays.
     // The card can render just after the first script runs, and isBlocked() then
-    // makes show() a silent no-op, so close overlays and ask again instead of
-    // trusting one pass.
+    // makes show() a silent no-op. Clearing is separate from bringing the cat
+    // in, because the card can also appear in the middle of a stage's retries,
+    // and a retry that only asks again would never get past it.
+    const clearBlockers = () =>
+      evaluate(
+        `(() => {
+          document.querySelector('#keyCancel')?.click();
+          document.querySelectorAll('dialog[open]').forEach((dialog) => {
+            try { dialog.close(); } catch {}
+          });
+          document.querySelectorAll('.overlay:not(.hidden)').forEach((overlay) => {
+            overlay.classList.add('hidden');
+          });
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          if (!window.FreewayChatty.isEnabled()) window.FreewayChatty.setEnabled(true);
+          // Past the first-run tour and on the returning-user path, so show()
+          // cannot start the tour in the middle of a stage.
+          localStorage.setItem('freeway.chatty.tour.v2', '1');
+          return true;
+        })()`,
+      );
     const bringChattyIn = async () => {
       for (let attempt = 0; attempt < 5; attempt += 1) {
-        await evaluate(
-          `(() => {
-            document.querySelector('#keyCancel')?.click();
-            document.querySelectorAll('dialog[open]').forEach((dialog) => {
-              try { dialog.close(); } catch {}
-            });
-            document.querySelectorAll('.overlay:not(.hidden)').forEach((overlay) => {
-              overlay.classList.add('hidden');
-            });
-            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-            if (!window.FreewayChatty.isEnabled()) window.FreewayChatty.setEnabled(true);
-            // Past the first-run tour and on the returning-user path, so show()
-            // cannot start the tour in the middle of a stage.
-            localStorage.setItem('freeway.chatty.tour.v2', '1');
-            window.FreewayChatty.hide();
-            window.FreewayChatty.show();
-            window.FreewayChatty.dismissTip();
-            return true;
-          })()`,
-        );
+        await clearBlockers();
+        await evaluate('window.FreewayChatty.hide(); window.FreewayChatty.show(); window.FreewayChatty.dismissTip(); true');
         try {
           await waitForPage(cdp, rootVisible, 3000);
           return;
@@ -173,6 +174,9 @@ async function main() {
     // draft landed. Ask again for a few seconds, then report what blocked it.
     const askTip = async (attempts = 12) => {
       for (let attempt = 0; attempt < attempts; attempt += 1) {
+        // The key card can still render a second after the page loads, and a
+        // tip is refused while any overlay is open. Clear before each ask.
+        await clearBlockers();
         if (await evaluate('window.FreewayChatty.tip()')) return true;
         await sleep(500);
       }

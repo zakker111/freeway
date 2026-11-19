@@ -9236,13 +9236,9 @@
     return tips[Math.floor(Math.random() * tips.length)];
   }
 
-  function pickTip() {
-    // Model suggestion takes priority when the task and model are mismatched.
-    const modelTip = modelSuggestionTip();
-    if (modelTip) return modelTip;
-    // Contextual tips come next: they are tailored to what the user is doing.
-    const contextual = contextualTip();
-    if (contextual) return contextual;
+  // The generic fallback, split out so pickMessage can take a contextual tip
+  // or a joke without rolling the contextual pool a second time.
+  function pickGenericTip() {
     const context = tipContext();
     if (context && Math.random() < WORKFLOW_CHANCE) {
       const workflowTip = pickWorkflowTip(context);
@@ -9253,6 +9249,16 @@
     if (index === lastTip) index = (index + 1) % TIPS.length;
     lastTip = index;
     return TIPS[index];
+  }
+
+  function pickTip() {
+    // Model suggestion takes priority when the task and model are mismatched.
+    const modelTip = modelSuggestionTip();
+    if (modelTip) return modelTip;
+    // Contextual tips come next: they are tailored to what the user is doing.
+    const contextual = contextualTip();
+    if (contextual) return contextual;
+    return pickGenericTip();
   }
 
   function pickJoke() {
@@ -9268,12 +9274,15 @@
     // model in use is a poor fit for it, so that outranks the generic tip.
     const suggestion = modelSuggestionTip();
     if (suggestion) return suggestion;
-    // A tip that fits the conversation outranks a joke.
+    // A tip that fits the conversation outranks a joke. One draw per message:
+    // falling through to pickTip() rolled the contextual pool a second time,
+    // which turned a 35% chance into about 58% and moved the topic memory
+    // twice for one bubble.
     const tailored = contextualTip();
     if (tailored) return tailored;
     const funny = !lastWasFunny && Math.random() < FUNNY_CHANCE;
     lastWasFunny = funny;
-    return funny ? pickJoke() : pickTip();
+    return funny ? pickJoke() : pickGenericTip();
   }
 
   function clearTourPlacement() {
@@ -10855,6 +10864,26 @@
       if (!rootNode || rootNode.hidden) show();
       showTip(message || pickMessage());
       return true;
+    },
+  };
+  // The pure decision helpers, for lib/chatty.test.mjs: it loads this file into
+  // a Node VM with a stub document and drives these directly, so topics, the
+  // picker and the once-per-topic memory are covered without a browser. The
+  // page never calls this surface.
+  api.__internals = {
+    readConversationText,
+    detectConversationTopic,
+    currentModelId,
+    contextualTip,
+    modelSuggestionTip,
+    pickMessage,
+    pickTip,
+    resetMemory() {
+      lastContextualTopic = '';
+      lastSuggestedTopic = '';
+      lastTip = -1;
+      lastJoke = -1;
+      lastWasFunny = false;
     },
   };
   window.FreewayChatty = api;
