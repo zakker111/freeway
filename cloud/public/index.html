@@ -7765,11 +7765,19 @@
 
   // Maps a conversation topic to a model suggestion. Only fires when the
   // current model does not already match the suggested family.
+  //
+  // Every name here is a model the picker can really list: `example` is a
+  // literal entry in a provider's fallback catalog (lib/providers.mjs) and
+  // passes that provider's free gate, and lib/pages.test.mjs keeps it that way.
+  // No free plan here offers Claude or GPT-4o, so naming them sent people to a
+  // picker with nothing to show. Families are exact tokens, never a bare `gpt`:
+  // gpt-oss is OpenAI's open-weight model, not GPT-4o, and matching it as GPT
+  // swallowed the suggestion for its own topic.
   const MODEL_TASK_HINTS = {
-    debugging: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'stronger reasoning for tricky bugs' },
-    coding: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'cleaner code generation' },
-    explaining: { families: ['gpt', 'openai'], name: 'GPT-4o', reason: 'clear, structured explanations' },
-    writing: { families: ['claude', 'anthropic'], name: 'Claude Sonnet', reason: 'more natural prose' },
+    debugging: { families: ['gpt-oss'], name: 'gpt-oss-120b', example: 'gpt-oss-120b', reason: 'stronger reasoning for tricky bugs' },
+    coding: { families: ['qwen'], name: 'Qwen', example: '@cf/qwen/qwen3.8-27b', reason: 'cleaner code generation' },
+    explaining: { families: ['llama'], name: 'Llama 3.3 70B', example: 'Meta-Llama-3_3-70B-Instruct', reason: 'clear, structured explanations' },
+    writing: { families: ['mistral', 'ministral'], name: 'Mistral Small', example: 'Mistral-Small-3.2-24B-Instruct-2506', reason: 'more natural prose' },
   };
 
   const REDUCE_MOTION =
@@ -8601,16 +8609,22 @@
   // Read the user's conversation to detect what they are working on. Returns
   // a lowercase string of the latest user message, latest assistant reply,
   // and the current draft, so topic detection has real signal.
+  //
+  // Each part is clipped on its own. Slicing the joined string used to cut the
+  // composer draft out entirely whenever the latest assistant reply was longer
+  // than the 4,000-character budget, so a prompt the user just typed was
+  // labelled after a reply they had already finished reading.
   function readConversationText() {
     if (typeof document === 'undefined') return '';
+    const clip = (text, limit) => String(text || '').slice(-limit);
     const parts = [];
     const userBubbles = document.querySelectorAll('.msg.user .bubble');
-    if (userBubbles.length) parts.push(userBubbles[userBubbles.length - 1].textContent || '');
+    if (userBubbles.length) parts.push(clip(userBubbles[userBubbles.length - 1].textContent, 1200));
     const assistantBubbles = document.querySelectorAll('.msg.assistant .bubble');
-    if (assistantBubbles.length) parts.push(assistantBubbles[assistantBubbles.length - 1].textContent || '');
+    if (assistantBubbles.length) parts.push(clip(assistantBubbles[assistantBubbles.length - 1].textContent, 1200));
     const input = document.querySelector('#input');
-    if (input && typeof input.value === 'string') parts.push(input.value);
-    return parts.join(' ').slice(0, 4000).toLowerCase();
+    if (input && typeof input.value === 'string') parts.push(clip(input.value, 1600));
+    return parts.join(' ').toLowerCase();
   }
 
   // Detect the dominant topic of the user's conversation from keyword signals.

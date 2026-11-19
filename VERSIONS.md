@@ -11,6 +11,7 @@ change. The running app reports its version in the header badge and at `GET /api
 | 2.38.26 | 2026-11-18 | The typing hold covers unsolicited tips only: a coach note you ask for and a finished plan still appear, and the full Chatty browser suite passes again |
 | 2.38.27 | 2026-11-18 | A browser stage proves the model-suggestion tip fires for a model outside the suggested family and stays quiet for one inside it |
 | 2.38.28 | 2026-11-18 | The model suggestion is said once per topic and outranks the generic tip, so a mismatched model actually gets told; a browser stage covers both cases |
+| 2.38.29 | 2026-11-19 | Chatty suggests free models the picker really lists instead of Claude Sonnet and GPT-4o, treats gpt-oss as its own family, and reads the composer draft even after a long reply |
 | 2.38.22 | 2026-11-18 | Chatty walks to the control a tip or lesson names instead of blinking onto it, and pounces on landing |
 | 2.38.21 | 2026-11-18 | The Windows ZIP names its own commit, and the client is built with pinned Node and postject |
 | 2.38.20 | 2026-11-18 | The no-runtime step turned start.cmd's expected exit 1 into its own failure; reset it |

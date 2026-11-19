@@ -8,9 +8,10 @@
 // keystroke really holds one back. This boots the real desktop app, types a
 // debugging prompt into the real composer, and asks Chatty for a tip through the
 // same entry point the page uses. It then types again and checks that no bubble
-// opens until the typing pause has passed. Two more stages store a model id and
-// check the model-suggestion tip appears only when that id is outside the family
-// the detected task recommends.
+// opens until the typing pause has passed, and that a reply longer than the
+// reader's budget cannot bury the draft. Four more stages store a model id and
+// check the model-suggestion tip names a model the free picker really lists, and
+// appears only when that id is outside the family the detected task recommends.
 //
 // Reduced motion is emulated so the cat never travels during the run: this test
 // is about the bubble, not the walk. It skips (exit 0) when Chrome is missing.
@@ -218,22 +219,65 @@ async function main() {
       return { shown };
     });
 
+    // The reply is longer than the reader's whole budget. The coding draft is
+    // what should win: the reply has no topic words of its own, and coding
+    // outranks explaining, so a coding tip proves the draft survived the join.
+    await stage('a long assistant reply cannot bury the composer draft', async () => {
+      await bringChattyIn();
+      const reply = 'Explaining the cache layer. '.repeat(220);
+      assert.ok(reply.length > 4000, 'the fixture reply is not longer than the old budget');
+      await evaluate(`(() => {
+        localStorage.removeItem('openrouter.model');
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('openrouter.model.'))
+          .forEach((key) => localStorage.removeItem(key));
+        const wrap = document.createElement('div');
+        wrap.className = 'msg assistant';
+        wrap.id = 'long-reply-fixture';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = ${JSON.stringify(reply)};
+        wrap.appendChild(bubble);
+        document.body.appendChild(wrap);
+        return true;
+      })()`);
+      try {
+        const typed = await setDraft('Refactor this function so it implements the retry loop.');
+        assert.match(typed, /Refactor this function/, 'the coding prompt did not reach the composer');
+        await sleep(FLOW_CLEAR_MS);
+        const shown = await askTip();
+        assert.equal(shown, true, `Chatty refused to show a tip over an idle coding draft: ${await evaluate(blockedState)}`);
+        await waitFor(bubbleOpen, 5000);
+        const text = await evaluate(bubbleText);
+        assert.equal(
+          text,
+          'Ask for one example and one counter-example when learning a new API.',
+          `the composer draft lost to the long assistant reply: ${text}`,
+        );
+        return { replyLength: reply.length, text };
+      } finally {
+        await evaluate("document.querySelector('#long-reply-fixture')?.remove(); true");
+      }
+    });
+
     const resetBubble = () => bringChattyIn();
 
     await stage('a model outside the family gets a suggestion after a debugging prompt', async () => {
       await resetBubble();
-      // The actual model ID is what the family check reads, so this is a real
-      // OpenRouter-style id with no Claude or Anthropic in it. The suggestion is
-      // one per topic, so no randomness stands between the draft and the tip.
-      await evaluate("localStorage.setItem('openrouter.model', 'qwen/qwen3-coder-480b-a35b'); true");
+      // The suggestion names a model the free picker really lists, so the id
+      // stored here is a real one from the provider catalogs. It is one per
+      // topic, so no randomness stands between the draft and the tip.
+      await evaluate("localStorage.setItem('openrouter.model', 'Qwen3-Coder-480B-A35B-Instruct'); true");
+      await setDraft('Fix the bug: this request throws an exception in app.mjs at line 42.');
+      await sleep(FLOW_CLEAR_MS);
       const shown = await evaluate('window.FreewayChatty.tip()');
       assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
       await waitFor(bubbleOpen, 5000);
       const text = await evaluate(bubbleText);
       assert.match(
         text,
-        /^You're debugging\. Claude Sonnet tends to give stronger reasoning for tricky bugs \u2014 try it with Ctrl \+ M\.$/,
-        `the tip did not suggest a better model for this debugging draft: ${text}`,
+        /^You're debugging\. gpt-oss-120b tends to give stronger reasoning for tricky bugs \u2014 try it with Ctrl \+ M\.$/,
+        `the tip did not suggest a free model for this debugging draft: ${text}`,
       );
       return { text };
     });
@@ -247,24 +291,45 @@ async function main() {
       return { text };
     });
 
-    await stage('a model in the suggested family gets no suggestion', async () => {
+    await stage('a gpt-oss model is not mistaken for GPT-4o', async () => {
       await resetBubble();
-      // Explaining is the one topic that recommends a GPT model, so an OpenAI id
-      // is the matching family here; a new topic also re-arms the check.
-      await evaluate("localStorage.setItem('openrouter.model', 'openai/gpt-4o'); true");
+      // gpt-oss is OpenAI's open-weight model, not GPT-4o. A bare 'gpt' family
+      // used to match this id and hide the suggestion for its own topic.
+      await evaluate("localStorage.setItem('openrouter.model', '@cf/openai/gpt-oss-120b'); true");
       await setDraft('Explain how this cache invalidates entries');
       await sleep(FLOW_CLEAR_MS);
       const shown = await evaluate('window.FreewayChatty.tip()');
       assert.equal(shown, true, 'Chatty showed nothing at all');
       await waitFor(bubbleOpen, 5000);
       const text = await evaluate(bubbleText);
-      assert.doesNotMatch(text, /tends to give/, `a Claude model still got a Claude suggestion: ${text}`);
+      assert.match(
+        text,
+        /^You're explaining something\. Llama 3\.3 70B tends to give clear, structured explanations \u2014 try it with Ctrl \+ M\.$/,
+        `a gpt-oss model was mistaken for GPT and got no suggestion: ${text}`,
+      );
+      return { text };
+    });
+
+    await stage('a model in the suggested family gets no suggestion', async () => {
+      await resetBubble();
+      // Writing is the one topic that recommends Mistral, so a Mistral id is the
+      // matching family here; a new topic also re-arms the check.
+      await evaluate("localStorage.setItem('openrouter.model', 'Mistral-Small-3.2-24B-Instruct-2506'); true");
+      await setDraft('Write a short email to the team about the outage');
+      await sleep(FLOW_CLEAR_MS);
+      const shown = await evaluate('window.FreewayChatty.tip()');
+      assert.equal(shown, true, 'Chatty showed nothing at all');
+      await waitFor(bubbleOpen, 5000);
+      const text = await evaluate(bubbleText);
+      assert.doesNotMatch(text, /tends to give/, `a Mistral model still got a Mistral suggestion: ${text}`);
       return { text };
     });
 
     const failed = results.filter((result) => !result.ok);
     assert.deepEqual(failed, [], `${failed.length} contextual-tip stage(s) failed`);
-    console.log('PASS browser Chatty: contextual debugging tip, typing hold and its release, model suggestion.');
+    console.log(
+      'PASS browser Chatty: contextual debugging tip, typing hold and its release, long-reply draft, free-model suggestion, gpt-oss family, family match.',
+    );
   } catch (error) {
     console.error('FAIL browser Chatty contextual tips:', error.stack || error.message);
     console.error('App exit:', app?.exitCode);
