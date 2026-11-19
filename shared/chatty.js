@@ -2900,10 +2900,14 @@
       return true;
     },
   };
-  // The pure decision helpers, for lib/chatty.test.mjs: it loads this file into
-  // a Node VM with a stub document and drives these directly, so topics, the
-  // picker and the once-per-topic memory are covered without a browser. The
-  // page never calls this surface.
+  // Testing/verification seam for lib/chatty.test.mjs only.
+  //
+  // lib/chatty.test.mjs loads this file into a Node VM with a stub document and
+  // drives these decision helpers directly, so the topic detector, the tip picker
+  // and the once-per-topic suggestion memory are covered without a browser. The
+  // page never calls this surface. It is an explicit whitelist, not an open export
+  // of everything in this IIFE: nothing test-only belongs here, and nothing here
+  // is wired into the page.
   api.__internals = {
     readConversationText,
     detectConversationTopic,
@@ -2912,13 +2916,6 @@
     modelSuggestionTip,
     pickMessage,
     pickTip,
-    resetMemory() {
-      lastContextualTopic = '';
-      lastSuggestedTopic = '';
-      lastTip = -1;
-      lastJoke = -1;
-      lastWasFunny = false;
-    },
   };
   window.FreewayChatty = api;
 
