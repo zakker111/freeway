@@ -19,6 +19,11 @@
       "version": "2.38.29",
       "reason": "unreleased: suggestions name free models, and a long reply cannot hide the draft",
       "until": "2026-12-18"
+    },
+    {
+      "version": "2.38.30",
+      "reason": "unreleased: browser stage for a long reply over a debugging draft",
+      "until": "2026-12-18"
     }
   ]
 }

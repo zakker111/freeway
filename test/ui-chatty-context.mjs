@@ -219,12 +219,19 @@ async function main() {
       return { shown };
     });
 
-    // The reply is longer than the reader's whole budget. The coding draft is
-    // what should win: the reply has no topic words of its own, and coding
-    // outranks explaining, so a coding tip proves the draft survived the join.
+    // The reply alone is longer than the reader's whole budget, and it carries no
+    // topic words, so the debugging tip can only come from the draft. Before the
+    // per-part clip the join was sliced from the front, the draft fell off the
+    // end, no topic was detected and she said something generic instead.
     await stage('a long assistant reply cannot bury the composer draft', async () => {
+      // Reload so the debugging topic is new to this page: the first tip for a
+      // topic is the contextual one, and an earlier stage already used it.
+      await cdp.send('Page.reload', {});
+      await cdp.send('Page.bringToFront').catch(() => {});
+      await waitFor('typeof window.FreewayChatty?.tip === "function"');
+      await waitFor("document.querySelector('#input') !== null");
       await bringChattyIn();
-      const reply = 'Explaining the cache layer. '.repeat(220);
+      const reply = 'The quick brown fox jumps over the lazy dog. '.repeat(140);
       assert.ok(reply.length > 4000, 'the fixture reply is not longer than the old budget');
       await evaluate(`(() => {
         localStorage.removeItem('openrouter.model');
@@ -242,17 +249,16 @@ async function main() {
         return true;
       })()`);
       try {
-        const typed = await setDraft('Refactor this function so it implements the retry loop.');
-        assert.match(typed, /Refactor this function/, 'the coding prompt did not reach the composer');
+        const typed = await setDraft('Fix the bug: this request throws an exception in app.mjs at line 42.');
+        assert.match(typed, /throws an exception/, 'the debugging prompt did not reach the composer');
         await sleep(FLOW_CLEAR_MS);
         const shown = await askTip();
-        assert.equal(shown, true, `Chatty refused to show a tip over an idle coding draft: ${await evaluate(blockedState)}`);
+        assert.equal(shown, true, `Chatty refused to show a tip over an idle debugging draft: ${await evaluate(blockedState)}`);
         await waitFor(bubbleOpen, 5000);
         const text = await evaluate(bubbleText);
-        assert.equal(
-          text,
-          'Ask for one example and one counter-example when learning a new API.',
-          `the composer draft lost to the long assistant reply: ${text}`,
+        assert.ok(
+          DEBUGGING_TIPS.includes(text),
+          `the long assistant reply buried the debugging draft: ${text}`,
         );
         return { replyLength: reply.length, text };
       } finally {
@@ -328,7 +334,7 @@ async function main() {
     const failed = results.filter((result) => !result.ok);
     assert.deepEqual(failed, [], `${failed.length} contextual-tip stage(s) failed`);
     console.log(
-      'PASS browser Chatty: contextual debugging tip, typing hold and its release, long-reply draft, free-model suggestion, gpt-oss family, family match.',
+      'PASS browser Chatty: contextual debugging tip, typing hold and its release, long reply over a debugging draft, free-model suggestion, gpt-oss family, family match.',
     );
   } catch (error) {
     console.error('FAIL browser Chatty contextual tips:', error.stack || error.message);
