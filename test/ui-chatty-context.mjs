@@ -168,6 +168,15 @@ async function main() {
         input.dispatchEvent(new Event('input', { bubbles: true }));
         return input.value;
       })()`);
+    // A tip can be held back by a keystroke the page restored a moment after the
+    // draft landed. Ask again for a few seconds, then report what blocked it.
+    const askTip = async (attempts = 12) => {
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        if (await evaluate('window.FreewayChatty.tip()')) return true;
+        await sleep(500);
+      }
+      return false;
+    };
     const bubbleOpen = "document.querySelector('.chatty-bubble')?.hidden === false";
     const bubbleText = "document.querySelector('.chatty-text')?.textContent?.trim() || ''";
 
@@ -178,8 +187,8 @@ async function main() {
       assert.match(typed, /throws an exception/, 'the debugging prompt did not reach the composer');
       // Writing the draft is itself typing, so wait out the flow hold it opens.
       await sleep(FLOW_CLEAR_MS);
-      const shown = await evaluate('window.FreewayChatty.tip()');
-      assert.equal(shown, true, 'Chatty refused to show a tip over an idle debugging draft');
+      const shown = await askTip();
+      assert.equal(shown, true, `Chatty refused to show a tip over an idle debugging draft: ${await evaluate(blockedState)}`);
       await waitFor(bubbleOpen, 5000);
       const text = await evaluate(bubbleText);
       assert.ok(
