@@ -42,6 +42,15 @@
 // reported as SUPERSEDED along with the run that replaced it. A cancellation
 // with no newer run behind it is still a failure.
 //
+// A push or release script should not have to parse that prose. `--json`
+// prints one object on stdout (progress and warnings move to stderr) and the
+// exit code says what kind of answer this is: 0 green, 1 a verdict that is not
+// green (red, timed out, no runs, never pushed), 2 nothing could be checked at
+// all — bad arguments, a missing token, or an API failure such as 401. An auth
+// failure is answered once instead of being retried as a flaky poll:
+//
+//   node scripts/check-ci.mjs main --wait --json
+//
 // The token is read from GH_TOKEN, GITHUB_TOKEN or GITHUBFREEBUF, or from a
 // `.env` file in this repository or the directory above it (where this
 // workspace keeps GITHUBFREEBUF). It is sent with Basic auth: the token this
@@ -94,17 +103,21 @@ function duration(seconds) {
 }
 
 /**
- * `--wait`, `--timeout <seconds>`, `--interval <seconds>` and one revision.
- * Seconds are used rather than minutes because a timeout is often set just
- * above the actual job time.
+ * `--wait`, `--timeout <seconds>`, `--interval <seconds>`, `--json` and one
+ * revision. Seconds are used rather than minutes because a timeout is often
+ * set just above the actual job time.
  */
 function parseArgs(argv) {
-  const options = { ref: 'HEAD', wait: false, timeout: 20 * 60, interval: 30 };
+  const options = { ref: 'HEAD', wait: false, timeout: 20 * 60, interval: 30, json: false };
   let sawRef = false;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--wait' || arg === '-w') {
       options.wait = true;
+      continue;
+    }
+    if (arg === '--json') {
+      options.json = true;
       continue;
     }
     const flag = /^--(timeout|interval)(?:=(.*))?$/.exec(arg);
@@ -186,9 +199,35 @@ async function get(path, token) {
       `GitHub API replied ${response.status} for ${path}${detail ? `: ${detail.slice(0, 120)}` : ''}`,
     );
     error.status = response.status;
+    // A secondary rate limit arrives as a 403; its headers are the only way to
+    // tell that apart from a permission error, which will never succeed.
+    error.retryAfter = Number(response.headers.get('retry-after')) || null;
+    error.rateLimited =
+      response.status === 429 ||
+      Boolean(error.retryAfter) ||
+      response.headers.get('x-ratelimit-remaining') === '0' ||
+      /rate limit/i.test(detail);
     throw error;
   }
   return response.json();
+}
+
+/**
+ * Whether another poll could plausibly answer differently. A bad token or a
+ * wrong repository answers 401/404 every time, so retrying it like a flaky
+ * network call only buries the real message under identical warnings.
+ */
+function retryable(error) {
+  const status = error?.status;
+  if (!status) return true;
+  if (status === 401 || status === 404 || status === 422) return false;
+  if (status === 429 || status >= 500) return true;
+  return Boolean(error.rateLimited);
+}
+
+/** stdout normally; stderr when stdout is reserved for the JSON report. */
+function reporter(json) {
+  return json ? (line = '') => console.error(line) : (line = '') => console.log(line);
 }
 
 async function findRuns(repo, sha, token) {
@@ -282,7 +321,7 @@ async function replacingRun(repo, run, token, cache) {
  * timeout expires. Returns whatever it last saw either way, plus whether it
  * gave up, so the caller reports the same way it reports a one-shot check.
  */
-async function waitForRuns(repo, sha, token, options) {
+async function waitForRuns(repo, sha, token, options, say) {
   const start = Date.now();
   const deadline = start + options.timeout * 1000;
   let seen = [];
@@ -294,7 +333,9 @@ async function waitForRuns(repo, sha, token, options) {
       failures = 0;
     } catch (error) {
       // One flaky poll should not throw away a wait that may be an hour long,
-      // but repeating the same error forever is hiding a real problem.
+      // but a 401 will answer the same way every time, so it is reported at
+      // once; only errors another attempt could fix are retried at all.
+      if (!retryable(error)) throw error;
       failures += 1;
       if (failures >= 5) throw error;
       console.error(`warning: ${error.message}`);
@@ -331,27 +372,32 @@ async function waitForRuns(repo, sha, token, options) {
           .map((run) => `${run.name} ${run.status}`)
           .join(', ')})`
       : 'no runs reported yet';
-    console.log(`waiting: ${state} — checking again in ${duration(pause)}`);
+    say(`waiting: ${state} — checking again in ${duration(pause)}`);
     await sleep(pause * 1000);
   }
 }
 
-async function printJobs(repo, run, token) {
-  let jobs;
+/** A red run's jobs (and the reason they could not be read), for the report. */
+async function readJobs(repo, run, token) {
   try {
-    jobs = await get(`/repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`, token);
+    const body = await get(`/repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`, token);
+    return {
+      jobs: (body.jobs ?? []).map((job) => ({
+        name: job.name,
+        status: job.status ?? null,
+        conclusion: job.conclusion ?? null,
+        url: job.html_url ?? null,
+      })),
+      error: null,
+    };
   } catch (error) {
-    console.log(`     (could not read the jobs: ${error.message})`);
-    return;
-  }
-  for (const job of jobs.jobs ?? []) {
-    const verdict = job.conclusion ?? job.status ?? 'unknown';
-    console.log(`     job ${job.name}: ${verdict}`);
+    return { jobs: [], error };
   }
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const say = reporter(options.json);
   const sha = resolveCommit(options.ref);
   const token = loadToken();
   if (!token) {
@@ -362,38 +408,71 @@ async function main() {
   }
   const repo = repository();
   const { runs, timedOut, gaveUp } = options.wait
-    ? await waitForRuns(repo, sha, token, options)
+    ? await waitForRuns(repo, sha, token, options, say)
     : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
+
+  // The same verdict as one object, for a push or release script. `state` is the
+  // short answer and `runs` the detail behind it; the prose below is for people.
+  const report = {
+    ok: false,
+    state: 'red',
+    repo,
+    ref: options.ref,
+    sha,
+    waited: Boolean(options.wait),
+    timedOut: Boolean(timedOut),
+    counts: { total: runs.length, green: 0, superseded: 0, red: 0 },
+    runs: [],
+  };
+  /** Prints the JSON report and gives the verdict its exit code: 0 green, 1 not. */
+  const finish = () => {
+    if (options.json) console.log(JSON.stringify(report, null, 2));
+    process.exitCode = report.ok ? 0 : 1;
+  };
+
   if (!runs.length) {
-    process.exitCode = 1;
     const reach = gaveUp === 'unpushed' ? 'local-only' : await remoteReach(repo, sha, token);
     if (reach === 'local-only') {
-      console.log(`FAIL ${sha} is not on any remote branch of ${repo}: push it before checking its runs.`);
-      console.log('     A commit that was never pushed has no Actions runs to wait for.');
+      report.state = 'unpushed';
+      say(`FAIL ${sha} is not on any remote branch of ${repo}: push it before checking its runs.`);
+      say('     A commit that was never pushed has no Actions runs to wait for.');
+      finish();
       return;
     }
+    report.state = gaveUp === 'timeout' ? 'timeout' : 'no-runs';
     const waited =
       gaveUp === 'no-runs'
         ? ` after waiting ${duration(FIRST_RUN_GRACE)} for a first run`
         : timedOut
           ? ` after waiting ${duration(options.timeout)}`
           : '';
-    console.log(`FAIL no Actions runs found for ${sha} in ${repo}${waited}.`);
-    console.log(
+    say(`FAIL no Actions runs found for ${sha} in ${repo}${waited}.`);
+    say(
       reach === 'remote'
         ? '     The commit is on the remote, so it started no workflow at all.'
         : '     A push that never triggered a workflow is not a green build.',
     );
+    finish();
     return;
   }
 
-  let red = 0;
-  let superseded = 0;
   const branchRuns = new Map();
   for (const run of runs) {
+    const entry = {
+      id: run.id,
+      name: run.name,
+      event: run.event,
+      status: run.status ?? null,
+      conclusion: run.conclusion ?? null,
+      url: run.html_url,
+      verdict: 'red',
+    };
     const green = run.status === 'completed' && run.conclusion === 'success';
     if (green) {
-      console.log(`PASS ${run.name} (${run.event}) ${run.status}/${run.conclusion} ${run.html_url}`);
+      entry.verdict = 'green';
+      report.counts.green += 1;
+      report.runs.push(entry);
+      say(`PASS ${run.name} (${run.event}) ${run.status}/${run.conclusion} ${run.html_url}`);
       continue;
     }
     let replaced = null;
@@ -407,40 +486,58 @@ async function main() {
       }
     }
     if (replaced) {
-      superseded += 1;
-      console.log(`SUPERSEDED ${run.name} (${run.event}) cancelled ${run.html_url}`);
-      console.log(`     replaced by ${replaced.html_url}`);
+      entry.verdict = 'superseded';
+      entry.supersededBy = replaced.html_url;
+      report.counts.superseded += 1;
+      report.runs.push(entry);
+      say(`SUPERSEDED ${run.name} (${run.event}) cancelled ${run.html_url}`);
+      say(`     replaced by ${replaced.html_url}`);
       continue;
     }
-    red += 1;
-    console.log(
-      `FAIL ${run.name} (${run.event}) ${run.status}/${run.conclusion ?? '-'} ${run.html_url}`,
-    );
-    await printJobs(repo, run, token);
+    report.counts.red += 1;
+    const { jobs, error } = await readJobs(repo, run, token);
+    entry.jobs = jobs;
+    if (error) entry.jobsError = error.message;
+    report.runs.push(entry);
+    say(`FAIL ${run.name} (${run.event}) ${run.status}/${run.conclusion ?? '-'} ${run.html_url}`);
+    for (const job of jobs) say(`     job ${job.name}: ${job.conclusion ?? job.status ?? 'unknown'}`);
+    if (error) say(`     (could not read the jobs: ${error.message})`);
   }
 
-  if (red) {
-    const note = superseded ? ` (${superseded} superseded by a newer push)` : '';
-    console.log(`\nFAIL ${red} of ${runs.length} run(s) for ${sha} are not green${note}.`);
+  if (report.counts.red) {
+    const note = report.counts.superseded
+      ? ` (${report.counts.superseded} superseded by a newer push)`
+      : '';
+    say(`\nFAIL ${report.counts.red} of ${runs.length} run(s) for ${sha} are not green${note}.`);
     if (timedOut) {
-      console.log(`     Still not finished after ${duration(options.timeout)}: try a longer --timeout.`);
+      say(`     Still not finished after ${duration(options.timeout)}: try a longer --timeout.`);
     } else if (runs.some((run) => run.status !== 'completed')) {
-      console.log('     Some runs are still in progress: re-run with --wait to wait for them.');
+      say('     Some runs are still in progress: re-run with --wait to wait for them.');
     }
-    process.exitCode = 1;
+    finish();
     return;
   }
-  console.log(
-    superseded
-      ? `\nOK ${runs.length - superseded} of ${runs.length} run(s) for ${sha} are green, ` +
-          `${superseded} superseded by a newer push.`
+  report.ok = true;
+  report.state = 'green';
+  say(
+    report.counts.superseded
+      ? `\nOK ${runs.length - report.counts.superseded} of ${runs.length} run(s) for ${sha} are green, ` +
+          `${report.counts.superseded} superseded by a newer push.`
       : `\nOK all ${runs.length} run(s) for ${sha} are green.`,
   );
+  finish();
 }
 
 try {
   await main();
 } catch (cause) {
-  console.error(`check-ci failed: ${cause.message}`);
-  process.exitCode = 1;
+  const message = cause?.message || String(cause);
+  // Exit 2 means nothing was checked: the verdict in exit 1 is about CI, this is
+  // about the check itself (arguments, token, network), which a caller handles
+  // differently from a red build.
+  if (process.argv.includes('--json')) {
+    console.log(JSON.stringify({ ok: false, state: 'error', error: message }, null, 2));
+  }
+  console.error(`check-ci failed: ${message}`);
+  process.exitCode = 2;
 }
