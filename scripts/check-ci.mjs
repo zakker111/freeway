@@ -29,6 +29,13 @@
 // full timeout, so an empty run list only gets a short grace period for the API
 // to catch up; after that it fails as a commit with no runs.
 //
+// A run cancelled by concurrency is not a failed commit: `cancel-in-progress`
+// in test.yml and pages-smoke.yml stops it because a newer run of the same
+// workflow started on the same branch. Pushing twice in a minute would
+// otherwise leave the first commit red for no reason, so such a run is
+// reported as SUPERSEDED along with the run that replaced it. A cancellation
+// with no newer run behind it is still a failure.
+//
 // The token is read from GH_TOKEN, GITHUB_TOKEN or GITHUBFREEBUF, or from a
 // `.env` file in this repository or the directory above it (where this
 // workspace keeps GITHUBFREEBUF). It is sent with Basic auth: the token this
@@ -188,6 +195,34 @@ async function findRuns(repo, sha, token) {
   return recent.workflow_runs.filter((run) => String(run.head_sha ?? '').startsWith(sha.slice(0, 7)));
 }
 
+/** True when `candidate` is a later run of the same workflow than `run`. */
+function startedLater(candidate, run) {
+  if (candidate.id === run.id || candidate.workflow_id !== run.workflow_id) return false;
+  const later = Date.parse(candidate.created_at ?? '');
+  const earlier = Date.parse(run.created_at ?? '');
+  if (Number.isFinite(later) && Number.isFinite(earlier) && later !== earlier) return later > earlier;
+  return candidate.id > run.id;
+}
+
+/**
+ * The run that replaced a cancelled one, or null when nothing did. A branch's
+ * run list covers every workflow, so one request answers for Tests and Pages
+ * smoke alike, and it is only fetched when a cancellation needs explaining.
+ */
+async function replacingRun(repo, run, token, cache) {
+  if (run.status !== 'completed' || run.conclusion !== 'cancelled') return null;
+  const branch = run.head_branch;
+  if (!branch) return null;
+  if (!cache.has(branch)) {
+    const list = await get(
+      `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`,
+      token,
+    );
+    cache.set(branch, list.workflow_runs ?? []);
+  }
+  return cache.get(branch).find((candidate) => startedLater(candidate, run)) ?? null;
+}
+
 /**
  * Polls a commit's runs until every one of them has finished, or until the
  * timeout expires. Returns whatever it last saw either way, plus whether it
@@ -281,18 +316,40 @@ async function main() {
   }
 
   let red = 0;
+  let superseded = 0;
+  const branchRuns = new Map();
   for (const run of runs) {
     const green = run.status === 'completed' && run.conclusion === 'success';
-    console.log(
-      `${green ? 'PASS' : 'FAIL'} ${run.name} (${run.event}) ${run.status}/${run.conclusion ?? '-'} ${run.html_url}`,
-    );
-    if (green) continue;
+    if (green) {
+      console.log(`PASS ${run.name} (${run.event}) ${run.status}/${run.conclusion} ${run.html_url}`);
+      continue;
+    }
+    let replaced = null;
+    if (run.conclusion === 'cancelled') {
+      try {
+        replaced = await replacingRun(repo, run, token, branchRuns);
+      } catch (error) {
+        // Not knowing whether it was superseded is not proof that it was, so
+        // the run stays red rather than becoming an excuse for a broken build.
+        console.error(`warning: could not look for a newer ${run.name} run: ${error.message}`);
+      }
+    }
+    if (replaced) {
+      superseded += 1;
+      console.log(`SUPERSEDED ${run.name} (${run.event}) cancelled ${run.html_url}`);
+      console.log(`     replaced by ${replaced.html_url}`);
+      continue;
+    }
     red += 1;
+    console.log(
+      `FAIL ${run.name} (${run.event}) ${run.status}/${run.conclusion ?? '-'} ${run.html_url}`,
+    );
     await printJobs(repo, run, token);
   }
 
   if (red) {
-    console.log(`\nFAIL ${red} of ${runs.length} run(s) for ${sha} are not green.`);
+    const note = superseded ? ` (${superseded} superseded by a newer push)` : '';
+    console.log(`\nFAIL ${red} of ${runs.length} run(s) for ${sha} are not green${note}.`);
     if (timedOut) {
       console.log(`     Still not finished after ${duration(options.timeout)}: try a longer --timeout.`);
     } else if (runs.some((run) => run.status !== 'completed')) {
@@ -301,7 +358,12 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`\nOK all ${runs.length} run(s) for ${sha} are green.`);
+  console.log(
+    superseded
+      ? `\nOK ${runs.length - superseded} of ${runs.length} run(s) for ${sha} are green, ` +
+          `${superseded} superseded by a newer push.`
+      : `\nOK all ${runs.length} run(s) for ${sha} are green.`,
+  );
 }
 
 try {
