@@ -29,6 +29,14 @@
 // full timeout, so an empty run list only gets a short grace period for the API
 // to catch up; after that it fails as a commit with no runs.
 //
+// A 403 or 429 while waiting is usually a rate limit, and GitHub says how long
+// to stay away: `retry-after` for a secondary limit, `x-ratelimit-reset` for
+// the hourly quota. Polling at `--interval` before then only earns another
+// rejection, and five of those in a row would end the wait as an error, so the
+// wait sleeps for the window the API named instead. A window that reaches past
+// the timeout cannot produce an answer, so the check stops there and says which
+// window it needs (exit 2) rather than reporting a timeout against CI.
+//
 // A commit that was never pushed never grows a run either, and waiting the
 // grace period for one only delays the actual fix. `git branch -r --contains`
 // answers that from the remote-tracking refs already in the clone, and the
@@ -202,6 +210,8 @@ async function get(path, token) {
     // A secondary rate limit arrives as a 403; its headers are the only way to
     // tell that apart from a permission error, which will never succeed.
     error.retryAfter = Number(response.headers.get('retry-after')) || null;
+    // The hourly quota has no retry-after; it resets at this epoch instead.
+    error.resetAt = Number(response.headers.get('x-ratelimit-reset')) || null;
     error.rateLimited =
       response.status === 429 ||
       Boolean(error.retryAfter) ||
@@ -210,6 +220,18 @@ async function get(path, token) {
     throw error;
   }
   return response.json();
+}
+
+/**
+ * How long to stay away after a rate limit, in milliseconds, or null when the
+ * error does not name a window. `retry-after` is what a secondary limit sends;
+ * an exhausted hourly quota instead sends the epoch it resets at.
+ */
+function rateLimitWindow(error, now = Date.now()) {
+  if (!error?.rateLimited) return null;
+  if (error.retryAfter) return error.retryAfter * 1000;
+  if (error.resetAt) return Math.max(0, error.resetAt * 1000 - now) + 1000;
+  return null;
 }
 
 /**
@@ -235,6 +257,9 @@ async function findRuns(repo, sha, token) {
   try {
     exact = await get(`/repos/${repo}/actions/runs?head_sha=${sha}&per_page=30`, token);
   } catch (error) {
+    // A rate limit would reject the fallback query too, so let the caller wait
+    // it out rather than spending a second request on it.
+    if (error.rateLimited) throw error;
     console.error(`warning: ${error.message}`);
     console.error('warning: falling back to recent runs, filtered locally.');
   }
@@ -336,6 +361,29 @@ async function waitForRuns(repo, sha, token, options, say) {
       // but a 401 will answer the same way every time, so it is reported at
       // once; only errors another attempt could fix are retried at all.
       if (!retryable(error)) throw error;
+      const window = rateLimitWindow(error);
+      if (window !== null) {
+        // GitHub named the window, so retrying at --interval before it opens
+        // only earns another rejection and counts against the failure budget.
+        // Sleep for as long as it asked, unless that reaches past the timeout:
+        // sleeping it out would end as a timeout the API caused, not CI.
+        const leftMs = deadline - Date.now();
+        if (window >= leftMs) {
+          throw new Error(
+            `rate limited: GitHub asks to wait ${duration(window / 1000)}, ` +
+              `which outlasts the --timeout of ${duration(options.timeout)}` +
+              (leftMs > 0 ? ` (${duration(leftMs / 1000)} left)` : '') +
+              '; try again later or raise --timeout',
+          );
+        }
+        say(`rate limited: ${error.message}`);
+        say(
+          `waiting: sleeping ${duration(window / 1000)} for the rate limit ` +
+            `(not the ${duration(options.interval)} interval)`,
+        );
+        await sleep(window);
+        continue;
+      }
       failures += 1;
       if (failures >= 5) throw error;
       console.error(`warning: ${error.message}`);
