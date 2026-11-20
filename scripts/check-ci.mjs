@@ -24,8 +24,10 @@
 //
 //   node scripts/check-ci.mjs main --wait --timeout 900 --interval 30
 //
-// The timeout exists so a stuck or never-started workflow still fails instead
-// of hanging the shell forever.
+// The timeout exists so a stuck workflow still fails instead of hanging the
+// shell forever. A commit that never starts a workflow at all is not worth the
+// full timeout, so an empty run list only gets a short grace period for the API
+// to catch up; after that it fails as a commit with no runs.
 //
 // The token is read from GH_TOKEN, GITHUB_TOKEN or GITHUBFREEBUF, or from a
 // `.env` file in this repository or the directory above it (where this
@@ -61,6 +63,13 @@ function resolveCommit(ref) {
 }
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/**
+ * Seconds --wait gives a commit to produce its first run. Pushing through the
+ * API takes a moment to list the run, but a commit that triggers no workflow
+ * never grows one, and waiting the full timeout for it teaches nothing.
+ */
+const FIRST_RUN_GRACE = 60;
 
 /** `75` -> "1m15s", so timeouts read as dates rather than as raw seconds. */
 function duration(seconds) {
@@ -185,7 +194,8 @@ async function findRuns(repo, sha, token) {
  * gave up, so the caller reports the same way it reports a one-shot check.
  */
 async function waitForRuns(repo, sha, token, options) {
-  const deadline = Date.now() + options.timeout * 1000;
+  const start = Date.now();
+  const deadline = start + options.timeout * 1000;
   let seen = [];
   let failures = 0;
   for (;;) {
@@ -206,9 +216,19 @@ async function waitForRuns(repo, sha, token, options) {
     if (seen.length && !pending.length) return { runs: seen, timedOut: false };
 
     const left = Math.ceil((deadline - Date.now()) / 1000);
-    if (left <= 0) return { runs: seen, timedOut: true };
+    if (left <= 0) return { runs: seen, timedOut: true, gaveUp: 'timeout' };
 
-    const pause = Math.min(options.interval, left);
+    // No run has appeared yet. That is normal for a few seconds after a push,
+    // but a commit that starts nothing stays empty forever, so the grace
+    // period ends the wait instead of the full timeout. Skipped while polls
+    // are failing, because then the list being empty means nothing.
+    const waited = Math.round((Date.now() - start) / 1000);
+    if (!seen.length && !failures && waited >= FIRST_RUN_GRACE) {
+      return { runs: [], timedOut: true, gaveUp: 'no-runs' };
+    }
+
+    let pause = Math.min(options.interval, left);
+    if (!seen.length && !failures) pause = Math.min(pause, Math.max(1, FIRST_RUN_GRACE - waited));
     const state = seen.length
       ? `${seen.length - pending.length}/${seen.length} finished (${pending
           .map((run) => `${run.name} ${run.status}`)
@@ -244,11 +264,16 @@ async function main() {
     );
   }
   const repo = repository();
-  const { runs, timedOut } = options.wait
+  const { runs, timedOut, gaveUp } = options.wait
     ? await waitForRuns(repo, sha, token, options)
-    : { runs: await findRuns(repo, sha, token), timedOut: false };
+    : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
   if (!runs.length) {
-    const waited = timedOut ? ` after waiting ${duration(options.timeout)}` : '';
+    const waited =
+      gaveUp === 'no-runs'
+        ? ` after waiting ${duration(FIRST_RUN_GRACE)} for a first run`
+        : timedOut
+          ? ` after waiting ${duration(options.timeout)}`
+          : '';
     console.log(`FAIL no Actions runs found for ${sha} in ${repo}${waited}.`);
     console.log('     A push that never triggered a workflow is not a green build.');
     process.exitCode = 1;
