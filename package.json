@@ -24,6 +24,7 @@
     "check:versions": "node scripts/check-versions.mjs",
     "refresh:requesty": "node scripts/refresh-requesty.mjs",
     "test:cloud-tour": "node test/ui-cloud-tour.mjs",
-    "check:drift": "node scripts/check-release-drift.mjs"
+    "check:drift": "node scripts/check-release-drift.mjs",
+    "check:ci": "node scripts/check-ci.mjs"
   }
 }
