@@ -29,6 +29,12 @@
 // full timeout, so an empty run list only gets a short grace period for the API
 // to catch up; after that it fails as a commit with no runs.
 //
+// A commit that was never pushed never grows a run either, and waiting the
+// grace period for one only delays the actual fix. `git branch -r --contains`
+// answers that from the remote-tracking refs already in the clone, and the
+// commit endpoint settles the case of a clone that has not fetched lately, so
+// an unpushed commit is reported as such straight away.
+//
 // A run cancelled by concurrency is not a failed commit: `cancel-in-progress`
 // in test.yml and pages-smoke.yml stops it because a newer run of the same
 // workflow started on the same branch. Pushing twice in a minute would
@@ -176,7 +182,11 @@ async function get(path, token) {
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new Error(`GitHub API replied ${response.status} for ${path}${detail ? `: ${detail.slice(0, 120)}` : ''}`);
+    const error = new Error(
+      `GitHub API replied ${response.status} for ${path}${detail ? `: ${detail.slice(0, 120)}` : ''}`,
+    );
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
@@ -193,6 +203,50 @@ async function findRuns(repo, sha, token) {
 
   const recent = await get(`/repos/${repo}/actions/runs?per_page=100`, token);
   return recent.workflow_runs.filter((run) => String(run.head_sha ?? '').startsWith(sha.slice(0, 7)));
+}
+
+/**
+ * Whether a remote branch contains the commit according to the tracking refs
+ * already in this clone. Free and instant, but only as fresh as the last
+ * fetch, so a "no" is confirmed against the API before it is believed.
+ */
+function onRemoteBranch(sha) {
+  try {
+    return git(['branch', '--remotes', '--contains', sha]).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+const reachCache = new Map();
+
+/**
+ * Where a commit lives, so an empty run list can name the real problem:
+ * 'remote' when the repository has it (pushed, no workflow started),
+ * 'local-only' when it was never pushed, and 'unknown' when neither check can
+ * say, which keeps the old waiting behaviour rather than guessing.
+ */
+async function remoteReach(repo, sha, token) {
+  const key = `${repo}:${sha}`;
+  if (!reachCache.has(key)) {
+    let reach = 'unknown';
+    if (onRemoteBranch(sha)) {
+      reach = 'remote';
+    } else {
+      try {
+        await get(`/repos/${repo}/commits/${sha}`, token);
+        reach = 'remote';
+      } catch (error) {
+        if (error.status === 404 || error.status === 422) {
+          reach = 'local-only';
+        } else {
+          console.error(`warning: could not tell whether ${sha} was pushed: ${error.message}`);
+        }
+      }
+    }
+    reachCache.set(key, reach);
+  }
+  return reachCache.get(key);
 }
 
 /** True when `candidate` is a later run of the same workflow than `run`. */
@@ -250,6 +304,14 @@ async function waitForRuns(repo, sha, token, options) {
     const pending = seen.filter((run) => run.status !== 'completed');
     if (seen.length && !pending.length) return { runs: seen, timedOut: false };
 
+    // Nothing to wait for once the commit turns out never to have been pushed:
+    // the run can never appear, and the fix is to push it. Checked only while
+    // the run list is empty, and cached, so the first empty poll pays for it.
+    if (!seen.length && !failures) {
+      const reach = await remoteReach(repo, sha, token);
+      if (reach === 'local-only') return { runs: [], timedOut: false, gaveUp: 'unpushed' };
+    }
+
     const left = Math.ceil((deadline - Date.now()) / 1000);
     if (left <= 0) return { runs: seen, timedOut: true, gaveUp: 'timeout' };
 
@@ -303,6 +365,13 @@ async function main() {
     ? await waitForRuns(repo, sha, token, options)
     : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
   if (!runs.length) {
+    process.exitCode = 1;
+    const reach = gaveUp === 'unpushed' ? 'local-only' : await remoteReach(repo, sha, token);
+    if (reach === 'local-only') {
+      console.log(`FAIL ${sha} is not on any remote branch of ${repo}: push it before checking its runs.`);
+      console.log('     A commit that was never pushed has no Actions runs to wait for.');
+      return;
+    }
     const waited =
       gaveUp === 'no-runs'
         ? ` after waiting ${duration(FIRST_RUN_GRACE)} for a first run`
@@ -310,8 +379,11 @@ async function main() {
           ? ` after waiting ${duration(options.timeout)}`
           : '';
     console.log(`FAIL no Actions runs found for ${sha} in ${repo}${waited}.`);
-    console.log('     A push that never triggered a workflow is not a green build.');
-    process.exitCode = 1;
+    console.log(
+      reach === 'remote'
+        ? '     The commit is on the remote, so it started no workflow at all.'
+        : '     A push that never triggered a workflow is not a green build.',
+    );
     return;
   }
 
