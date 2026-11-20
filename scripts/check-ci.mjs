@@ -6,7 +6,13 @@
 // the API instead and exits non-zero, so a push loop can stop on its own:
 //
 //   node scripts/check-ci.mjs            # HEAD
-//   node scripts/check-ci.mjs 723112d3   # a specific commit
+//   node scripts/check-ci.mjs main       # a branch, tag, short sha or HEAD
+//
+// The argument is any revision git understands: it is resolved through
+// `git rev-parse <arg>^{commit}` before the API is asked. Passing a commit sha
+// is the raw case, but a branch name like `main` is what one actually types
+// after a push, and the API only matches full shas, so an unresolved `main`
+// would silently report no runs.
 //
 // A run that is still queued or running counts as not green, and the report
 // says so, so the answer is never "probably fine".
@@ -33,6 +39,15 @@ const API = 'https://api.github.com';
 
 function git(args) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+
+/** Resolves a branch, tag, short sha or `HEAD` to the full commit sha. */
+function resolveCommit(ref) {
+  try {
+    return git(['rev-parse', '--verify', `${ref}^{commit}`]);
+  } catch {
+    throw new Error(`cannot resolve ${JSON.stringify(ref)} to a commit in ${ROOT}`);
+  }
 }
 
 /** `KEY=value` lines from a dotenv file, ignoring comments and blank lines. */
@@ -126,7 +141,8 @@ async function printJobs(repo, run, token) {
 }
 
 async function main() {
-  const sha = process.argv.slice(2).find((arg) => !arg.startsWith('-')) || git(['rev-parse', 'HEAD']);
+  const ref = process.argv.slice(2).find((arg) => !arg.startsWith('-')) || 'HEAD';
+  const sha = resolveCommit(ref);
   const token = loadToken();
   if (!token) {
     throw new Error(
