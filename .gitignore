@@ -19,3 +19,4 @@ dist/
 *.pem
 *.key
 .wrangler/
+fonts/cache/
