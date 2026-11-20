@@ -74,7 +74,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const API = 'https://api.github.com';
@@ -115,7 +115,7 @@ function duration(seconds) {
  * revision. Seconds are used rather than minutes because a timeout is often
  * set just above the actual job time.
  */
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = { ref: 'HEAD', wait: false, timeout: 20 * 60, interval: 30, json: false };
   let sawRef = false;
   for (let i = 0; i < argv.length; i += 1) {
@@ -239,7 +239,7 @@ function rateLimitWindow(error, now = Date.now()) {
  * wrong repository answers 401/404 every time, so retrying it like a flaky
  * network call only buries the real message under identical warnings.
  */
-function retryable(error) {
+export function retryable(error) {
   const status = error?.status;
   if (!status) return true;
   if (status === 401 || status === 404 || status === 422) return false;
@@ -250,6 +250,17 @@ function retryable(error) {
 /** stdout normally; stderr when stdout is reserved for the JSON report. */
 function reporter(json) {
   return json ? (line = '') => console.error(line) : (line = '') => console.log(line);
+}
+
+/**
+ * What a finished report exits with: 0 green, 1 a verdict that is not green
+ * (red, timed out, no runs, never pushed), 2 nothing could be checked at all.
+ * A `--json` caller reads the same answer from `state`, so the code and the
+ * object come from one mapping instead of two that can drift.
+ */
+export function exitCode(report) {
+  if (report?.ok) return 0;
+  return report?.state === 'error' ? 2 : 1;
 }
 
 async function findRuns(repo, sha, token) {
@@ -314,7 +325,7 @@ async function remoteReach(repo, sha, token) {
 }
 
 /** True when `candidate` is a later run of the same workflow than `run`. */
-function startedLater(candidate, run) {
+export function startedLater(candidate, run) {
   if (candidate.id === run.id || candidate.workflow_id !== run.workflow_id) return false;
   const later = Date.parse(candidate.created_at ?? '');
   const earlier = Date.parse(run.created_at ?? '');
@@ -475,7 +486,7 @@ async function main() {
   /** Prints the JSON report and gives the verdict its exit code: 0 green, 1 not. */
   const finish = () => {
     if (options.json) console.log(JSON.stringify(report, null, 2));
-    process.exitCode = report.ok ? 0 : 1;
+    process.exitCode = exitCode(report);
   };
 
   if (!runs.length) {
@@ -576,16 +587,21 @@ async function main() {
   finish();
 }
 
-try {
-  await main();
-} catch (cause) {
-  const message = cause?.message || String(cause);
-  // Exit 2 means nothing was checked: the verdict in exit 1 is about CI, this is
-  // about the check itself (arguments, token, network), which a caller handles
-  // differently from a red build.
-  if (process.argv.includes('--json')) {
-    console.log(JSON.stringify({ ok: false, state: 'error', error: message }, null, 2));
+// lib/check-ci.test.mjs imports the helpers above, and importing them must not
+// run the check against GitHub as a side effect.
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  try {
+    await main();
+  } catch (cause) {
+    const message = cause?.message || String(cause);
+    // Exit 2 means nothing was checked: the verdict in exit 1 is about CI, this is
+    // about the check itself (arguments, token, network), which a caller handles
+    // differently from a red build.
+    const report = { ok: false, state: 'error', error: message };
+    if (process.argv.includes('--json')) {
+      console.log(JSON.stringify(report, null, 2));
+    }
+    console.error(`check-ci failed: ${message}`);
+    process.exitCode = exitCode(report);
   }
-  console.error(`check-ci failed: ${message}`);
-  process.exitCode = 2;
 }
