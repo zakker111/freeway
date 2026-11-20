@@ -7,6 +7,7 @@
 //
 //   node scripts/check-ci.mjs            # HEAD
 //   node scripts/check-ci.mjs main       # a branch, tag, short sha or HEAD
+//   node scripts/check-ci.mjs main --wait
 //
 // The argument is any revision git understands: it is resolved through
 // `git rev-parse <arg>^{commit}` before the API is asked. Passing a commit sha
@@ -15,7 +16,16 @@
 // would silently report no runs.
 //
 // A run that is still queued or running counts as not green, and the report
-// says so, so the answer is never "probably fine".
+// says so, so the answer is never "probably fine". `--wait` turns that
+// failure into waiting: it polls the commit's runs every 30s and reports once
+// they have all finished. Waiting for a run that is merely slow is the point,
+// and the one-shot report stays the default because that is what a push loop
+// wants. `--timeout` and `--interval` take seconds:
+//
+//   node scripts/check-ci.mjs main --wait --timeout 900 --interval 30
+//
+// The timeout exists so a stuck or never-started workflow still fails instead
+// of hanging the shell forever.
 //
 // The token is read from GH_TOKEN, GITHUB_TOKEN or GITHUBFREEBUF, or from a
 // `.env` file in this repository or the directory above it (where this
@@ -48,6 +58,49 @@ function resolveCommit(ref) {
   } catch {
     throw new Error(`cannot resolve ${JSON.stringify(ref)} to a commit in ${ROOT}`);
   }
+}
+
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/** `75` -> "1m15s", so timeouts read as dates rather than as raw seconds. */
+function duration(seconds) {
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole < 60) return `${whole}s`;
+  const minutes = Math.floor(whole / 60);
+  const rest = whole % 60;
+  return rest ? `${minutes}m${rest}s` : `${minutes}m`;
+}
+
+/**
+ * `--wait`, `--timeout <seconds>`, `--interval <seconds>` and one revision.
+ * Seconds are used rather than minutes because a timeout is often set just
+ * above the actual job time.
+ */
+function parseArgs(argv) {
+  const options = { ref: 'HEAD', wait: false, timeout: 20 * 60, interval: 30 };
+  let sawRef = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--wait' || arg === '-w') {
+      options.wait = true;
+      continue;
+    }
+    const flag = /^--(timeout|interval)(?:=(.*))?$/.exec(arg);
+    if (flag) {
+      const raw = flag[2] ?? argv[(i += 1)];
+      const seconds = Number(raw);
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        throw new Error(`--${flag[1]} wants a positive number of seconds, got ${JSON.stringify(raw)}`);
+      }
+      options[flag[1]] = seconds;
+      continue;
+    }
+    if (arg.startsWith('-')) throw new Error(`unknown option ${arg}`);
+    if (sawRef) throw new Error(`only one revision can be checked, got ${JSON.stringify(options.ref)} and ${JSON.stringify(arg)}`);
+    options.ref = arg;
+    sawRef = true;
+  }
+  return options;
 }
 
 /** `KEY=value` lines from a dotenv file, ignoring comments and blank lines. */
@@ -126,6 +179,46 @@ async function findRuns(repo, sha, token) {
   return recent.workflow_runs.filter((run) => String(run.head_sha ?? '').startsWith(sha.slice(0, 7)));
 }
 
+/**
+ * Polls a commit's runs until every one of them has finished, or until the
+ * timeout expires. Returns whatever it last saw either way, plus whether it
+ * gave up, so the caller reports the same way it reports a one-shot check.
+ */
+async function waitForRuns(repo, sha, token, options) {
+  const deadline = Date.now() + options.timeout * 1000;
+  let seen = [];
+  let failures = 0;
+  for (;;) {
+    let runs = null;
+    try {
+      runs = await findRuns(repo, sha, token);
+      failures = 0;
+    } catch (error) {
+      // One flaky poll should not throw away a wait that may be an hour long,
+      // but repeating the same error forever is hiding a real problem.
+      failures += 1;
+      if (failures >= 5) throw error;
+      console.error(`warning: ${error.message}`);
+    }
+    if (runs) seen = runs;
+
+    const pending = seen.filter((run) => run.status !== 'completed');
+    if (seen.length && !pending.length) return { runs: seen, timedOut: false };
+
+    const left = Math.ceil((deadline - Date.now()) / 1000);
+    if (left <= 0) return { runs: seen, timedOut: true };
+
+    const pause = Math.min(options.interval, left);
+    const state = seen.length
+      ? `${seen.length - pending.length}/${seen.length} finished (${pending
+          .map((run) => `${run.name} ${run.status}`)
+          .join(', ')})`
+      : 'no runs reported yet';
+    console.log(`waiting: ${state} — checking again in ${duration(pause)}`);
+    await sleep(pause * 1000);
+  }
+}
+
 async function printJobs(repo, run, token) {
   let jobs;
   try {
@@ -141,8 +234,8 @@ async function printJobs(repo, run, token) {
 }
 
 async function main() {
-  const ref = process.argv.slice(2).find((arg) => !arg.startsWith('-')) || 'HEAD';
-  const sha = resolveCommit(ref);
+  const options = parseArgs(process.argv.slice(2));
+  const sha = resolveCommit(options.ref);
   const token = loadToken();
   if (!token) {
     throw new Error(
@@ -151,9 +244,12 @@ async function main() {
     );
   }
   const repo = repository();
-  const runs = await findRuns(repo, sha, token);
+  const { runs, timedOut } = options.wait
+    ? await waitForRuns(repo, sha, token, options)
+    : { runs: await findRuns(repo, sha, token), timedOut: false };
   if (!runs.length) {
-    console.log(`FAIL no Actions runs found for ${sha} in ${repo}.`);
+    const waited = timedOut ? ` after waiting ${duration(options.timeout)}` : '';
+    console.log(`FAIL no Actions runs found for ${sha} in ${repo}${waited}.`);
     console.log('     A push that never triggered a workflow is not a green build.');
     process.exitCode = 1;
     return;
@@ -172,8 +268,11 @@ async function main() {
 
   if (red) {
     console.log(`\nFAIL ${red} of ${runs.length} run(s) for ${sha} are not green.`);
-    const pending = runs.some((run) => run.status !== 'completed');
-    if (pending) console.log('     Some runs are still in progress: re-run this check when they finish.');
+    if (timedOut) {
+      console.log(`     Still not finished after ${duration(options.timeout)}: try a longer --timeout.`);
+    } else if (runs.some((run) => run.status !== 'completed')) {
+      console.log('     Some runs are still in progress: re-run with --wait to wait for them.');
+    }
     process.exitCode = 1;
     return;
   }
