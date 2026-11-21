@@ -1,5 +1,7 @@
 // A fetch mock for lib/check-ci-cli.test.mjs. That test runs check-ci.mjs as a
 // child process, so `--import` installs this before the script's first request.
+// It sits outside lib/ because test/cli.mjs requires every lib module to be
+// inlined in the single-file build, and this is not part of the app.
 // MOCK_SCENARIO picks what the API answers, and MOCK_SHA says which commit is
 // under test — every other head_sha (the parent commit) answers empty, so the
 // coverage check stays out of the way.
