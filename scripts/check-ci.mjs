@@ -50,10 +50,18 @@
 // reported as SUPERSEDED along with the run that replaced it. A cancellation
 // with no newer run behind it is still a failure.
 //
+// A push can also start fewer workflows than it should: a workflow whose `on:`
+// block no longer matches the push simply does not run, and the runs that did
+// start are still green. So a commit is also measured against the commit before
+// it: whatever ran there and still has a workflow file here has to appear here
+// too. A deleted workflow file is retired on purpose and is not expected, which
+// is what makes removing one possible at all.
+//
 // A push or release script should not have to parse that prose. `--json`
 // prints one object on stdout (progress and warnings move to stderr) and the
 // exit code says what kind of answer this is: 0 green, 1 a verdict that is not
-// green (red, timed out, no runs, never pushed), 2 nothing could be checked at
+// green (red, timed out, no runs, never pushed, a workflow that never started),
+// 2 nothing could be checked at
 // all — bad arguments, a missing token, or an API failure such as 401. An empty
 // run list whose push cannot be confirmed belongs to that second group too: "no
 // workflow started" is only a verdict once the commit is known to be on the
@@ -407,6 +415,53 @@ async function replacingRun(repo, run, token, cache) {
 }
 
 /**
+ * The workflows in `beforeRuns` that `runs` lacks, matched by the workflow file
+ * a run names rather than by display name, and ignoring anything whose file is
+ * not in `files` — the deletion that retires a workflow.
+ */
+export function missingWorkflows(beforeRuns, runs, files) {
+  const expected = new Map();
+  for (const run of beforeRuns) if (run.path) expected.set(run.path, run.name ?? run.path);
+  const present = new Set(runs.map((run) => run.path).filter(Boolean));
+  const kept = new Set(files);
+  return [...expected]
+    .filter(([path]) => kept.has(path) && !present.has(path))
+    .map(([path, name]) => ({ name, path }));
+}
+
+/**
+ * Which workflows this commit should have started but did not: the ones that
+ * ran for the commit before it and whose file is still here. A workflow that
+ * stops triggering keeps its file, so it shows up; one that was deleted is
+ * retired on purpose and is not expected. Best effort: when the parent or its
+ * runs cannot be read, the check says nothing rather than failing a commit for
+ * a question it could not answer. A workflow holding a `paths:` filter can skip
+ * a commit by design, so adding one means revisiting this comparison.
+ */
+async function expectedWorkflows(repo, sha, runs, token) {
+  let parent;
+  try {
+    parent = git(['rev-parse', '--verify', `${sha}^`]);
+  } catch {
+    return { parent: null, missing: [] }; // a root commit, or no parent in this clone
+  }
+  let before;
+  try {
+    before = await findRuns(repo, parent, token);
+  } catch (error) {
+    console.error(`warning: could not read the runs of ${parent.slice(0, 7)}: ${error.message}`);
+    return { parent, missing: [] };
+  }
+  let files;
+  try {
+    files = git(['ls-tree', '--name-only', sha, '.github/workflows/']).split('\n').filter(Boolean);
+  } catch {
+    return { parent, missing: [] };
+  }
+  return { parent, missing: missingWorkflows(before, runs, files) };
+}
+
+/**
  * Polls a commit's runs until every one of them has finished, or until the
  * timeout expires. Returns whatever it last saw either way, plus whether it
  * gave up, so the caller reports the same way it reports a one-shot check.
@@ -528,7 +583,8 @@ async function main() {
     : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
 
   // The same verdict as one object, for a push or release script. `state` is the
-  // short answer and `runs` the detail behind it; the prose below is for people.
+  // short answer, `runs` the detail behind it and `missing` the workflows the
+  // push should have started but did not; the prose below is for people.
   const report = {
     ok: false,
     state: 'red',
@@ -539,6 +595,7 @@ async function main() {
     timedOut: Boolean(timedOut),
     counts: { total: runs.length, green: 0, superseded: 0, red: 0 },
     runs: [],
+    missing: [],
   };
   /** Prints the JSON report and gives the verdict its exit code: 0 green, 1 not. */
   const finish = () => {
@@ -580,6 +637,24 @@ async function main() {
         ? '     The commit is on the remote, so it started no workflow at all.'
         : '     The wait saw no runs and could not confirm the commit was pushed.',
     );
+    finish();
+    return;
+  }
+
+  // A workflow that silently stopped triggering leaves the runs that did start
+  // green, so the commit is also measured against the one before it. Held until
+  // every run has finished: while one is still going the report already says
+  // so, and a run that appears late would make the answer premature.
+  const settled = runs.every((run) => run.status === 'completed');
+  const { parent, missing } = settled
+    ? await expectedWorkflows(repo, sha, runs, token)
+    : { parent: null, missing: [] };
+  report.missing = missing;
+  if (missing.length) {
+    report.state = 'red';
+    say(`FAIL ${missing.length} workflow(s) that ran for ${parent.slice(0, 7)} started no run for ${sha}:`);
+    for (const workflow of missing) say(`     ${workflow.name} (${workflow.path})`);
+    say('     A workflow that silently stops triggering is not a green build.');
     finish();
     return;
   }
