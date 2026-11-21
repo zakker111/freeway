@@ -104,6 +104,13 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
  */
 const FIRST_RUN_GRACE = 60;
 
+/**
+ * How many polls in a row --wait lets fail before it reports the check itself
+ * as broken instead of a verdict about CI. One flaky poll should not throw away
+ * a wait that may be an hour long; five in a row is no longer flaky.
+ */
+export const MAX_POLL_FAILURES = 5;
+
 /** `75` -> "1m15s", so timeouts read as dates rather than as raw seconds. */
 function duration(seconds) {
   const whole = Math.max(0, Math.round(seconds));
@@ -111,6 +118,49 @@ function duration(seconds) {
   const minutes = Math.floor(whole / 60);
   const rest = whole % 60;
   return rest ? `${minutes}m${rest}s` : `${minutes}m`;
+}
+
+/**
+ * What a --wait loop does after one poll, decided from what that poll saw
+ * rather than from any I/O, so every boundary is pinned in tests. `{ done }`
+ * ends the wait: 'green' (every run finished), 'unpushed' (the commit is not on
+ * the remote), 'error' (the poll failure budget is spent), 'timeout' (--timeout
+ * is gone) or 'no-runs' (the first-run grace passed with nothing started).
+ * Otherwise `{ pauseMs }` is how long to sleep before polling again.
+ */
+export function nextPoll({
+  runs = [],
+  failures = 0,
+  reach = 'unknown',
+  elapsedMs = 0,
+  timeout,
+  interval,
+}) {
+  const pending = runs.filter((run) => run.status !== 'completed');
+  if (runs.length && !pending.length) return { done: 'green' };
+
+  // An empty run list is evidence only when the polls answered: while they are
+  // failing, "never pushed" and "started nothing" are both unknown.
+  if (!runs.length && !failures && reach === 'local-only') return { done: 'unpushed' };
+
+  const left = Math.ceil((timeout * 1000 - elapsedMs) / 1000);
+
+  // Checked before the clock because a poll that spends the budget throws its
+  // own error, which says what failed; a timeout would hide that.
+  if (failures >= MAX_POLL_FAILURES) return { done: 'error' };
+  if (left <= 0) return { done: 'timeout' };
+
+  // No run has appeared yet. That is normal for a few seconds after a push, but
+  // a commit that starts nothing stays empty forever, so the grace period ends
+  // the wait instead of the full timeout.
+  const waited = Math.round(elapsedMs / 1000);
+  if (!runs.length && !failures && waited >= FIRST_RUN_GRACE) return { done: 'no-runs' };
+
+  let pause = Math.min(interval, left);
+  // With no run yet, wake for the end of the grace rather than the next
+  // interval: the answer "this commit starts nothing" is known by then.
+  if (!runs.length && !failures) pause = Math.min(pause, Math.max(1, FIRST_RUN_GRACE - waited));
+  return { pauseMs: pause * 1000 };
 }
 
 /**
@@ -360,12 +410,15 @@ async function replacingRun(repo, run, token, cache) {
  * Polls a commit's runs until every one of them has finished, or until the
  * timeout expires. Returns whatever it last saw either way, plus whether it
  * gave up, so the caller reports the same way it reports a one-shot check.
+ * What each poll decides is nextPoll()'s job; this supplies the clock, the
+ * requests and the sleeping.
  */
 async function waitForRuns(repo, sha, token, options, say) {
   const start = Date.now();
   const deadline = start + options.timeout * 1000;
   let seen = [];
   let failures = 0;
+  let lastError = null;
   for (;;) {
     let runs = null;
     try {
@@ -399,44 +452,44 @@ async function waitForRuns(repo, sha, token, options, say) {
         await sleep(window);
         continue;
       }
+      lastError = error;
       failures += 1;
-      if (failures >= 5) throw error;
-      console.error(`warning: ${error.message}`);
+      // The failure budget belongs to nextPoll(), so the warning is only for
+      // the polls that still have one left.
+      if (failures < MAX_POLL_FAILURES) console.error(`warning: ${error.message}`);
     }
     if (runs) seen = runs;
 
-    const pending = seen.filter((run) => run.status !== 'completed');
-    if (seen.length && !pending.length) return { runs: seen, timedOut: false };
-
     // Nothing to wait for once the commit turns out never to have been pushed:
-    // the run can never appear, and the fix is to push it. Checked only while
-    // the run list is empty, and cached, so the first empty poll pays for it.
-    if (!seen.length && !failures) {
-      const reach = await remoteReach(repo, sha, token);
-      if (reach === 'local-only') return { runs: [], timedOut: false, gaveUp: 'unpushed' };
+    // the run can never appear, and the fix is to push it. Asked only while the
+    // run list is empty and the polls are answering, and cached, so the first
+    // empty poll pays for it.
+    const reach = !seen.length && !failures ? await remoteReach(repo, sha, token) : 'unknown';
+    const next = nextPoll({
+      runs: seen,
+      failures,
+      reach,
+      elapsedMs: Date.now() - start,
+      timeout: options.timeout,
+      interval: options.interval,
+    });
+    if (next.done === 'error') throw lastError;
+    if (next.done) {
+      return {
+        runs: seen,
+        timedOut: next.done === 'timeout' || next.done === 'no-runs',
+        gaveUp: next.done === 'green' ? null : next.done,
+      };
     }
 
-    const left = Math.ceil((deadline - Date.now()) / 1000);
-    if (left <= 0) return { runs: seen, timedOut: true, gaveUp: 'timeout' };
-
-    // No run has appeared yet. That is normal for a few seconds after a push,
-    // but a commit that starts nothing stays empty forever, so the grace
-    // period ends the wait instead of the full timeout. Skipped while polls
-    // are failing, because then the list being empty means nothing.
-    const waited = Math.round((Date.now() - start) / 1000);
-    if (!seen.length && !failures && waited >= FIRST_RUN_GRACE) {
-      return { runs: [], timedOut: true, gaveUp: 'no-runs' };
-    }
-
-    let pause = Math.min(options.interval, left);
-    if (!seen.length && !failures) pause = Math.min(pause, Math.max(1, FIRST_RUN_GRACE - waited));
+    const pending = seen.filter((run) => run.status !== 'completed');
     const state = seen.length
       ? `${seen.length - pending.length}/${seen.length} finished (${pending
           .map((run) => `${run.name} ${run.status}`)
           .join(', ')})`
       : 'no runs reported yet';
-    say(`waiting: ${state} — checking again in ${duration(pause)}`);
-    await sleep(pause * 1000);
+    say(`waiting: ${state} — checking again in ${duration(next.pauseMs / 1000)}`);
+    await sleep(next.pauseMs);
   }
 }
 
