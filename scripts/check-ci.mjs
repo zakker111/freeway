@@ -37,6 +37,11 @@
 // the timeout cannot produce an answer, so the check stops there and says which
 // window it needs (exit 2) rather than reporting a timeout against CI.
 //
+// The commit lookup an empty run list needs waits out a window the same way. A
+// throttle there is not an answer, and treating it as one would report a
+// perfectly good commit as "nothing could be checked": so the lookup sleeps
+// for the window GitHub named and asks again, bounded by the same --timeout.
+//
 // A commit that was never pushed never grows a run either, and waiting the
 // grace period for one only delays the actual fix. `git branch -r --contains`
 // answers that from the remote-tracking refs already in the clone, and the
@@ -308,6 +313,34 @@ export function retryable(error) {
   return Boolean(error.rateLimited);
 }
 
+/**
+ * Sleeps out a rate limit GitHub named, for the poll loop and the commit lookup
+ * alike, and returns true once the window is open. A window reaching past the
+ * deadline is not worth sleeping: it can only end as "nothing could be checked",
+ * so it is thrown straight away with the window it needs. Returns false when the
+ * error names no window, leaving the caller's own retry rules in charge.
+ */
+async function waitOutRateLimit(error, { deadline, timeout, interval, say }) {
+  const window = rateLimitWindow(error);
+  if (window === null) return false;
+  const leftMs = deadline - Date.now();
+  if (window >= leftMs) {
+    throw new Error(
+      `rate limited: GitHub asks to wait ${duration(window / 1000)}, ` +
+        `which outlasts the --timeout of ${duration(timeout)}` +
+        (leftMs > 0 ? ` (${duration(leftMs / 1000)} left)` : '') +
+        '; try again later or raise --timeout',
+    );
+  }
+  say(`rate limited: ${error.message}`);
+  say(
+    `waiting: sleeping ${duration(window / 1000)} for the rate limit ` +
+      `(not the ${duration(interval)} interval)`,
+  );
+  await sleep(window);
+  return true;
+}
+
 /** stdout normally; stderr when stdout is reserved for the JSON report. */
 function reporter(json) {
   return json ? (line = '') => console.error(line) : (line = '') => console.log(line);
@@ -362,22 +395,30 @@ const reachCache = new Map();
  * 'local-only' when it was never pushed, and 'unknown' when neither check can
  * say, which keeps the old waiting behaviour rather than guessing; a report
  * built on that 'unknown' fails as a check that could not run, not as no runs.
+ * A throttle on the commit endpoint is not one of those answers: its window is
+ * waited out through `pace`, the deadline the caller's timeout sets, so a rate
+ * limit does not turn a waiting check into an exit-2 verdict.
  */
-async function remoteReach(repo, sha, token) {
+async function remoteReach(repo, sha, token, pace) {
   const key = `${repo}:${sha}`;
   if (!reachCache.has(key)) {
     let reach = 'unknown';
     if (onRemoteBranch(sha)) {
       reach = 'remote';
     } else {
-      try {
-        await get(`/repos/${repo}/commits/${sha}`, token);
-        reach = 'remote';
-      } catch (error) {
-        if (error.status === 404 || error.status === 422) {
-          reach = 'local-only';
-        } else {
+      for (;;) {
+        try {
+          await get(`/repos/${repo}/commits/${sha}`, token);
+          reach = 'remote';
+          break;
+        } catch (error) {
+          if (error.status === 404 || error.status === 422) {
+            reach = 'local-only';
+            break;
+          }
+          if (await waitOutRateLimit(error, pace)) continue;
           console.error(`warning: could not tell whether ${sha} was pushed: ${error.message}`);
+          break;
         }
       }
     }
@@ -484,29 +525,10 @@ async function waitForRuns(repo, sha, token, options, say) {
       // but a 401 will answer the same way every time, so it is reported at
       // once; only errors another attempt could fix are retried at all.
       if (!retryable(error)) throw error;
-      const window = rateLimitWindow(error);
-      if (window !== null) {
-        // GitHub named the window, so retrying at --interval before it opens
-        // only earns another rejection and counts against the failure budget.
-        // Sleep for as long as it asked, unless that reaches past the timeout:
-        // sleeping it out would end as a timeout the API caused, not CI.
-        const leftMs = deadline - Date.now();
-        if (window >= leftMs) {
-          throw new Error(
-            `rate limited: GitHub asks to wait ${duration(window / 1000)}, ` +
-              `which outlasts the --timeout of ${duration(options.timeout)}` +
-              (leftMs > 0 ? ` (${duration(leftMs / 1000)} left)` : '') +
-              '; try again later or raise --timeout',
-          );
-        }
-        say(`rate limited: ${error.message}`);
-        say(
-          `waiting: sleeping ${duration(window / 1000)} for the rate limit ` +
-            `(not the ${duration(options.interval)} interval)`,
-        );
-        await sleep(window);
-        continue;
-      }
+      // GitHub named the window, so retrying at --interval before it opens only
+      // earns another rejection and counts against the failure budget. Sleeping
+      // is shared with the commit lookup below, which needs the same rule.
+      if (await waitOutRateLimit(error, { ...options, deadline, say })) continue;
       lastError = error;
       failures += 1;
       // The failure budget belongs to nextPoll(), so the warning is only for
@@ -519,7 +541,9 @@ async function waitForRuns(repo, sha, token, options, say) {
     // the run can never appear, and the fix is to push it. Asked only while the
     // run list is empty and the polls are answering, and cached, so the first
     // empty poll pays for it.
-    const reach = !seen.length && !failures ? await remoteReach(repo, sha, token) : 'unknown';
+    const reach = !seen.length && !failures
+      ? await remoteReach(repo, sha, token, { ...options, deadline, say })
+      : 'unknown';
     const next = nextPoll({
       runs: seen,
       failures,
@@ -578,6 +602,9 @@ async function main() {
     );
   }
   const repo = repository();
+  // The commit lookup an empty run list needs may have to wait out a rate limit;
+  // --timeout bounds that the same way it bounds --wait.
+  const deadline = Date.now() + options.timeout * 1000;
   const { runs, timedOut, gaveUp } = options.wait
     ? await waitForRuns(repo, sha, token, options, say)
     : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
@@ -604,7 +631,8 @@ async function main() {
   };
 
   if (!runs.length) {
-    const reach = gaveUp === 'unpushed' ? 'local-only' : await remoteReach(repo, sha, token);
+    const reach =
+      gaveUp === 'unpushed' ? 'local-only' : await remoteReach(repo, sha, token, { ...options, deadline, say });
     if (reach === 'local-only') {
       report.state = 'unpushed';
       say(`FAIL ${sha} is not on any remote branch of ${repo}: push it before checking its runs.`);
