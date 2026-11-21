@@ -227,7 +227,7 @@ async function get(path, token) {
  * error does not name a window. `retry-after` is what a secondary limit sends;
  * an exhausted hourly quota instead sends the epoch it resets at.
  */
-function rateLimitWindow(error, now = Date.now()) {
+export function rateLimitWindow(error, now = Date.now()) {
   if (!error?.rateLimited) return null;
   if (error.retryAfter) return error.retryAfter * 1000;
   if (error.resetAt) return Math.max(0, error.resetAt * 1000 - now) + 1000;
