@@ -54,8 +54,11 @@
 // prints one object on stdout (progress and warnings move to stderr) and the
 // exit code says what kind of answer this is: 0 green, 1 a verdict that is not
 // green (red, timed out, no runs, never pushed), 2 nothing could be checked at
-// all — bad arguments, a missing token, or an API failure such as 401. An auth
-// failure is answered once instead of being retried as a flaky poll:
+// all — bad arguments, a missing token, or an API failure such as 401. An empty
+// run list whose push cannot be confirmed belongs to that second group too: "no
+// workflow started" is only a verdict once the commit is known to be on the
+// remote, so an unreadable lookup is not reported as a commit with no runs. An
+// auth failure is answered once instead of being retried as a flaky poll:
 //
 //   node scripts/check-ci.mjs main --wait --json
 //
@@ -299,7 +302,8 @@ const reachCache = new Map();
  * Where a commit lives, so an empty run list can name the real problem:
  * 'remote' when the repository has it (pushed, no workflow started),
  * 'local-only' when it was never pushed, and 'unknown' when neither check can
- * say, which keeps the old waiting behaviour rather than guessing.
+ * say, which keeps the old waiting behaviour rather than guessing; a report
+ * built on that 'unknown' fails as a check that could not run, not as no runs.
  */
 async function remoteReach(repo, sha, token) {
   const key = `${repo}:${sha}`;
@@ -498,7 +502,19 @@ async function main() {
       finish();
       return;
     }
-    report.state = gaveUp === 'timeout' ? 'timeout' : 'no-runs';
+    // "No workflow started" is a verdict about CI only if the commit is on the
+    // remote. When neither the remote-tracking refs nor the commit endpoint
+    // could say, the empty list proves nothing, so this is a check that could
+    // not run (exit 2) — reported like the rate limit that outlasts --timeout.
+    // A wait that ran out of time still reports a timeout, because watching the
+    // whole window is an answer about CI whatever kept the runs away.
+    if (reach === 'unknown' && !timedOut) {
+      throw new Error(
+        `could not tell whether ${sha} was pushed to ${repo}, so an empty run list is no verdict: ` +
+          'the remote-tracking refs and the commit endpoint both failed',
+      );
+    }
+    report.state = timedOut ? 'timeout' : 'no-runs';
     const waited =
       gaveUp === 'no-runs'
         ? ` after waiting ${duration(FIRST_RUN_GRACE)} for a first run`
@@ -509,7 +525,7 @@ async function main() {
     say(
       reach === 'remote'
         ? '     The commit is on the remote, so it started no workflow at all.'
-        : '     A push that never triggered a workflow is not a green build.',
+        : '     The wait saw no runs and could not confirm the commit was pushed.',
     );
     finish();
     return;
