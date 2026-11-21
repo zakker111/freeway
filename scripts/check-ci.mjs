@@ -192,7 +192,7 @@ function repository() {
   return match[1];
 }
 
-async function get(path, token) {
+export async function get(path, token) {
   const response = await fetch(`${API}${path}`, {
     headers: {
       accept: 'application/vnd.github+json',
