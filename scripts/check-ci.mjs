@@ -235,7 +235,7 @@ export function parseArgs(argv) {
 }
 
 /** `KEY=value` lines from a dotenv file, ignoring comments and blank lines. */
-function readEnvFile(path) {
+export function readEnvFile(path) {
   let text;
   try {
     text = readFileSync(path, 'utf8');
@@ -261,10 +261,18 @@ function readEnvFile(path) {
   return values;
 }
 
-function loadToken() {
-  const fromEnvironment = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.GITHUBFREEBUF;
+/**
+ * The token: the environment wins, then a `.env` in this repository, then one
+ * in the directory above it. `env` and `paths` are arguments so the precedence
+ * can be pinned without reading the real environment or touching a real file.
+ */
+export function loadToken({
+  env = process.env,
+  paths = [join(ROOT, '.env'), resolve(ROOT, '..', '.env')],
+} = {}) {
+  const fromEnvironment = env.GH_TOKEN || env.GITHUB_TOKEN || env.GITHUBFREEBUF;
   if (fromEnvironment) return fromEnvironment.trim();
-  for (const path of [join(ROOT, '.env'), resolve(ROOT, '..', '.env')]) {
+  for (const path of paths) {
     const values = readEnvFile(path);
     const token = values.GH_TOKEN || values.GITHUB_TOKEN || values.GITHUBFREEBUF;
     if (token) return token;
@@ -272,12 +280,22 @@ function loadToken() {
   return '';
 }
 
-function repository() {
-  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
-  const url = git(['remote', 'get-url', 'origin']);
+/** `owner/repo` from a GitHub remote URL, or null when the URL is not one. */
+export function repositoryFrom(url) {
   const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(url);
-  if (!match) throw new Error(`cannot read owner/repo from origin (${url})`);
-  return match[1];
+  return match ? match[1] : null;
+}
+
+/**
+ * The repository to ask about: GITHUB_REPOSITORY when CI sets it, else origin.
+ * The remote URL is a parameter for the same reason as the token is.
+ */
+export function repository({ env = process.env, remoteUrl = () => git(['remote', 'get-url', 'origin']) } = {}) {
+  if (env.GITHUB_REPOSITORY) return env.GITHUB_REPOSITORY;
+  const url = remoteUrl();
+  const found = repositoryFrom(url);
+  if (!found) throw new Error(`cannot read owner/repo from origin (${url})`);
+  return found;
 }
 
 export async function get(path, token) {
