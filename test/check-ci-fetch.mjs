@@ -46,6 +46,9 @@ const runsFor = {
   green: [run()],
   red: [run({ id: 101, conclusion: 'failure', html_url: 'https://github.com/zakker111/freeway/actions/runs/101' })],
   superseded: [cancelled],
+  // The cancellation is real, but the branch list that would explain it is
+  // rejected, so nothing can say a newer run replaced it.
+  'cancelled-throttled': [cancelled],
   unpushed: [],
   // Still going, so a --wait that runs out of time leaves it red.
   waiting: [
@@ -122,7 +125,16 @@ globalThis.fetch = async (url) => {
   }
 
   // The branch's runs, fetched only to explain a concurrency cancellation.
+  // Throttling it is the one answer that must not be mistaken for a newer run:
+  // the cancellation stays red and the reason it could not be explained is a
+  // warning.
   if (path.includes('branch=')) {
+    if (scenario === 'cancelled-throttled') {
+      return Response.json(
+        { message: 'You have exceeded a secondary rate limit' },
+        { status: 403, headers: { 'retry-after': '1', 'x-ratelimit-remaining': '0' } },
+      );
+    }
     return json({ total_count: 2, workflow_runs: [replacing, cancelled] });
   }
 
