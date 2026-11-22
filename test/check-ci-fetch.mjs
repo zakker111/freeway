@@ -65,7 +65,18 @@ const runsFor = {
   'parent-dispatch': [run()],
   // Tests starts at once; Pages smoke only appears on the second poll.
   'late-workflow': [run()],
+  // GitHub answers the head_sha query with nothing for this commit, though its
+  // runs are in the recent list the fallback scans.
+  fallback: [],
 };
+
+// A run of another commit, close enough in the list to be tempting and far
+// enough in the sha that the prefix filter must drop it.
+const decoy = run({
+  id: 900,
+  head_sha: 'dec0de0000000000000000000000000000000000',
+  html_url: 'https://github.com/zakker111/freeway/actions/runs/900',
+});
 
 // A workflow that ran for the parent and starts a little after Tests on the
 // next push: the push should start it too, just not yet.
@@ -160,9 +171,14 @@ globalThis.fetch = async (url) => {
     return json({ total_count: 2, workflow_runs: [replacing, cancelled] });
   }
 
-  // The recent-runs fallback, which is not filtered by head_sha here.
+  // The recent-runs fallback: the unfiltered list, from which the script keeps
+  // only the runs whose head_sha starts with the commit it was asked about.
   const asked = new URL(href).searchParams.get('head_sha');
-  if (!asked) return json({ total_count: 0, workflow_runs: [] });
+  if (!asked) {
+    return scenario === 'fallback'
+      ? json({ total_count: 2, workflow_runs: [decoy, run()] })
+      : json({ total_count: 0, workflow_runs: [] });
+  }
   // The second workflow starts only after the first has finished, which is the
   // window where a check watching just the runs it has seen calls the commit
   // green and then finds a workflow missing.
