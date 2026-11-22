@@ -60,6 +60,9 @@ const runsFor = {
     }),
   ],
   missing: [run()],
+  // The push under test is green on its own; the parent's extra run must not
+  // be counted against it.
+  'parent-dispatch': [run()],
 };
 
 // What ran for the parent commit: a workflow that still has its file here, so
@@ -71,6 +74,17 @@ const parentRuns = {
       name: 'Pages smoke',
       path: '.github/workflows/pages-smoke.yml',
       html_url: 'https://github.com/zakker111/freeway/actions/runs/110',
+    }),
+  ],
+  // Someone dispatched a release workflow by hand on the parent commit. A push
+  // cannot start it, so the push is not measured against it.
+  'parent-dispatch': [
+    run({
+      id: 111,
+      name: 'Verify release',
+      event: 'workflow_dispatch',
+      path: '.github/workflows/verify-release.yml',
+      html_url: 'https://github.com/zakker111/freeway/actions/runs/111',
     }),
   ],
 };

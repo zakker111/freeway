@@ -461,11 +461,18 @@ async function replacingRun(repo, run, token, cache) {
 /**
  * The workflows in `beforeRuns` that `runs` lacks, matched by the workflow file
  * a run names rather than by display name, and ignoring anything whose file is
- * not in `files` — the deletion that retires a workflow.
+ * not in `files` — the deletion that retires a workflow. Only a run of an event
+ * this commit ran itself sets an expectation: someone dispatching a release
+ * workflow by hand on the parent says nothing about a push, which cannot start
+ * it, and a `schedule` run of it says nothing either.
  */
 export function missingWorkflows(beforeRuns, runs, files) {
+  const events = new Set(runs.map((run) => run.event).filter(Boolean));
   const expected = new Map();
-  for (const run of beforeRuns) if (run.path) expected.set(run.path, run.name ?? run.path);
+  for (const run of beforeRuns) {
+    if (!run.path || !run.event || !events.has(run.event)) continue;
+    expected.set(run.path, run.name ?? run.path);
+  }
   const present = new Set(runs.map((run) => run.path).filter(Boolean));
   const kept = new Set(files);
   return [...expected]
@@ -475,12 +482,14 @@ export function missingWorkflows(beforeRuns, runs, files) {
 
 /**
  * Which workflows this commit should have started but did not: the ones that
- * ran for the commit before it and whose file is still here. A workflow that
- * stops triggering keeps its file, so it shows up; one that was deleted is
- * retired on purpose and is not expected. Best effort: when the parent or its
- * runs cannot be read, the check says nothing rather than failing a commit for
- * a question it could not answer. A workflow holding a `paths:` filter can skip
- * a commit by design, so adding one means revisiting this comparison.
+ * ran for the commit before it on the same event, and whose file is still here.
+ * A workflow that stops triggering keeps its file, so it shows up; one that was
+ * deleted is retired on purpose and is not expected, and a run the parent only
+ * got because someone dispatched it by hand cannot be expected of a push. Best
+ * effort: when the parent or its runs cannot be read, the check says nothing
+ * rather than failing a commit for a question it could not answer. A workflow
+ * holding a `paths:` filter can skip a commit by design, so adding one means
+ * revisiting this comparison.
  */
 async function expectedWorkflows(repo, sha, runs, token) {
   let parent;
