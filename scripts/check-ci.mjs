@@ -71,7 +71,10 @@
 // run list whose push cannot be confirmed belongs to that second group too: "no
 // workflow started" is only a verdict once the commit is known to be on the
 // remote, so an unreadable lookup is not reported as a commit with no runs. An
-// auth failure is answered once instead of being retried as a flaky poll:
+// auth failure is answered once instead of being retried as a flaky poll.
+// `runs` and `counts` always describe what the push did start, and `missing`
+// names what it should have started and did not, so a caller that reads the
+// counts is never told nothing ran when a green run did:
 //
 //   node scripts/check-ci.mjs main --wait --json
 //
@@ -678,15 +681,11 @@ async function main() {
     ? await expectedWorkflows(repo, sha, runs, token)
     : { parent: null, missing: [] };
   report.missing = missing;
-  if (missing.length) {
-    report.state = 'red';
-    say(`FAIL ${missing.length} workflow(s) that ran for ${parent.slice(0, 7)} started no run for ${sha}:`);
-    for (const workflow of missing) say(`     ${workflow.name} (${workflow.path})`);
-    say('     A workflow that silently stops triggering is not a green build.');
-    finish();
-    return;
-  }
 
+  // The runs are described first and the coverage verdict only after them:
+  // `runs` and `counts` say what the push actually started, which stays true
+  // however the coverage check comes out. Reporting a missing workflow before
+  // this loop left `counts` saying "1 total, 0 green" for a run that passed.
   const branchRuns = new Map();
   for (const run of runs) {
     const entry = {
@@ -733,6 +732,15 @@ async function main() {
     say(`FAIL ${run.name} (${run.event}) ${run.status}/${run.conclusion ?? '-'} ${run.html_url}`);
     for (const job of jobs) say(`     job ${job.name}: ${job.conclusion ?? job.status ?? 'unknown'}`);
     if (error) say(`     (could not read the jobs: ${error.message})`);
+  }
+
+  if (missing.length) {
+    report.state = 'red';
+    say(`FAIL ${missing.length} workflow(s) that ran for ${parent.slice(0, 7)} started no run for ${sha}:`);
+    for (const workflow of missing) say(`     ${workflow.name} (${workflow.path})`);
+    say('     A workflow that silently stops triggering is not a green build.');
+    finish();
+    return;
   }
 
   if (report.counts.red) {
