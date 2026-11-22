@@ -270,8 +270,12 @@ export function loadToken({
   env = process.env,
   paths = [join(ROOT, '.env'), resolve(ROOT, '..', '.env')],
 } = {}) {
-  const fromEnvironment = env.GH_TOKEN || env.GITHUB_TOKEN || env.GITHUBFREEBUF;
-  if (fromEnvironment) return fromEnvironment.trim();
+  // A blank variable is not a token: skipping it instead of returning it empty
+  // keeps the next variable, or the dotenv file behind it, in play.
+  const fromEnvironment = [env.GH_TOKEN, env.GITHUB_TOKEN, env.GITHUBFREEBUF]
+    .map((value) => String(value ?? '').trim())
+    .find(Boolean);
+  if (fromEnvironment) return fromEnvironment;
   for (const path of paths) {
     const values = readEnvFile(path);
     const token = values.GH_TOKEN || values.GITHUB_TOKEN || values.GITHUBFREEBUF;
