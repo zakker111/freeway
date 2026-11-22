@@ -63,19 +63,24 @@ const runsFor = {
   // The push under test is green on its own; the parent's extra run must not
   // be counted against it.
   'parent-dispatch': [run()],
+  // Tests starts at once; Pages smoke only appears on the second poll.
+  'late-workflow': [run()],
 };
+
+// A workflow that ran for the parent and starts a little after Tests on the
+// next push: the push should start it too, just not yet.
+const pagesSmoke = run({
+  id: 110,
+  name: 'Pages smoke',
+  path: '.github/workflows/pages-smoke.yml',
+  html_url: 'https://github.com/zakker111/freeway/actions/runs/110',
+});
 
 // What ran for the parent commit: a workflow that still has its file here, so
 // this push should have started it too.
 const parentRuns = {
-  missing: [
-    run({
-      id: 110,
-      name: 'Pages smoke',
-      path: '.github/workflows/pages-smoke.yml',
-      html_url: 'https://github.com/zakker111/freeway/actions/runs/110',
-    }),
-  ],
+  missing: [pagesSmoke],
+  'late-workflow': [pagesSmoke],
   // Someone dispatched a release workflow by hand on the parent commit. A push
   // cannot start it, so the push is not measured against it.
   'parent-dispatch': [
@@ -92,6 +97,9 @@ const parentRuns = {
 // Every lookup of the commit endpoint is counted, so a throttle can answer the
 // first one and the real answer only once the window it named has opened.
 let commitLookups = 0;
+
+// Likewise for the run list, so a workflow can start between two polls.
+let runLookups = 0;
 
 globalThis.fetch = async (url) => {
   const href = String(url);
@@ -155,6 +163,16 @@ globalThis.fetch = async (url) => {
   // The recent-runs fallback, which is not filtered by head_sha here.
   const asked = new URL(href).searchParams.get('head_sha');
   if (!asked) return json({ total_count: 0, workflow_runs: [] });
+  // The second workflow starts only after the first has finished, which is the
+  // window where a check watching just the runs it has seen calls the commit
+  // green and then finds a workflow missing.
+  if (asked === sha && scenario === 'late-workflow') {
+    runLookups += 1;
+    return json({
+      total_count: 2,
+      workflow_runs: runLookups === 1 ? [run()] : [run(), pagesSmoke],
+    });
+  }
   const wanted = asked === sha ? (runsFor[scenario] ?? []) : (parentRuns[scenario] ?? []);
   return json({ total_count: wanted.length, workflow_runs: wanted });
 };

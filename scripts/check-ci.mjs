@@ -121,6 +121,14 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const FIRST_RUN_GRACE = 60;
 
 /**
+ * How long a finished run list holds off the green verdict for a workflow the
+ * parent ran that has not appeared yet. Workflows start a few seconds apart, so
+ * a check that only watches the runs it has seen can call a commit green and
+ * then immediately call it red for a workflow that was still queueing.
+ */
+export const SETTLED_GRACE = 15;
+
+/**
  * How many polls in a row --wait lets fail before it reports the check itself
  * as broken instead of a verdict about CI. One flaky poll should not throw away
  * a wait that may be an hour long; five in a row is no longer flaky.
@@ -151,9 +159,18 @@ export function nextPoll({
   elapsedMs = 0,
   timeout,
   interval,
+  pendingWorkflows = [],
+  settledMs = 0,
 }) {
   const pending = runs.filter((run) => run.status !== 'completed');
-  if (runs.length && !pending.length) return { done: 'green' };
+  const settled = runs.length > 0 && !pending.length;
+  // Everything seen is finished, but a workflow the parent ran has not started.
+  // Hold the green verdict for a short grace — unless the grace no longer fits
+  // in what is left of --timeout, which is a window too short to wait in.
+  const graceMs = SETTLED_GRACE * 1000 - settledMs;
+  const leftMs = timeout * 1000 - elapsedMs;
+  const lateWorkflow = settled && pendingWorkflows.length > 0 && graceMs > 0 && leftMs > 0;
+  if (settled && !lateWorkflow) return { done: 'green' };
 
   // An empty run list is evidence only when the polls answered: while they are
   // failing, "never pushed" and "started nothing" are both unknown.
@@ -176,6 +193,8 @@ export function nextPoll({
   // With no run yet, wake for the end of the grace rather than the next
   // interval: the answer "this commit starts nothing" is known by then.
   if (!runs.length && !failures) pause = Math.min(pause, Math.max(1, FIRST_RUN_GRACE - waited));
+  // Same for a workflow that may still start: one more look when its grace ends.
+  if (lateWorkflow) pause = Math.min(pause, Math.max(1, Math.ceil(graceMs / 1000)));
   return { pauseMs: pause * 1000 };
 }
 
@@ -527,6 +546,8 @@ async function waitForRuns(repo, sha, token, options, say) {
   let seen = [];
   let failures = 0;
   let lastError = null;
+  // When the runs currently seen all finished; null while one is going.
+  let settledAt = null;
   for (;;) {
     let runs = null;
     try {
@@ -549,6 +570,17 @@ async function waitForRuns(repo, sha, token, options, say) {
     }
     if (runs) seen = runs;
 
+    // A workflow the parent ran may start a few seconds after the others, so
+    // the coverage check is consulted while waiting: its missing workflows are
+    // what the grace in nextPoll() holds the green verdict for.
+    const pending = seen.filter((run) => run.status !== 'completed');
+    const settled = seen.length > 0 && !pending.length;
+    if (settled) settledAt ??= Date.now();
+    else settledAt = null;
+    const coverage = settled
+      ? await expectedWorkflows(repo, sha, seen, token)
+      : { parent: null, missing: [] };
+
     // Nothing to wait for once the commit turns out never to have been pushed:
     // the run can never appear, and the fix is to push it. Asked only while the
     // run list is empty and the polls are answering, and cached, so the first
@@ -563,6 +595,8 @@ async function waitForRuns(repo, sha, token, options, say) {
       elapsedMs: Date.now() - start,
       timeout: options.timeout,
       interval: options.interval,
+      pendingWorkflows: coverage.missing.map((workflow) => workflow.path),
+      settledMs: settledAt === null ? 0 : Date.now() - settledAt,
     });
     if (next.done === 'error') throw lastError;
     if (next.done) {
@@ -570,14 +604,19 @@ async function waitForRuns(repo, sha, token, options, say) {
         runs: seen,
         timedOut: next.done === 'timeout' || next.done === 'no-runs',
         gaveUp: next.done === 'green' ? null : next.done,
+        // Reused by main so a green wait does not repeat the parent lookup.
+        coverage: next.done === 'green' ? coverage : null,
       };
     }
 
-    const pending = seen.filter((run) => run.status !== 'completed');
     const state = seen.length
-      ? `${seen.length - pending.length}/${seen.length} finished (${pending
-          .map((run) => `${run.name} ${run.status}`)
-          .join(', ')})`
+      ? pending.length
+        ? `${seen.length - pending.length}/${seen.length} finished (${pending
+            .map((run) => `${run.name} ${run.status}`)
+            .join(', ')})`
+        : `${seen.length} run(s) finished; ${coverage.missing
+            .map((workflow) => workflow.name)
+            .join(', ')} not started yet`
       : 'no runs reported yet';
     say(`waiting: ${state} — checking again in ${duration(next.pauseMs / 1000)}`);
     await sleep(next.pauseMs);
@@ -617,9 +656,9 @@ async function main() {
   // The commit lookup an empty run list needs may have to wait out a rate limit;
   // --timeout bounds that the same way it bounds --wait.
   const deadline = Date.now() + options.timeout * 1000;
-  const { runs, timedOut, gaveUp } = options.wait
+  const { runs, timedOut, gaveUp, coverage } = options.wait
     ? await waitForRuns(repo, sha, token, options, say)
-    : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null };
+    : { runs: await findRuns(repo, sha, token), timedOut: false, gaveUp: null, coverage: null };
 
   // The same verdict as one object, for a push or release script. `state` is the
   // short answer, `runs` the detail behind it and `missing` the workflows the
@@ -687,7 +726,7 @@ async function main() {
   // so, and a run that appears late would make the answer premature.
   const settled = runs.every((run) => run.status === 'completed');
   const { parent, missing } = settled
-    ? await expectedWorkflows(repo, sha, runs, token)
+    ? (coverage ?? (await expectedWorkflows(repo, sha, runs, token)))
     : { parent: null, missing: [] };
   report.missing = missing;
 
